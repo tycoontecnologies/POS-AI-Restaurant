@@ -1,262 +1,220 @@
 import 'package:flutter/material.dart';
-import '../state/store_out_store.dart';
+import 'package:pos/l10n/app_localizations.dart';
+import '../components/ui/custom_button.dart';
+import '../components/ui/custom_card.dart';
+import '../components/ui/search_bar_widget.dart';
+import '../components/ui/data_table_widget.dart';
+import '../utils/responsive.dart';
+import '../utils/app_spacing.dart';
 
-class StoreOutPage extends StatelessWidget {
+class StoreOutPage extends StatefulWidget {
   const StoreOutPage({super.key});
 
-  String _dateStr(DateTime d) => d.toIso8601String().substring(0, 10);
-
   @override
-  Widget build(BuildContext context) {
-    final store = StoreOutStore.instance;
-    return AnimatedBuilder(
-      animation: store,
-      builder: (context, _) {
-        final items = store.items;
-        final total = items.fold<double>(0, (s, e) => s + e.total);
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Store Out',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ),
-                  FilledButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const AddStoreOutPage(),
-                      ),
-                    ),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Store Out'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Total: ${total.toStringAsFixed(2)}',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isMobile = constraints.maxWidth < 900;
-                    if (isMobile) {
-                      return ListView.builder(
-                        itemCount: items.length,
-                        itemBuilder: (context, index) {
-                          final so = items[index];
-                          return Card(
-                            child: ListTile(
-                              title: Text('Store Out #${so.id}'),
-                              subtitle: Text(
-                                '${_dateStr(so.createdOn)} • Total ${so.total.toStringAsFixed(2)}',
-                              ),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete),
-                                onPressed: () =>
-                                    StoreOutStore.instance.remove(so.id),
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    }
-                    return SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minWidth: constraints.maxWidth,
-                        ),
-                        child: DataTable(
-                          columns: const [
-                            DataColumn(label: Text('No')),
-                            DataColumn(label: Text('Total')),
-                            DataColumn(label: Text('Created On')),
-                            DataColumn(label: Text('Action')),
-                          ],
-                          rows: [
-                            for (int i = 0; i < items.length; i++)
-                              DataRow(
-                                cells: [
-                                  DataCell(Text('${i + 1}')),
-                                  DataCell(
-                                    Text(items[i].total.toStringAsFixed(2)),
-                                  ),
-                                  DataCell(Text(_dateStr(items[i].createdOn))),
-                                  DataCell(
-                                    IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      onPressed: () => StoreOutStore.instance
-                                          .remove(items[i].id),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  State<StoreOutPage> createState() => _StoreOutPageState();
 }
 
-class AddStoreOutPage extends StatefulWidget {
-  const AddStoreOutPage({super.key});
-
-  @override
-  State<AddStoreOutPage> createState() => _AddStoreOutPageState();
-}
-
-class _AddStoreOutPageState extends State<AddStoreOutPage> {
-  final Map<String, _SelectableStoreProduct> _products = {};
+class _StoreOutPageState extends State<StoreOutPage> {
+  final TextEditingController _searchController = TextEditingController();
+  List<_StoreOut> _items = [];
+  List<_StoreOut> _filtered = [];
 
   @override
   void initState() {
     super.initState();
-    final demo = [
-      _SelectableStoreProduct(name: 'Sugar', unit: 'Kilo', price: 92),
-      _SelectableStoreProduct(name: 'test', unit: 'Gram', price: 100),
-      _SelectableStoreProduct(name: 'test2', unit: 'Gram', price: 5),
-    ];
-    for (final p in demo) {
-      _products[p.name] = p;
-    }
+    _load();
+    _searchController.addListener(_applyFilter);
   }
 
-  double get _total => _products.values
-      .where((p) => p.quantity > 0)
-      .fold(0, (s, p) => s + p.price * p.quantity);
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _load() {
+    setState(() {
+      _items = [
+        _StoreOut(
+          id: 'SO-3001',
+          reason: 'Damaged',
+          items: 2,
+          date: DateTime(2024, 2, 11),
+          handledBy: 'Imran',
+        ),
+        _StoreOut(
+          id: 'SO-3002',
+          reason: 'Expired',
+          items: 4,
+          date: DateTime(2024, 2, 14),
+          handledBy: 'Salim',
+        ),
+        _StoreOut(
+          id: 'SO-3003',
+          reason: 'Free Sample',
+          items: 1,
+          date: DateTime(2024, 2, 19),
+          handledBy: 'Zubair',
+        ),
+      ];
+      _filtered = _items;
+    });
+  }
+
+  void _applyFilter() {
+    final q = _searchController.text.toLowerCase();
+    setState(() {
+      _filtered = _items
+          .where(
+            (s) =>
+                s.id.toLowerCase().contains(q) ||
+                s.reason.toLowerCase().contains(q) ||
+                s.handledBy.toLowerCase().contains(q),
+          )
+          .toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Add Store Out')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: Responsive.getPagePadding(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Receipt Price'),
-                    const SizedBox(width: 12),
                     Text(
-                      _total.toStringAsFixed(2),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      l10n.storeOut,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).colorScheme.onBackground,
+                          ),
                     ),
-                    const Spacer(),
-                    FilledButton.icon(
-                      onPressed: _save,
-                      icon: const Icon(Icons.save),
-                      label: const Text('Include in Kitchen'),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Track inventory outgoing',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.color?.withOpacity(0.8),
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isMobile = constraints.maxWidth < 900;
-                  final gridCount = isMobile ? 2 : 3;
-                  return GridView.count(
-                    crossAxisCount: gridCount,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                    children: _products.values.map(_tile).toList(),
+              CustomButton(
+                text: 'Record Outgoing',
+                icon: Icons.output,
+                onPressed: () {},
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SearchBarWidget(
+            controller: _searchController,
+            hint: 'Search store out...',
+            onChanged: (_) => _applyFilter(),
+            onClear: () => _applyFilter(),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Flexible(
+            fit: FlexFit.loose,
+            child: CustomCard(
+              padding: EdgeInsets.zero,
+              child: DataTableWidget(
+                columns: const [
+                  DataColumn(label: Text('ID')),
+                  DataColumn(label: Text('Reason')),
+                  DataColumn(label: Text('Items')),
+                  DataColumn(label: Text('Date')),
+                  DataColumn(label: Text('Handled By')),
+                  DataColumn(label: Text('Actions')),
+                ],
+                rows: _filtered
+                    .map(
+                      (e) => DataRow(
+                        cells: [
+                          DataCell(Text(e.id)),
+                          DataCell(Text(e.reason)),
+                          DataCell(Text('${e.items}')),
+                          DataCell(
+                            Text('${e.date.toLocal()}'.split(' ').first),
+                          ),
+                          DataCell(Text(e.handledBy)),
+                          DataCell(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit, size: 18),
+                                  onPressed: () {},
+                                ),
+                                const SizedBox(width: AppSpacing.xs),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, size: 18),
+                                  onPressed: () {},
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                    .toList(),
+                mobileItemBuilder: (context, index) {
+                  final s = _filtered[index];
+                  return CustomCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                s.id,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text('Reason: ${s.reason}  •  Items: ${s.items}'),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text('Date: ${'${s.date.toLocal()}'.split(' ').first}'),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text('Handled By: ${s.handledBy}'),
+                      ],
+                    ),
                   );
                 },
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _tile(_SelectableStoreProduct p) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            Text('Unit: ${p.unit}  •  Price: ${p.price.toStringAsFixed(2)}'),
-            const Spacer(),
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.remove_circle_outline),
-                  onPressed: () => setState(
-                    () => p.quantity = (p.quantity - 1).clamp(0, 9999),
-                  ),
-                ),
-                Text('${p.quantity}'),
-                IconButton(
-                  icon: const Icon(Icons.add_circle_outline),
-                  onPressed: () => setState(() => p.quantity = p.quantity + 1),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _save() {
-    final lines = _products.values
-        .where((p) => p.quantity > 0)
-        .map(
-          (p) => StoreOutLineItem(
-            product: p.name,
-            unit: p.unit,
-            price: p.price,
-            quantity: p.quantity,
           ),
-        )
-        .toList();
-    if (lines.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select at least one product')),
-      );
-      return;
-    }
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-    StoreOutStore.instance.add(StoreOut(id: id, lines: lines));
-    Navigator.pop(context);
+        ],
+      ),
+    );
   }
 }
 
-class _SelectableStoreProduct {
-  _SelectableStoreProduct({
-    required this.name,
-    required this.unit,
-    required this.price,
+class _StoreOut {
+  final String id;
+  final String reason;
+  final int items;
+  final DateTime date;
+  final String handledBy;
+  _StoreOut({
+    required this.id,
+    required this.reason,
+    required this.items,
+    required this.date,
+    required this.handledBy,
   });
-  final String name;
-  final String unit;
-  final double price;
-  int quantity = 0;
 }

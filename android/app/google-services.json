@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "37539554666",
+    "project_id": "pos-tycoon",
+    "storage_bucket": "pos-tycoon.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:37539554666:android:1957b362b63e6136ff7113",
+        "android_client_info": {
+          "package_name": "com.example.pos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQNdsP8TtNBS-MJ6hggs1V8e_Awn4ki9I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

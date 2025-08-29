@@ -1,27 +1,17 @@
 import 'package:flutter/material.dart';
-
-class ProductItem {
-  ProductItem({
-    required this.id,
-    required this.name,
-    required this.category,
-    required this.unit,
-    required this.salePrice,
-    required this.purchasePrice,
-    required this.quantity,
-    this.active = true,
-    DateTime? createdOn,
-  }) : createdOn = createdOn ?? DateTime.now();
-  final String id;
-  String name;
-  String category;
-  String unit;
-  double salePrice;
-  double purchasePrice;
-  int quantity;
-  bool active;
-  DateTime createdOn;
-}
+import 'package:pos/l10n/app_localizations.dart';
+import '../models/product.dart';
+import '../services/dummy_data_service.dart';
+import '../components/ui/custom_button.dart';
+import '../components/ui/custom_card.dart';
+import '../components/ui/custom_input.dart';
+import '../components/ui/custom_dropdown.dart';
+import '../components/ui/status_badge.dart';
+import '../components/ui/data_table_widget.dart';
+import '../components/ui/search_bar_widget.dart';
+import '../utils/responsive.dart';
+import '../utils/app_spacing.dart';
+import '../utils/app_colors.dart';
 
 class ProductsPage extends StatefulWidget {
   const ProductsPage({super.key});
@@ -31,41 +21,53 @@ class ProductsPage extends StatefulWidget {
 }
 
 class _ProductsPageState extends State<ProductsPage> {
-  final List<ProductItem> _products = [
-    ProductItem(
-      id: '1',
-      name: 'Cola 330ml',
-      category: 'Beverages',
-      unit: 'bottle',
-      salePrice: 1.20,
-      purchasePrice: 0.90,
-      quantity: 120,
-    ),
-    ProductItem(
-      id: '2',
-      name: 'Chips',
-      category: 'Snacks',
-      unit: 'pack',
-      salePrice: 1.49,
-      purchasePrice: 1.00,
-      quantity: 50,
-    ),
-    ProductItem(
-      id: '3',
-      name: 'Notebook',
-      category: 'Stationery',
-      unit: 'piece',
-      salePrice: 2.99,
-      purchasePrice: 2.20,
-      quantity: 35,
-      active: false,
-    ),
+  List<Product> _products = [];
+  List<Product> _filteredProducts = [];
+  final TextEditingController _searchController = TextEditingController();
+  final List<String> _categories = [
+    'Beverages',
+    'Snacks',
+    'Stationery',
+    'Electronics',
+    'Clothing',
   ];
+  final List<String> _units = DummyDataService.getUnits();
 
-  final List<String> _categories = const ['Beverages', 'Snacks', 'Stationery'];
-  final List<String> _units = const ['piece', 'pack', 'bottle', 'kg', 'ltr'];
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+    _searchController.addListener(_filterProducts);
+  }
 
-  void _createOrEdit({ProductItem? item}) async {
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _loadProducts() {
+    setState(() {
+      _products = DummyDataService.getProducts();
+      _filteredProducts = _products;
+    });
+  }
+
+  void _filterProducts() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredProducts = _products
+          .where(
+            (product) =>
+                product.name.toLowerCase().contains(query) ||
+                product.category.toLowerCase().contains(query),
+          )
+          .toList();
+    });
+  }
+
+  void _createOrEdit({Product? item}) async {
+    final l10n = AppLocalizations.of(context)!;
     final nameCtrl = TextEditingController(text: item?.name ?? '');
     String category = item?.category ?? _categories.first;
     String unit = item?.unit ?? _units.first;
@@ -82,88 +84,149 @@ class _ProductsPageState extends State<ProductsPage> {
 
     final result = await showDialog<_ProductFormResult>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(item == null ? 'Add Product' : 'Edit Product'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Name'),
-              ),
-              DropdownButtonFormField<String>(
-                value: category,
-                items: _categories
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                    .toList(),
-                onChanged: (v) => category = v ?? category,
-                decoration: const InputDecoration(labelText: 'Category'),
-              ),
-              DropdownButtonFormField<String>(
-                value: unit,
-                items: _units
-                    .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                    .toList(),
-                onChanged: (v) => unit = v ?? unit,
-                decoration: const InputDecoration(labelText: 'Unit'),
-              ),
-              TextField(
-                controller: saleCtrl,
-                decoration: const InputDecoration(labelText: 'Sale Price'),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFFFDFDFE), // Soft off-white
+            surfaceTintColor:
+                Colors.transparent, // Prevents Material 3 color overlay
+
+            title: Text(item == null ? l10n.addProduct : l10n.editProduct),
+            content: SizedBox(
+              width: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CustomInput(
+                      label: l10n.name,
+                      controller: nameCtrl,
+                      hint: 'Enter product name',
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CustomDropdown<String>(
+                            label: l10n.category,
+                            value: category,
+                            items: _categories
+                                .map(
+                                  (c) => DropdownMenuItem(
+                                    value: c,
+                                    child: Text(c),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) =>
+                                setDialogState(() => category = v ?? category),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: CustomDropdown<String>(
+                            label: l10n.unit,
+                            value: unit,
+                            items: _units
+                                .map(
+                                  (u) => DropdownMenuItem(
+                                    value: u,
+                                    child: Text(u),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) =>
+                                setDialogState(() => unit = v ?? unit),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CustomInput(
+                            label: l10n.salePrice,
+                            controller: saleCtrl,
+                            hint: '0.00',
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            prefixIcon: const Icon(Icons.attach_money),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: CustomInput(
+                            label: l10n.purchasePrice,
+                            controller: purchaseCtrl,
+                            hint: '0.00',
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            prefixIcon: const Icon(Icons.shopping_cart),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    CustomInput(
+                      label: l10n.quantity,
+                      controller: quantityCtrl,
+                      hint: '0',
+                      keyboardType: TextInputType.number,
+                      prefixIcon: const Icon(Icons.inventory),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      children: [
+                        Text(
+                          l10n.active,
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                        const Spacer(),
+                        Switch(
+                          value: isActive,
+                          onChanged: (v) => setDialogState(() => isActive = v),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              TextField(
-                controller: purchaseCtrl,
-                decoration: const InputDecoration(labelText: 'Purchase Price'),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
+            ),
+            actions: [
+              CustomButton(
+                text: l10n.cancel,
+                variant: ButtonVariant.text,
+                onPressed: () => Navigator.pop(context),
               ),
-              TextField(
-                controller: quantityCtrl,
-                decoration: const InputDecoration(labelText: 'Quantity'),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Text('Active'),
-                  const SizedBox(width: 8),
-                  Switch(value: isActive, onChanged: (v) => isActive = v),
-                ],
+              CustomButton(
+                text: l10n.save,
+                onPressed: () {
+                  if (nameCtrl.text.trim().isNotEmpty) {
+                    final sale = double.tryParse(saleCtrl.text.trim()) ?? 0;
+                    final purchase =
+                        double.tryParse(purchaseCtrl.text.trim()) ?? 0;
+                    final qty = int.tryParse(quantityCtrl.text.trim()) ?? 0;
+                    Navigator.pop(
+                      context,
+                      _ProductFormResult(
+                        name: nameCtrl.text.trim(),
+                        category: category,
+                        unit: unit,
+                        salePrice: sale,
+                        purchasePrice: purchase,
+                        quantity: qty,
+                        active: isActive,
+                      ),
+                    );
+                  }
+                },
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final sale = double.tryParse(saleCtrl.text.trim()) ?? 0;
-              final purchase = double.tryParse(purchaseCtrl.text.trim()) ?? 0;
-              final qty = int.tryParse(quantityCtrl.text.trim()) ?? 0;
-              Navigator.pop(
-                context,
-                _ProductFormResult(
-                  name: nameCtrl.text.trim(),
-                  category: category,
-                  unit: unit,
-                  salePrice: sale,
-                  purchasePrice: purchase,
-                  quantity: qty,
-                  active: isActive,
-                ),
-              );
-            },
-            child: const Text('Save'),
-          ),
-        ],
+          );
+        },
       ),
     );
 
@@ -172,7 +235,7 @@ class _ProductsPageState extends State<ProductsPage> {
     setState(() {
       if (item == null) {
         _products.add(
-          ProductItem(
+          Product(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             name: result.name,
             category: result.category,
@@ -192,119 +255,189 @@ class _ProductsPageState extends State<ProductsPage> {
         item.quantity = result.quantity;
         item.active = result.active;
       }
+      _filterProducts();
     });
   }
 
-  void _delete(ProductItem item) async {
+  void _delete(Product item) async {
+    final l10n = AppLocalizations.of(context)!;
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Product'),
-        content: Text('Are you sure you want to delete "${item.name}"?'),
+        backgroundColor: const Color(0xFFFDFDFE), // Soft off-white
+        surfaceTintColor:
+            Colors.transparent, // Prevents Material 3 color overlay
+
+        title: Text(l10n.deleteConfirmTitle('Product')),
+        content: Text(l10n.deleteConfirmMessage(item.name)),
         actions: [
-          TextButton(
+          CustomButton(
+            text: l10n.cancel,
+            variant: ButtonVariant.text,
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
           ),
-          FilledButton(
+          CustomButton(
+            text: l10n.delete,
+            color: AppColors.error,
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
           ),
         ],
       ),
     );
-    if (ok == true)
-      setState(() => _products.removeWhere((p) => p.id == item.id));
+    if (ok == true) {
+      setState(() {
+        _products.removeWhere((p) => p.id == item.id);
+        _filterProducts();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: Responsive.getPagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
               Expanded(
-                child: Text(
-                  'Products',
-                  style: Theme.of(context).textTheme.titleLarge,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.products,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.grey800,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Manage your product inventory',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.grey600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              FilledButton.icon(
+              CustomButton(
+                text: l10n.addProduct,
+                icon: Icons.add,
                 onPressed: () => _createOrEdit(),
-                icon: const Icon(Icons.add),
-                label: const Text('Add Product'),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isMobile = constraints.maxWidth < 800;
-                final dateStr = (DateTime d) =>
-                    d.toIso8601String().substring(0, 10);
-                if (isMobile) {
-                  return ListView.builder(
-                    itemCount: _products.length,
-                    itemBuilder: (context, index) {
-                      final item = _products[index];
-                      return Card(
-                        child: ListTile(
-                          title: Text(item.name),
-                          subtitle: Text(
-                            '${item.category} • ${item.unit} • SP: ${item.salePrice.toStringAsFixed(2)} • PP: ${item.purchasePrice.toStringAsFixed(2)} • Qty: ${item.quantity} • ${item.active ? 'Active' : 'Inactive'} • ${dateStr(item.createdOn)}',
+
+          const SizedBox(height: AppSpacing.lg),
+
+          SearchBarWidget(
+            controller: _searchController,
+            hint: 'Search products...',
+            onChanged: (_) => _filterProducts(),
+            onClear: () => _filterProducts(),
+          ),
+
+          Flexible(
+            fit: FlexFit.loose,
+            child: CustomCard(
+              padding: EdgeInsets.zero,
+              child: DataTableWidget(
+                columns: [
+                  DataColumn(label: Text('ID')),
+                  DataColumn(label: Text(l10n.name)),
+                  DataColumn(label: Text(l10n.category)),
+                  DataColumn(label: Text(l10n.unit)),
+                  DataColumn(label: Text(l10n.salePrice)),
+                  DataColumn(label: Text(l10n.purchasePrice)),
+                  DataColumn(label: Text(l10n.quantity)),
+                  DataColumn(label: Text(l10n.status)),
+                  DataColumn(label: Text(l10n.actions)),
+                ],
+                rows: _filteredProducts
+                    .map(
+                      (e) => DataRow(
+                        cells: [
+                          DataCell(Text(e.id)),
+                          DataCell(Text(e.name)),
+                          DataCell(Text(e.category)),
+                          DataCell(Text(e.unit)),
+                          DataCell(Text('\$${e.salePrice.toStringAsFixed(2)}')),
+                          DataCell(
+                            Text('\$${e.purchasePrice.toStringAsFixed(2)}'),
                           ),
-                          trailing: _rowActions(item),
-                        ),
-                      );
-                    },
-                  );
-                }
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                    child: DataTable(
-                      columns: const [
-                        DataColumn(label: Text('ID')),
-                        DataColumn(label: Text('Name')),
-                        DataColumn(label: Text('Category')),
-                        DataColumn(label: Text('Unit')),
-                        DataColumn(label: Text('Sale Price')),
-                        DataColumn(label: Text('Purchase Price')),
-                        DataColumn(label: Text('Quantity')),
-                        DataColumn(label: Text('Status')),
-                        DataColumn(label: Text('Created On')),
-                        DataColumn(label: Text('Actions')),
-                      ],
-                      rows: _products
-                          .map(
-                            (e) => DataRow(
-                              cells: [
-                                DataCell(Text(e.id)),
-                                DataCell(Text(e.name)),
-                                DataCell(Text(e.category)),
-                                DataCell(Text(e.unit)),
-                                DataCell(Text(e.salePrice.toStringAsFixed(2))),
-                                DataCell(
-                                  Text(e.purchasePrice.toStringAsFixed(2)),
-                                ),
-                                DataCell(Text(e.quantity.toString())),
-                                DataCell(_statusChip(e.active)),
-                                DataCell(Text(dateStr(e.createdOn))),
-                                DataCell(_rowActions(e)),
+                          DataCell(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('${e.quantity}'),
+                                if (e.quantity < 20) ...[
+                                  const SizedBox(width: AppSpacing.xs),
+                                  const Icon(
+                                    Icons.warning,
+                                    color: AppColors.warning,
+                                    size: 16,
+                                  ),
+                                ],
                               ],
                             ),
-                          )
-                          .toList(),
+                          ),
+                          DataCell(
+                            StatusBadge(
+                              text: e.active ? l10n.active : l10n.inactive,
+                              variant: e.active
+                                  ? BadgeVariant.success
+                                  : BadgeVariant.neutral,
+                            ),
+                          ),
+                          DataCell(_rowActions(e)),
+                        ],
+                      ),
+                    )
+                    .toList(),
+                mobileItemBuilder: (context, index) {
+                  final item = _filteredProducts[index];
+                  return CustomCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item.name,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            StatusBadge(
+                              text: item.active ? l10n.active : l10n.inactive,
+                              variant: item.active
+                                  ? BadgeVariant.success
+                                  : BadgeVariant.neutral,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '${item.category} • ${item.unit} • SP: \$${item.salePrice.toStringAsFixed(2)} • PP: \$${item.purchasePrice.toStringAsFixed(2)} • Qty: ${item.quantity}',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.grey600),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [_rowActions(item)],
+                        ),
+                      ],
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -312,27 +445,69 @@ class _ProductsPageState extends State<ProductsPage> {
     );
   }
 
-  Widget _statusChip(bool active) {
-    return Chip(
-      label: Text(active ? 'Active' : 'Inactive'),
-      backgroundColor: active ? Colors.green.shade100 : Colors.grey.shade300,
-      side: BorderSide.none,
+  Widget _buildStatCard({
+    required IconData icon,
+    required String title,
+    required String value,
+    required Color color,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: AppColors.grey600),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: AppColors.grey800,
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _rowActions(ProductItem item) {
-    return Wrap(
-      spacing: 8,
+  Widget _rowActions(Product item) {
+    final l10n = AppLocalizations.of(context)!;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: 'Edit',
-          icon: const Icon(Icons.edit),
+          tooltip: l10n.edit,
+          icon: const Icon(Icons.edit, size: 18),
           onPressed: () => _createOrEdit(item: item),
+          style: IconButton.styleFrom(
+            backgroundColor: AppColors.primary.withOpacity(0.1),
+            foregroundColor: AppColors.primary,
+          ),
         ),
+        const SizedBox(width: AppSpacing.xs),
         IconButton(
-          tooltip: 'Delete',
-          icon: const Icon(Icons.delete),
+          tooltip: l10n.delete,
+          icon: const Icon(Icons.delete, size: 18),
           onPressed: () => _delete(item),
+          style: IconButton.styleFrom(
+            backgroundColor: AppColors.error.withOpacity(0.1),
+            foregroundColor: AppColors.error,
+          ),
         ),
       ],
     );

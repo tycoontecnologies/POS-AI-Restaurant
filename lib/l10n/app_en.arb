@@ -1,0 +1,54 @@
+{
+  "@@locale": "en",
+  "appTitle": "POS System",
+  "categories": "Categories",
+  "products": "Products",
+  "staff": "Staff",
+  "attendance": "Attendance",
+  "suppliers": "Suppliers",
+  "purchases": "Purchases",
+  "sales": "Sales",
+  "drafts": "Drafts",
+  "storeOut": "Store Out",
+  "settings": "Settings",
+  "addCategory": "Add Category",
+  "addProduct": "Add Product",
+  "editCategory": "Edit Category",
+  "editProduct": "Edit Product",
+  "name": "Name",
+  "category": "Category",
+  "unit": "Unit",
+  "salePrice": "Sale Price",
+  "purchasePrice": "Purchase Price",
+  "quantity": "Quantity",
+  "active": "Active",
+  "inactive": "Inactive",
+  "status": "Status",
+  "createdOn": "Created On",
+  "actions": "Actions",
+  "edit": "Edit",
+  "delete": "Delete",
+  "save": "Save",
+  "cancel": "Cancel",
+  "deleteConfirmTitle": "Delete {item}",
+  "@deleteConfirmTitle": {
+    "placeholders": {
+      "item": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteConfirmMessage": "Are you sure you want to delete \"{name}\"?",
+  "@deleteConfirmMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "language": "Language",
+  "theme": "Theme",
+  "light": "Light",
+  "dark": "Dark",
+  "system": "System"
+}

@@ -1,101 +1,209 @@
 import 'package:flutter/material.dart';
-import '../state/settings_store.dart';
+import 'package:pos/l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
+import '../components/ui/custom_card.dart';
+import '../providers/theme_provider.dart';
+import '../providers/locale_provider.dart';
+import '../utils/responsive.dart';
+import '../utils/app_spacing.dart';
+import '../utils/app_colors.dart';
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
-}
-
-class _SettingsPageState extends State<SettingsPage> {
-  late final TextEditingController _businessCtrl;
-  late final TextEditingController _currencyCtrl;
-  late final TextEditingController _taxCtrl;
-  late final TextEditingController _phoneCtrl;
-  late final TextEditingController _addressCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    final s = SettingsStore.instance;
-    _businessCtrl = TextEditingController(text: s.businessName);
-    _currencyCtrl = TextEditingController(text: s.currency);
-    _taxCtrl = TextEditingController(text: s.taxRate.toString());
-    _phoneCtrl = TextEditingController(text: s.phone);
-    _addressCtrl = TextEditingController(text: s.address);
-  }
-
-  @override
-  void dispose() {
-    _businessCtrl.dispose();
-    _currencyCtrl.dispose();
-    _taxCtrl.dispose();
-    _phoneCtrl.dispose();
-    _addressCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    Provider.of<ThemeProvider>(context);
+    final localeProvider = Provider.of<LocaleProvider>(context);
+
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 700),
-          child: ListView(
-            children: [
-              Text('Settings', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _businessCtrl,
-                decoration: const InputDecoration(labelText: 'Business Name'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _phoneCtrl,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Support Phone'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _phoneCtrl,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Support email'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _addressCtrl,
-                decoration: const InputDecoration(labelText: 'Address'),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton.icon(
-                  onPressed: _save,
-                  icon: const Icon(Icons.save),
-                  label: const Text('Save'),
-                ),
-              ),
-            ],
+      padding: Responsive.getPagePadding(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            l10n.settings,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).colorScheme.onBackground,
+            ),
           ),
-        ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Configure your application preferences',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.color?.withOpacity(0.8),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  CustomCard(
+                    color: const Color.fromARGB(255, 248, 248, 250),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(AppSpacing.sm),
+                              decoration: BoxDecoration(
+                                color: AppColors.secondary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(
+                                  AppSpacing.radiusSm,
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.language,
+                                color: colorScheme.secondary,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Text(
+                              'Language & Region',
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          l10n.language,
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).textTheme.labelLarge?.color?.withOpacity(0.9),
+                              ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Column(
+                          children: [
+                            _LanguageOption(
+                              title: 'English',
+                              subtitle: 'English',
+                              flag: '🇺🇸',
+                              selected:
+                                  localeProvider.locale.languageCode == 'en',
+                              onTap: () =>
+                                  localeProvider.setLocale(const Locale('en')),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            _LanguageOption(
+                              title: 'اردو',
+                              subtitle: 'Urdu',
+                              flag: '🇵🇰',
+                              selected:
+                                  localeProvider.locale.languageCode == 'ur',
+                              onTap: () =>
+                                  localeProvider.setLocale(const Locale('ur')),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            _LanguageOption(
+                              title: 'العربية',
+                              subtitle: 'Arabic',
+                              flag: '🇸🇦',
+                              selected:
+                                  localeProvider.locale.languageCode == 'ar',
+                              onTap: () =>
+                                  localeProvider.setLocale(const Locale('ar')),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: AppSpacing.md),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  void _save() {
-    final tax = double.tryParse(_taxCtrl.text.trim()) ?? 0;
-    SettingsStore.instance.update(
-      businessName: _businessCtrl.text.trim(),
-      currency: _currencyCtrl.text.trim(),
-      taxRate: tax,
-      phone: _phoneCtrl.text.trim(),
-      address: _addressCtrl.text.trim(),
+class _LanguageOption extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String flag;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _LanguageOption({
+    required this.title,
+    required this.subtitle,
+    required this.flag,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: selected
+              ? Theme.of(context).colorScheme.secondary.withOpacity(0.1)
+              : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          border: Border.all(
+            color: selected
+                ? Theme.of(context).colorScheme.secondary
+                : Theme.of(context).dividerColor,
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(flag, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: selected
+                          ? Theme.of(context).colorScheme.secondary
+                          : Theme.of(context).textTheme.titleMedium?.color,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.color?.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (selected)
+              Icon(
+                Icons.check_circle,
+                color: Theme.of(context).colorScheme.secondary,
+                size: 20,
+              ),
+          ],
+        ),
+      ),
     );
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Settings saved')));
   }
 }

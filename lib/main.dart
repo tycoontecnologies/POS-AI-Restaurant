@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
-import 'pages/categories_page.dart';
-import 'pages/products_page.dart';
-import 'pages/staff_page.dart';
-import 'widgets/app_header.dart';
-import 'pages/attendance_page.dart';
-import 'pages/sales_page.dart';
-import 'pages/drafts_page.dart';
-import 'pages/suppliers_page.dart';
-import 'pages/store_out_page.dart';
-import 'pages/purchases_page.dart';
-import 'pages/settings_page.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:pos/l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart';
+import 'routes/app_router.dart';
+import 'utils/app_theme.dart';
+import 'providers/theme_provider.dart';
+import 'providers/locale_provider.dart';
 
 void main() {
+  if (kIsWeb) {
+    // This removes the # from URLs on web
+    // GoRouter.optionURLReflectsImperativeAPIs = true;
+  }
+  
   runApp(const MyApp());
 }
 
@@ -20,55 +22,37 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'POS',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
-      home: const HomeShell(),
-    );
-  }
-}
-
-class HomeShell extends StatefulWidget {
-  const HomeShell({super.key});
-
-  @override
-  State<HomeShell> createState() => _HomeShellState();
-}
-
-class _HomeShellState extends State<HomeShell> {
-  int _selectedIndex = 0;
-
-  final List<Widget> _pages = const [
-    CategoriesPage(),
-    ProductsPage(),
-    StaffPage(),
-    AttendancePage(),
-    SuppliersPage(),
-    PurchasesPage(),
-    SalesPage(),
-    DraftsPage(),
-    StoreOutPage(),
-    SettingsPage(),
-  ];
-
-  void _onSelect(int index) {
-    setState(() => _selectedIndex = index);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(64),
-        child: AppHeader(selectedIndex: _selectedIndex, onTap: _onSelect),
-      ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        child: _pages[_selectedIndex],
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => LocaleProvider()),
+      ],
+      child: Consumer2<ThemeProvider, LocaleProvider>(
+        builder: (context, themeProvider, localeProvider, child) {
+          return MaterialApp.router(
+            title: 'POS System - Modern Business Management',
+            debugShowCheckedModeBanner: false,
+            
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeProvider.themeMode,
+            
+            locale: localeProvider.locale,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('en'), // English
+              Locale('ur'), // Urdu
+              Locale('ar'), // Arabic
+            ],
+            
+            routerConfig: AppRouter.router,
+          );
+        },
       ),
     );
   }
