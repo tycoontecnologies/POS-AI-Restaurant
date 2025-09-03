@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pos/l10n/app_localizations.dart';
-import 'package:pos/models/product.dart';
+import 'package:pos/models/category.dart';
+import 'package:pos/providers/category_provider.dart';
+import 'package:pos/providers/product_provider.dart';
+import 'package:pos/providers/statistics_provider.dart';
+import 'package:provider/provider.dart';
 import '../utils/responsive.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
-import '../services/dummy_data_service.dart';
 import '../components/ui/custom_card.dart';
 import '../components/ui/custom_button.dart';
 import '../routes/app_router.dart';
@@ -18,57 +21,48 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  late List<Product> _products;
-  late Map<String, int> _statistics;
-  int _currentPage = 1;
+  late CategoryProvider _categoryProvider;
+  late ProductProvider _productProvider;
+  late StatisticsProvider _statisticsProvider;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
   }
 
-  void _loadData() {
-    // Make enough dummy items to demonstrate pagination
-    final base = DummyDataService.getProducts();
-    _products = List<Product>.generate(60, (index) {
-      final b = base[index % base.length];
-      return Product(
-        id: '${index + 1}',
-        name: '${b.name} ${index + 1}',
-        category: b.category,
-        unit: b.unit,
-        salePrice: b.salePrice,
-        purchasePrice: b.purchasePrice,
-        quantity: b.quantity,
-        active: b.active,
-      );
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    _categoryProvider = Provider.of<CategoryProvider>(context);
+    _productProvider = Provider.of<ProductProvider>(context);
+    _statisticsProvider = Provider.of<StatisticsProvider>(context);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Load initial categories
+      if (_categoryProvider.allCategories.isEmpty &&
+          !_categoryProvider.isLoading) {
+        _categoryProvider.loadInitialCategories();
+      }
+
+      // Load products for statistics
+      final vendorId = _categoryProvider.authProvider?.currentUser?.id;
+      if (vendorId != null &&
+          _productProvider.products.isEmpty &&
+          !_productProvider.isLoading) {
+        _productProvider.loadProducts(vendorId);
+      }
+
+      // Load statistics if not already loading
+      if (_statisticsProvider.isLoading) {
+        _statisticsProvider.loadStatistics();
+      }
     });
-    _statistics = {
-      'staff': 12,
-      'products': 38,
-      'drafts': 6,
-      'categories': 3,
-      'sales': 4,
-      'salesReturn': 0,
-      'suppliers': 2,
-      'purchases': 0,
-      'purchaseReturn': 0,
-    };
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-
-    int totalPages(BuildContext context) {
-      final isDesktop = Responsive.isDesktop(context);
-      final isTablet = Responsive.isTablet(context);
-      final crossAxisCount = isDesktop ? 7 : (isTablet ? 4 : 2);
-      const rows = 3;
-      final pageSize = crossAxisCount * rows;
-      return (_products.length / pageSize).ceil().clamp(1, 999);
-    }
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -79,7 +73,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             flex: Responsive.isDesktop(context) ? 3 : 1,
             child: Column(
               children: [
-                // Header with pagination
+                // Categories Header
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
@@ -94,54 +88,95 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   child: Row(
                     children: [
-                      IconButton(
-                        onPressed: () {
-                          setState(() {
-                            _currentPage = (_currentPage - 1).clamp(
-                              1,
-                              totalPages(context),
-                            );
-                          });
-                        },
-                        icon: const Icon(Icons.chevron_left),
-                        style: IconButton.styleFrom(
-                          backgroundColor: AppColors.primary.withOpacity(0.1),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      _PageIndicator(
-                        current: _currentPage,
-                        total: totalPages(context),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      IconButton(
-                        onPressed: () {
-                          setState(() {
-                            _currentPage = (_currentPage + 1).clamp(
-                              1,
-                              totalPages(context),
-                            );
-                          });
-                        },
-                        icon: const Icon(Icons.chevron_right),
-                        style: IconButton.styleFrom(
-                          backgroundColor: AppColors.primary.withOpacity(0.1),
+                      Text(
+                        l10n.categories,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
                   ),
                 ),
-                // Product Grid
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(AppSpacing.md),
-                    child: _PagedGrid(
-                      products: _products,
-                      currentPage: _currentPage,
+                    child: Consumer<CategoryProvider>(
+                      builder: (context, categoryProvider, child) {
+                        if (categoryProvider.isLoading &&
+                            categoryProvider.allCategories.isEmpty) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        if (categoryProvider.error != null) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.error,
+                                  size: 64,
+                                  color: AppColors.error,
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                Text('Error: ${categoryProvider.error}'),
+                                const SizedBox(height: AppSpacing.md),
+                                CustomButton(
+                                  text: 'Retry',
+                                  onPressed: () =>
+                                      categoryProvider.refreshCategories(),
+                                  variant: ButtonVariant.filled,
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        final categories = categoryProvider.allCategories;
+
+                        if (categories.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.category,
+                                  size: 64,
+                                  color: Colors.grey,
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                Text(
+                                  'No categories found',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                CustomButton(
+                                  text: 'Refresh',
+                                  onPressed: () =>
+                                      categoryProvider.refreshCategories(),
+                                  variant: ButtonVariant.filled,
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return _PagedCategoryGrid(
+                          categories: categories,
+                          currentPage: 1,
+                          onCategoryTap: (category) {
+                            context.go('/category-products/${category.name}');
+                          },
+                        );
+                      },
                     ),
                   ),
-                ),
-                // Statistics Bar
+                ), // Statistics Bar
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
@@ -157,12 +192,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Responsive.isDesktop(context)
                       ? Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: _buildStatistics(l10n),
+                          children: _buildStatistics(
+                            l10n,
+                            _statisticsProvider.statistics,
+                          ),
                         )
                       : Wrap(
                           spacing: AppSpacing.md,
                           runSpacing: AppSpacing.sm,
-                          children: _buildStatistics(l10n),
+                          children: _buildStatistics(
+                            l10n,
+                            _statisticsProvider.statistics,
+                          ),
                         ),
                 ),
               ],
@@ -195,14 +236,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               width: 50,
                               height: 50,
                               decoration: BoxDecoration(
-                                color: AppColors.primary,
+                                color: Colors.transparent,
                                 borderRadius: BorderRadius.circular(25),
                               ),
-                              child: const Icon(
-                                Icons.store,
-                                color: Colors.white,
-                                size: 24,
-                              ),
+                              child: Image.asset('assets/logo.jpeg'),
                             ),
                             const SizedBox(width: AppSpacing.md),
                             const Expanded(
@@ -227,30 +264,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                           ],
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                            vertical: AppSpacing.sm,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.language, size: 16),
-                              const SizedBox(width: AppSpacing.sm),
-                              const Text('English'),
-                              const Spacer(),
-                              Icon(
-                                Icons.keyboard_arrow_down,
-                                size: 16,
-                                color: Colors.grey.shade600,
-                              ),
-                            ],
-                          ),
                         ),
                       ],
                     ),
@@ -277,7 +290,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               crossAxisCount: 2,
                               crossAxisSpacing: AppSpacing.md,
                               mainAxisSpacing: AppSpacing.md,
-                              childAspectRatio: 1.7,
+                              childAspectRatio: 1.3,
                               children: [
                                 _buildQuickActionButton(
                                   l10n.sales,
@@ -292,9 +305,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   () => context.go(AppRouter.products),
                                 ),
                                 _buildQuickActionButton(
+                                  l10n.categories,
+                                  Icons.category,
+                                  AppColors.info,
+                                  () => context.go(AppRouter.categories),
+                                ),
+                                _buildQuickActionButton(
                                   l10n.staff,
                                   Icons.people,
-                                  const Color(0xFF8B5CF6),
+                                  AppColors.primary,
                                   () => context.go(AppRouter.staff),
                                 ),
                                 _buildQuickActionButton(
@@ -306,26 +325,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 _buildQuickActionButton(
                                   l10n.purchases,
                                   Icons.shopping_bag,
-                                  const Color(0xFF10B981),
+                                  AppColors.error,
                                   () => context.go(AppRouter.purchases),
                                 ),
                                 _buildQuickActionButton(
-                                  'Purchase Return',
-                                  Icons.assignment_return,
+                                  l10n.attendance,
+                                  Icons.timeline,
                                   const Color(0xFF06B6D4),
-                                  () => context.go(AppRouter.purchases),
+                                  () => context.go(AppRouter.attendance),
                                 ),
                                 _buildQuickActionButton(
-                                  l10n.sales,
-                                  Icons.point_of_sale,
-                                  const Color(0xFFEC4899),
-                                  () => context.go(AppRouter.sales),
-                                ),
-                                _buildQuickActionButton(
-                                  'Sales Return',
-                                  Icons.assignment_return,
-                                  AppColors.warning,
-                                  () => context.go(AppRouter.sales),
+                                  l10n.drafts,
+                                  Icons.drafts,
+                                  AppColors.accentDark,
+                                  () => context.go(AppRouter.drafts),
                                 ),
                               ],
                             ),
@@ -368,56 +381,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  List<Widget> _buildStatistics(AppLocalizations l10n) {
-    final stats = [
-      {
-        'label': l10n.staff,
-        'value': _statistics['staff']!,
-        'color': AppColors.primary,
-      },
-      {
-        'label': l10n.products,
-        'value': _statistics['products']!,
-        'color': AppColors.success,
-      },
-      {
-        'label': l10n.drafts,
-        'value': _statistics['drafts']!,
-        'color': AppColors.warning,
-      },
+  // Update the statistics builder method
+  List<Widget> _buildStatistics(AppLocalizations l10n, Map<String, int> stats) {
+    final statistics = [
       {
         'label': l10n.categories,
-        'value': _statistics['categories']!,
+        'value': stats['categories']!,
         'color': AppColors.info,
       },
       {
-        'label': l10n.sales,
-        'value': _statistics['sales']!,
-        'color': AppColors.error,
+        'label': l10n.products,
+        'value': stats['products']!,
+        'color': AppColors.success,
       },
       {
-        'label': 'Sales Return',
-        'value': _statistics['salesReturn']!,
+        'label': l10n.staff,
+        'value': stats['staff']!,
         'color': AppColors.primary,
       },
       {
         'label': l10n.suppliers,
-        'value': _statistics['suppliers']!,
+        'value': stats['suppliers']!,
         'color': AppColors.success,
-      },
-      {
-        'label': l10n.purchases,
-        'value': _statistics['purchases']!,
-        'color': AppColors.warning,
-      },
-      {
-        'label': 'Purchase Return',
-        'value': _statistics['purchaseReturn']!,
-        'color': AppColors.info,
       },
     ];
 
-    return stats
+    return statistics
         .map(
           (stat) => RichText(
             text: TextSpan(
@@ -442,93 +431,135 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-class _PagedGrid extends StatelessWidget {
-  final List<Product> products;
+class _PagedCategoryGrid extends StatelessWidget {
+  final List<Category> categories;
   final int currentPage;
-  const _PagedGrid({required this.products, required this.currentPage});
+  final Function(Category) onCategoryTap;
+
+  const _PagedCategoryGrid({
+    required this.categories,
+    required this.currentPage,
+    required this.onCategoryTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = Responsive.isDesktop(context);
     final isTablet = Responsive.isTablet(context);
-    final crossAxisCount = isDesktop ? 7 : (isTablet ? 4 : 2);
-    // Fixed rows: 3 to emulate screenshot height; no internal scrolling
-    final rows = 3;
+    final crossAxisCount = isDesktop ? 4 : (isTablet ? 4 : 2);
+    const rows = 3;
     final pageSize = crossAxisCount * rows;
     final start = (currentPage - 1) * pageSize;
-    final end = (start + pageSize).clamp(0, products.length);
-    final pageItems = products.sublist(start, end);
+    final end = (start + pageSize).clamp(0, categories.length);
+    final pageItems = categories.sublist(start, end);
 
-    // Build a fixed-size Grid without scroll: wrap in LayoutBuilder and use NeverScrollableScrollPhysics
+    if (categories.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.category_outlined,
+              size: 60,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "No categories available",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () {
+                // You can navigate to add category page or refresh
+                print("Add Category clicked");
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+              ),
+              child: const Text(
+                "Add Category",
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        crossAxisSpacing: AppSpacing.md,
-        mainAxisSpacing: AppSpacing.md,
-        childAspectRatio: 1.0,
+        crossAxisSpacing: 2,
+        mainAxisSpacing: 2,
+        childAspectRatio: 1.8,
       ),
       itemCount: pageItems.length,
       itemBuilder: (context, index) {
-        final product = pageItems[index];
-        return CustomCard(
-          color: Colors.white,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(8),
+        final category = pageItems[index];
+        return GestureDetector(
+          onTap: () => onCategoryTap(category),
+          child: CustomCard(
+            color: Colors.white,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.category,
+                    color: AppColors.primary,
+                    size: 30,
+                  ),
                 ),
-                child: Icon(Icons.image, color: Colors.grey.shade500, size: 30),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                product.name,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  category.name,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+                const SizedBox(height: AppSpacing.xs),
+                Consumer<ProductProvider>(
+                  builder: (context, productProvider, child) {
+                    final productsInCategory = productProvider.products
+                        .where((product) => product.category == category.name)
+                        .length;
+                    return Text(
+                      '$productsInCategory products',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade600,
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },
     );
   }
 }
-
-class _PageIndicator extends StatelessWidget {
-  final int current;
-  final int total;
-  const _PageIndicator({required this.current, required this.total});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        '$current / $total',
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-}
-
-// Note: _totalPages is defined inside the State build method for access to _products.

@@ -4,6 +4,7 @@ import '../../utils/app_spacing.dart';
 import '../../utils/app_typography.dart';
 
 enum ButtonVariant { filled, outlined, text }
+
 enum ButtonSize { small, medium, large }
 
 class CustomButton extends StatelessWidget {
@@ -13,7 +14,8 @@ class CustomButton extends StatelessWidget {
   final ButtonVariant variant;
   final ButtonSize size;
   final Color? color;
-  final bool loading;
+  final Color? textColor;
+  final bool isLoading;
   final bool fullWidth;
 
   const CustomButton({
@@ -24,7 +26,8 @@ class CustomButton extends StatelessWidget {
     this.variant = ButtonVariant.filled,
     this.size = ButtonSize.medium,
     this.color,
-    this.loading = false,
+    this.textColor,
+    this.isLoading = false,
     this.fullWidth = false,
   });
 
@@ -32,15 +35,24 @@ class CustomButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final buttonColor = color ?? AppColors.primary;
-    
+
     EdgeInsets getPadding() {
       switch (size) {
         case ButtonSize.small:
-          return const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs);
+          return const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          );
         case ButtonSize.medium:
-          return const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm);
+          return const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          );
         case ButtonSize.large:
-          return const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md);
+          return const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          );
       }
     }
 
@@ -70,14 +82,14 @@ class CustomButton extends StatelessWidget {
       switch (variant) {
         case ButtonVariant.filled:
           return FilledButton.icon(
-            onPressed: loading ? null : onPressed,
+            onPressed: isLoading ? null : onPressed,
             style: FilledButton.styleFrom(
               backgroundColor: buttonColor,
               padding: getPadding(),
               minimumSize: Size(fullWidth ? double.infinity : 0, getHeight()),
               textStyle: getTextStyle(),
             ),
-            icon: loading
+            icon: isLoading
                 ? SizedBox(
                     width: 16,
                     height: 16,
@@ -89,13 +101,13 @@ class CustomButton extends StatelessWidget {
                     ),
                   )
                 : icon != null
-                    ? Icon(icon, size: 18)
-                    : const SizedBox.shrink(),
-            label: Text(text),
+                ? Icon(icon, size: 18)
+                : const SizedBox.shrink(),
+            label: Text(text, style: TextStyle(color: textColor)),
           );
         case ButtonVariant.outlined:
           return OutlinedButton.icon(
-            onPressed: loading ? null : onPressed,
+            onPressed: isLoading ? null : onPressed,
             style: OutlinedButton.styleFrom(
               foregroundColor: buttonColor,
               side: BorderSide(color: buttonColor),
@@ -103,7 +115,7 @@ class CustomButton extends StatelessWidget {
               minimumSize: Size(fullWidth ? double.infinity : 0, getHeight()),
               textStyle: getTextStyle(),
             ),
-            icon: loading
+            icon: isLoading
                 ? SizedBox(
                     width: 16,
                     height: 16,
@@ -113,20 +125,20 @@ class CustomButton extends StatelessWidget {
                     ),
                   )
                 : icon != null
-                    ? Icon(icon, size: 18)
-                    : const SizedBox.shrink(),
+                ? Icon(icon, size: 18)
+                : const SizedBox.shrink(),
             label: Text(text),
           );
         case ButtonVariant.text:
           return TextButton.icon(
-            onPressed: loading ? null : onPressed,
+            onPressed: isLoading ? null : onPressed,
             style: TextButton.styleFrom(
               foregroundColor: buttonColor,
               padding: getPadding(),
               minimumSize: Size(fullWidth ? double.infinity : 0, getHeight()),
               textStyle: getTextStyle(),
             ),
-            icon: loading
+            icon: isLoading
                 ? SizedBox(
                     width: 16,
                     height: 16,
@@ -136,8 +148,8 @@ class CustomButton extends StatelessWidget {
                     ),
                   )
                 : icon != null
-                    ? Icon(icon, size: 18)
-                    : const SizedBox.shrink(),
+                ? Icon(icon, size: 18)
+                : const SizedBox.shrink(),
             label: Text(text),
           );
       }

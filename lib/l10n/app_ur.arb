@@ -22,6 +22,9 @@
   "purchasePrice": "خریداری کی قیمت",
   "quantity": "مقدار",
   "active": "فعال",
+  "logout": "تسجيل الخروج",
+  "logoutConfirmation": "هل أنت متأكد أنك تريد تسجيل الخروج؟",
+  "cancel": "إلغاء"
   "inactive": "غیر فعال",
   "status": "حالت",
   "createdOn": "بنایا گیا",

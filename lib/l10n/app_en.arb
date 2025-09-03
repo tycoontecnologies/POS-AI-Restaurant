@@ -30,6 +30,9 @@
   "delete": "Delete",
   "save": "Save",
   "cancel": "Cancel",
+  "logout": "Logout",
+  "logoutConfirmation": "Are you sure you want to logout?",
+  "cancel": "Cancel"
   "deleteConfirmTitle": "Delete {item}",
   "@deleteConfirmTitle": {
     "placeholders": {

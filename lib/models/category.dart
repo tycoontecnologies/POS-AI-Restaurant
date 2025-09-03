@@ -24,4 +24,18 @@ class Category {
     active: json['active'] ?? true,
     createdOn: DateTime.parse(json['createdOn']),
   );
+
+  Category copyWith({
+    String? id,
+    String? name,
+    bool? active,
+    DateTime? createdOn,
+  }) {
+    return Category(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      active: active ?? this.active,
+      createdOn: createdOn ?? this.createdOn,
+    );
+  }
 }

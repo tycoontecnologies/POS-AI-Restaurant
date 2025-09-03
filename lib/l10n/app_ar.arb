@@ -17,6 +17,9 @@
   "editProduct": "تعديل المنتج",
   "name": "الاسم",
   "category": "الفئة",
+  "logout": "لاگ آؤٹ",
+  "logoutConfirmation": "کیا آپ واقعی لاگ آؤٹ کرنا چاہتے ہیں؟",
+  "cancel": "منسوخ کریں"
   "unit": "الوحدة",
   "salePrice": "سعر البيع",
   "purchasePrice": "سعر الشراء",

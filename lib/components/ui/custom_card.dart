@@ -9,6 +9,7 @@ class CustomCard extends StatelessWidget {
   final double? elevation;
   final VoidCallback? onTap;
   final BorderRadius? borderRadius;
+  final double? width;
 
   const CustomCard({
     super.key,
@@ -19,6 +20,7 @@ class CustomCard extends StatelessWidget {
     this.elevation,
     this.onTap,
     this.borderRadius,
+    this.width,
   });
 
   @override
@@ -28,9 +30,11 @@ class CustomCard extends StatelessWidget {
       elevation: elevation ?? 2,
       margin: margin ?? const EdgeInsets.all(AppSpacing.sm),
       shape: RoundedRectangleBorder(
-        borderRadius: borderRadius ?? BorderRadius.circular(AppSpacing.radiusMd),
+        borderRadius:
+            borderRadius ?? BorderRadius.circular(AppSpacing.radiusMd),
       ),
       child: Container(
+        width: width,
         padding: padding ?? const EdgeInsets.all(AppSpacing.md),
         child: child,
       ),
@@ -39,7 +43,8 @@ class CustomCard extends StatelessWidget {
     if (onTap != null) {
       return InkWell(
         onTap: onTap,
-        borderRadius: borderRadius ?? BorderRadius.circular(AppSpacing.radiusMd),
+        borderRadius:
+            borderRadius ?? BorderRadius.circular(AppSpacing.radiusMd),
         child: card,
       );
     }

@@ -1,3 +1,4 @@
+// models/product.dart
 class Product {
   Product({
     required this.id,
@@ -34,14 +35,40 @@ class Product {
   };
 
   factory Product.fromJson(Map<String, dynamic> json) => Product(
-    id: json['id'],
-    name: json['name'],
-    category: json['category'],
-    unit: json['unit'],
-    salePrice: json['salePrice']?.toDouble() ?? 0.0,
-    purchasePrice: json['purchasePrice']?.toDouble() ?? 0.0,
+    id: json['id'] ?? '',
+    name: json['name'] ?? '',
+    category: json['category'] ?? '',
+    unit: json['unit'] ?? '',
+    salePrice: (json['salePrice'] ?? 0.0).toDouble(),
+    purchasePrice: (json['purchasePrice'] ?? 0.0).toDouble(),
     quantity: json['quantity'] ?? 0,
     active: json['active'] ?? true,
-    createdOn: DateTime.parse(json['createdOn']),
+    createdOn: json['createdOn'] != null
+        ? DateTime.parse(json['createdOn'])
+        : DateTime.now(),
   );
+
+  Product copyWith({
+    String? id,
+    String? name,
+    String? category,
+    String? unit,
+    double? salePrice,
+    double? purchasePrice,
+    int? quantity,
+    bool? active,
+    DateTime? createdOn,
+  }) {
+    return Product(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      category: category ?? this.category,
+      unit: unit ?? this.unit,
+      salePrice: salePrice ?? this.salePrice,
+      purchasePrice: purchasePrice ?? this.purchasePrice,
+      quantity: quantity ?? this.quantity,
+      active: active ?? this.active,
+      createdOn: createdOn ?? this.createdOn,
+    );
+  }
 }

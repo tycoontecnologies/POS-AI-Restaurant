@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pos/l10n/app_localizations.dart';
+import 'package:pos/models/user.dart';
+import 'package:pos/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../../routes/app_router.dart';
 import '../../utils/app_colors.dart';
@@ -56,9 +58,12 @@ class _ModernAppHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final items = AppRouter.navigationItems;
-    final localeProvider = Provider.of<LocaleProvider>(context);
+    // final l10n = AppLocalizations.of(context)!;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final items = AppRouter.getNavigationItems(
+      authProvider.currentUser?.role ?? UserRole.admin,
+    );
+    // final localeProvider = Provider.of<LocaleProvider>(context);
 
     return Container(
       decoration: BoxDecoration(
@@ -272,38 +277,89 @@ class _ModernHeaderButtonState extends State<_ModernHeaderButton>
 class _HeaderActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    Provider.of<ThemeProvider>(context);
+    final themeProvider = Provider.of<ThemeProvider>(context);
     final localeProvider = Provider.of<LocaleProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    return PopupMenuButton<Locale>(
-      child: _ActionButton(
-        icon: Icons.language,
-        tooltip: 'Language',
-        onTap: null,
-      ),
-      onSelected: (locale) {
-        localeProvider.setLocale(locale);
-      },
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: Locale('en'),
-          child: Row(
-            children: [Text('🇺🇸'), SizedBox(width: 8), Text('English')],
+    return Row(
+      children: [
+        // Language selector
+        PopupMenuButton<Locale>(
+          child: _ActionButton(
+            icon: Icons.language,
+            tooltip: 'Language',
+            onTap: null,
           ),
+          onSelected: (locale) {
+            localeProvider.setLocale(locale);
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: Locale('en'),
+              child: Row(
+                children: [Text('🇺🇸'), SizedBox(width: 8), Text('English')],
+              ),
+            ),
+            const PopupMenuItem(
+              value: Locale('ur'),
+              child: Row(
+                children: [Text('🇵🇰'), SizedBox(width: 8), Text('اردو')],
+              ),
+            ),
+            const PopupMenuItem(
+              value: Locale('ar'),
+              child: Row(
+                children: [Text('🇸🇦'), SizedBox(width: 8), Text('العربية')],
+              ),
+            ),
+          ],
         ),
-        const PopupMenuItem(
-          value: Locale('ur'),
-          child: Row(
-            children: [Text('🇵🇰'), SizedBox(width: 8), Text('اردو')],
-          ),
-        ),
-        const PopupMenuItem(
-          value: Locale('ar'),
-          child: Row(
-            children: [Text('🇸🇦'), SizedBox(width: 8), Text('العربية')],
-          ),
+
+        const SizedBox(width: AppSpacing.sm),
+
+        // Logout button
+        _ActionButton(
+          icon: Icons.logout,
+          tooltip: 'Logout',
+          onTap: () {
+            _showLogoutConfirmationDialog(context, authProvider);
+          },
         ),
       ],
+    );
+  }
+
+  void _showLogoutConfirmationDialog(
+    BuildContext context,
+    AuthProvider authProvider,
+  ) {
+    final l10n = AppLocalizations.of(context)!;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Logout'),
+          content: Text('Are you sure you want to logout?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await authProvider.signOut();
+                // Navigate to login screen after logout
+                if (context.mounted) {
+                  GoRouter.of(context).go(AppRouter.login);
+                }
+              },
+              child: Text('Logout'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

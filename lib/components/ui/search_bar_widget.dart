@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../utils/app_spacing.dart';
 import '../../utils/app_colors.dart';
 
 class SearchBarWidget extends StatelessWidget {

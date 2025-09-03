@@ -1,11 +1,342 @@
 import 'package:flutter/material.dart';
-import '../pages/drafts_page.dart';
+import 'package:pos/models/draft.dart';
+import 'package:provider/provider.dart';
+import 'package:pos/l10n/app_localizations.dart';
+import '../components/ui/custom_button.dart';
+import '../components/ui/custom_card.dart';
+import '../components/ui/status_badge.dart';
+import '../components/ui/search_bar_widget.dart';
+import '../components/ui/data_table_widget.dart';
+import '../utils/responsive.dart';
+import '../utils/app_spacing.dart';
+import '../providers/draft_provider.dart';
+import '../providers/auth_provider.dart';
 
-class DraftsScreen extends StatelessWidget {
+class DraftsScreen extends StatefulWidget {
   const DraftsScreen({super.key});
 
   @override
+  State<DraftsScreen> createState() => _DraftsScreenState();
+}
+
+class _DraftsScreenState extends State<DraftsScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDrafts();
+    _searchController.addListener(_applyFilter);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  String _formatProductNames(List<Map<String, dynamic>> cartItems) {
+    if (cartItems.isEmpty) return 'No items';
+
+    // Extract product names from cart items
+    final productNames = cartItems.map((item) {
+      final product = item['product'] as Map<String, dynamic>?;
+      return product?['name'] as String? ?? 'Unknown Product';
+    }).toList();
+
+    // Group by product name and show quantity if multiple
+    final grouped = <String, int>{};
+    for (final name in productNames) {
+      grouped[name] = (grouped[name] ?? 0) + 1;
+    }
+
+    final result = grouped.entries.map((entry) {
+      if (entry.value > 1) {
+        return '${entry.key} (x${entry.value})';
+      }
+      return entry.key;
+    }).toList();
+
+    return result.join(', ');
+  }
+
+  Future<void> _loadDrafts() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+
+    if (authProvider.currentUser != null) {
+      draftProvider.initialize(authProvider.currentUser!.id);
+      await draftProvider.loadDrafts();
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  void _applyFilter() {
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    final query = _searchController.text.toLowerCase();
+    draftProvider.searchDrafts(query);
+  }
+
+  Future<void> _deleteDraft(String draftId) async {
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    try {
+      await draftProvider.deleteDraft(draftId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Draft deleted successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to delete draft: $e')));
+    }
+  }
+
+  Future<void> _loadDraftToSales(Draft draft) async {
+    // Navigate to sales screen with the draft data
+    // You'll need to implement this navigation based on your app structure
+    Navigator.pop(context, draft);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const DraftsPage();
+    final l10n = AppLocalizations.of(context)!;
+    final draftProvider = Provider.of<DraftProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context);
+
+    return Padding(
+      padding: Responsive.getPagePadding(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.drafts,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).colorScheme.onBackground,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Manage your draft transactions',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.color?.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              CustomButton(
+                text: 'Refresh',
+                icon: Icons.refresh,
+                onPressed: _loadDrafts,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SearchBarWidget(
+            controller: _searchController,
+            hint: 'Search drafts...',
+            onChanged: (_) => _applyFilter(),
+            onClear: () {
+              _searchController.clear();
+              _applyFilter();
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (draftProvider.error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.md),
+              child: Text(
+                draftProvider.error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          Flexible(
+            fit: FlexFit.loose,
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : draftProvider.drafts.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.note_add_outlined,
+                          size: 64,
+                          color: Theme.of(context).disabledColor,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          'No drafts found',
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).textTheme.bodyLarge?.color?.withOpacity(0.8),
+                              ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'Create drafts in the sales screen',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                              ),
+                        ),
+                      ],
+                    ),
+                  )
+                : CustomCard(
+                    padding: EdgeInsets.zero,
+                    child: DataTableWidget(
+                      columns: const [
+                        DataColumn(label: Text('ID')),
+                        DataColumn(label: Text('Type')),
+                        DataColumn(label: Text('Products')),
+                        DataColumn(label: Text('Total')),
+                        DataColumn(label: Text('Date')),
+                        DataColumn(label: Text('Status')),
+                        DataColumn(label: Text('Actions')),
+                      ],
+                      rows: draftProvider.drafts
+                          .map(
+                            (draft) => DataRow(
+                              cells: [
+                                DataCell(Text(draft.id.substring(0, 8))),
+                                DataCell(Text(draft.type)),
+                                DataCell(
+                                  SizedBox(
+                                    width: 200, // Adjust width as needed
+                                    child: Tooltip(
+                                      message: _formatProductNames(
+                                        draft.cartItems,
+                                      ),
+                                      child: Text(
+                                        _formatProductNames(draft.cartItems),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  Text(
+                                    draft.total == 0
+                                        ? '-'
+                                        : draft.total.toStringAsFixed(2),
+                                  ),
+                                ),
+                                DataCell(
+                                  Text(
+                                    '${draft.date.toLocal()}'.split(' ').first,
+                                  ),
+                                ),
+                                DataCell(StatusBadge(text: draft.status)),
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.edit, size: 18),
+                                        onPressed: () =>
+                                            _loadDraftToSales(draft),
+                                        tooltip: 'Edit Draft',
+                                      ),
+                                      const SizedBox(width: AppSpacing.xs),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          size: 18,
+                                        ),
+                                        onPressed: () => _deleteDraft(draft.id),
+                                        tooltip: 'Delete Draft',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                          .toList(),
+                      mobileItemBuilder: (context, index) {
+                        final draft = draftProvider.drafts[index];
+                        return CustomCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Draft #${draft.id.substring(0, 6)}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                  StatusBadge(text: draft.status),
+                                ],
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text('Type: ${draft.type}'),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                'Products: ${_formatProductNames(draft.cartItems)}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                'Total: ${draft.total == 0 ? '-' : '${draft.total.toStringAsFixed(2)}'}',
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                'Date: ${'${draft.date.toLocal()}'.split(' ').first}',
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, size: 18),
+                                    onPressed: () => _loadDraftToSales(draft),
+                                    tooltip: 'Edit Draft',
+                                  ),
+                                  const SizedBox(width: AppSpacing.xs),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete, size: 18),
+                                    onPressed: () => _deleteDraft(draft.id),
+                                    tooltip: 'Delete Draft',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -1,11 +1,640 @@
 import 'package:flutter/material.dart';
-import '../pages/purchases_page.dart';
+import 'package:pos/models/purchase.dart';
+import 'package:pos/providers/product_provider.dart';
+import 'package:pos/providers/supplier_provider.dart';
+import 'package:pos/widget/purchase_form_dialogue.dart';
+import 'package:provider/provider.dart';
+import 'package:pos/l10n/app_localizations.dart';
+import '../components/ui/custom_button.dart';
+import '../components/ui/custom_card.dart';
+import '../components/ui/status_badge.dart';
+import '../components/ui/search_bar_widget.dart';
+import '../components/ui/data_table_widget.dart';
+import '../utils/responsive.dart';
+import '../utils/app_spacing.dart';
+import '../providers/purchase_provider.dart';
+import '../models/purchase_return.dart';
+import '../providers/purchase_return_provider.dart';
+import '../screens/select_purchase_return_items_screen.dart';
+import '../utils/app_colors.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
+import 'package:pos/providers/auth_provider.dart' as myAuth;
 
-class PurchasesScreen extends StatelessWidget {
+class PurchasesScreen extends StatefulWidget {
   const PurchasesScreen({super.key});
 
   @override
+  State<PurchasesScreen> createState() => _PurchasesScreenState();
+}
+
+class _PurchasesScreenState extends State<PurchasesScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  bool _isLoadingMore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_applyFilter);
+    _scrollController.addListener(_scrollListener);
+
+    // Load initial data
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final purchaseProvider = Provider.of<PurchaseProvider>(
+        context,
+        listen: false,
+      );
+      final supplierProvider = Provider.of<SupplierProvider>(
+        context,
+        listen: false,
+      );
+      final productProvider = Provider.of<ProductProvider>(
+        context,
+        listen: false,
+      );
+
+      purchaseProvider.loadPurchases();
+
+      // Load suppliers
+      supplierProvider.getSuppliersStream().listen((suppliers) {
+        supplierProvider.setSuppliers(suppliers);
+      });
+
+      // Load products
+      final vendorId = _getCurrentVendorId();
+      productProvider.loadProducts(vendorId);
+    });
+  }
+
+  String _getCurrentVendorId() {
+    return FirebaseAuth.instance.currentUser?.uid ?? '';
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _applyFilter() {
+    final provider = Provider.of<PurchaseProvider>(context, listen: false);
+    provider.setSearchQuery(_searchController.text);
+  }
+
+  void _scrollListener() {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore) return;
+
+    final provider = Provider.of<PurchaseProvider>(context, listen: false);
+    if (provider.hasMore && !provider.isLoading) {
+      setState(() => _isLoadingMore = true);
+      await provider.loadPurchases(loadMore: true);
+      setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<void> _deletePurchase(String purchaseId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Purchase'),
+        content: const Text('Are you sure you want to delete this purchase?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final provider = Provider.of<PurchaseProvider>(context, listen: false);
+      await provider.deletePurchase(purchaseId);
+    }
+  }
+
+  // Add purchase return methods
+  Future<void> _returnAllItems(Purchase purchase) async {
+    final authProvider = context.read<myAuth.AuthProvider>();
+    final purchaseReturnProvider = context.read<PurchaseReturnProvider>();
+    final reason = await _showReasonDialog();
+
+    if (reason == null) return; // User cancelled
+
+    try {
+      // Create purchase return items for all products
+      final returnItems = purchase.items
+          .map(
+            (item) => PurchaseReturnItem(
+              productId: item.productId,
+              productName: item.productName,
+              originalPrice: item.unitPrice,
+              returnedQuantity: item.quantity,
+              refundAmount: item.total,
+            ),
+          )
+          .toList();
+
+      // Calculate total refund
+      final totalRefund = returnItems.fold(
+        0.0,
+        (sum, item) => sum + item.refundAmount,
+      );
+
+      // Create purchase return
+      final purchaseReturn = PurchaseReturn(
+        id: '', // Will be auto-generated by service
+        // vendorId: authProvider.currentUser!.id,
+        vendorId: '',
+        originalPurchaseId: purchase.id,
+        supplierId: purchase.supplierId,
+        supplierName: purchase.supplierName,
+        items: returnItems,
+        totalRefund: totalRefund,
+        reason: reason,
+        createdAt: DateTime.now(),
+      );
+
+      await purchaseReturnProvider.createPurchaseReturn(
+        authProvider.currentUser!.id,
+        purchaseReturn,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Return processed successfully for \$${totalRefund.toStringAsFixed(2)}',
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to process return: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _returnSelectedItems(Purchase purchase) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            SelectPurchaseReturnItemsScreen(purchase: purchase),
+      ),
+    );
+
+    if (result == null) return; // User cancelled
+
+    final authProvider = Provider.of<myAuth.AuthProvider>(
+      context,
+      listen: false,
+    );
+    final purchaseReturnProvider = context.read<PurchaseReturnProvider>();
+    final List<String> selectedProductIds = result['selectedProductIds'];
+    final String reason = result['reason'];
+
+    try {
+      // Create purchase return items only for selected products
+      final returnItems = purchase.items
+          .where((item) => selectedProductIds.contains(item.productId))
+          .map(
+            (item) => PurchaseReturnItem(
+              productId: item.productId,
+              productName: item.productName,
+              originalPrice: item.unitPrice,
+              returnedQuantity: item.quantity,
+              refundAmount: item.total,
+            ),
+          )
+          .toList();
+
+      // Calculate total refund
+      final totalRefund = returnItems.fold(
+        0.0,
+        (sum, item) => sum + item.refundAmount,
+      );
+
+      // Create purchase return
+      final purchaseReturn = PurchaseReturn(
+        id: '', // Will be auto-generated by service
+        vendorId: authProvider.currentUser!.id,
+        originalPurchaseId: purchase.id,
+        supplierId: purchase.supplierId,
+        supplierName: purchase.supplierName,
+        items: returnItems,
+        totalRefund: totalRefund,
+        reason: reason,
+        createdAt: DateTime.now(),
+      );
+
+      await purchaseReturnProvider.createPurchaseReturn(
+        authProvider.currentUser!.id,
+        purchaseReturn,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Return processed successfully for \$${totalRefund.toStringAsFixed(2)}',
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to process return: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<String?> _showReasonDialog() async {
+    final TextEditingController reasonController = TextEditingController();
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reason for Return'),
+        content: TextField(
+          controller: reasonController,
+          decoration: const InputDecoration(
+            hintText: 'Enter reason for returning items...',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (reasonController.text.isNotEmpty) {
+                Navigator.pop(context, reasonController.text);
+              }
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPurchaseDetails(Purchase purchase) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: const Color(0xFFFDFDFE),
+        surfaceTintColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(AppSpacing.lg),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Purchase Details',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text('Purchase ID: ${purchase.id}'),
+                Text('Supplier: ${purchase.supplierName}'),
+                Text(
+                  'Date: ${purchase.date.toLocal().toString().split(' ').first}',
+                ),
+                Text('Total: \$${purchase.total.toStringAsFixed(2)}'),
+                Text('Status: ${purchase.status}'),
+                const SizedBox(height: AppSpacing.lg),
+                const Divider(),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'Products',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: DataTable(
+                      columns: const [
+                        DataColumn(label: Text('Product')),
+                        DataColumn(label: Text('Price'), numeric: true),
+                        DataColumn(label: Text('Qty'), numeric: true),
+                        DataColumn(label: Text('Subtotal'), numeric: true),
+                      ],
+                      rows: purchase.items.map((item) {
+                        return DataRow(
+                          cells: [
+                            DataCell(Text(item.productName)),
+                            DataCell(
+                              Text('\$${item.unitPrice.toStringAsFixed(2)}'),
+                            ),
+                            DataCell(Text('${item.quantity}')),
+                            DataCell(
+                              Text('\$${item.total.toStringAsFixed(2)}'),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: CustomButton(
+                    text: 'Close',
+                    variant: ButtonVariant.text,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _rowActions(Purchase purchase) {
+    return Row(
+      spacing: 5,
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: 'View Details',
+          icon: const Icon(Icons.visibility, size: 16),
+          onPressed: () => _showPurchaseDetails(purchase),
+          style: IconButton.styleFrom(
+            backgroundColor: AppColors.primary.withOpacity(0.1),
+            foregroundColor: AppColors.primary,
+          ),
+        ),
+        IconButton(
+          tooltip: 'Return All Items',
+          icon: const Icon(Icons.all_inbox, size: 16),
+          onPressed: () => _returnAllItems(purchase),
+          style: IconButton.styleFrom(
+            backgroundColor: AppColors.success.withOpacity(0.1),
+            foregroundColor: AppColors.success,
+          ),
+        ),
+        IconButton(
+          tooltip: 'Select Items to Return',
+          icon: const Icon(Icons.checklist, size: 16),
+          onPressed: () => _returnSelectedItems(purchase),
+          style: IconButton.styleFrom(
+            backgroundColor: AppColors.warning.withOpacity(0.1),
+            foregroundColor: AppColors.warning,
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete, size: 16),
+          onPressed: () => _deletePurchase(purchase.id),
+          style: IconButton.styleFrom(
+            backgroundColor: AppColors.error.withOpacity(0.1),
+            foregroundColor: AppColors.error,
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const PurchasesPage();
+    final l10n = AppLocalizations.of(context)!;
+    final provider = Provider.of<PurchaseProvider>(context);
+
+    return Padding(
+      padding: Responsive.getPagePadding(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.purchases,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).colorScheme.onBackground,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Track your purchase orders',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.color?.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              CustomButton(
+                text: 'New Purchase',
+                icon: Icons.add_shopping_cart,
+                onPressed: () {
+                  showPurchaseDialog(
+                    context,
+                    onSave: (newPurchase) async {
+                      final provider = Provider.of<PurchaseProvider>(
+                        context,
+                        listen: false,
+                      );
+                      await provider.addPurchase(newPurchase);
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SearchBarWidget(
+            controller: _searchController,
+            hint: 'Search purchases...',
+            onChanged: (_) => _applyFilter(),
+            onClear: () {
+              _searchController.clear();
+              _applyFilter();
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Expanded(
+            child: provider.isLoading && provider.purchases.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : CustomCard(
+                    padding: EdgeInsets.zero,
+                    child: DataTableWidget(
+                      columns: const [
+                        DataColumn(label: Text('ID')),
+                        DataColumn(label: Text('Supplier')),
+                        DataColumn(label: Text('Items')),
+                        DataColumn(label: Text('Total')),
+                        DataColumn(label: Text('Date')),
+                        DataColumn(label: Text('Status')),
+                        DataColumn(label: Text('Actions')),
+                      ],
+                      rows: provider.purchases
+                          .map(
+                            (purchase) => DataRow(
+                              cells: [
+                                DataCell(
+                                  SizedBox(
+                                    width: 100,
+                                    child: Tooltip(
+                                      message: purchase.id,
+                                      child: Text(
+                                        purchase.id,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontFamily: 'Monospace',
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(Text(purchase.supplierName)),
+                                DataCell(
+                                  SizedBox(
+                                    width: 200,
+                                    child: Tooltip(
+                                      message: purchase.items
+                                          .map((item) => item.productName)
+                                          .join(', '),
+                                      child: Text(
+                                        purchase.items
+                                            .map((item) => item.productName)
+                                            .join(', '),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  Text('${purchase.total.toStringAsFixed(2)}'),
+                                ),
+                                DataCell(
+                                  Text(
+                                    '${purchase.date.toLocal()}'
+                                        .split(' ')
+                                        .first,
+                                  ),
+                                ),
+                                DataCell(StatusBadge(text: purchase.status)),
+                                DataCell(_rowActions(purchase)),
+                              ],
+                            ),
+                          )
+                          .toList(),
+                      mobileItemBuilder: (context, index) {
+                        final purchase = provider.purchases[index];
+                        return CustomCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Purchase #${purchase.id.substring(0, 8)}...',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                  StatusBadge(text: purchase.status),
+                                ],
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text('Supplier: ${purchase.supplierName}'),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                'Items: ${purchase.items.map((item) => item.productName).join(', ')}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                'Total: ${purchase.total.toStringAsFixed(2)}',
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                'Date: ${'${purchase.date.toLocal()}'.split(' ').first}',
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              Row(
+                                spacing: 5,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [_rowActions(purchase)],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+          if (_isLoadingMore)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          if (!provider.hasMore && provider.purchases.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: Center(
+                child: Text(
+                  'No more purchases to load',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
