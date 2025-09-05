@@ -14,15 +14,17 @@ class AuthProvider with ChangeNotifier {
   String? get error => _error;
   bool get isAuthenticated => _currentUser != null;
 
-  // Initialize auth state
+  // auth_provider.dart - Ensure initialize method sets loading correctly
   Future<void> initialize() async {
     _isLoading = true;
     notifyListeners();
 
     try {
       _currentUser = await _authService.getCurrentUserData();
+      _error = null;
     } catch (e) {
       _error = e.toString();
+      _currentUser = null;
     } finally {
       _isLoading = false;
       notifyListeners();

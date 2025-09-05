@@ -28,19 +28,13 @@ class AttendanceScreen extends StatefulWidget {
 
 class _AttendanceScreenState extends State<AttendanceScreen>
     with SingleTickerProviderStateMixin {
-  List<Staff> _staff = [];
-  List<Staff> _filteredStaff = [];
-  int _entriesPerPage = 10;
-  int _currentPage = 1;
+  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   DateTime _selectedDate = DateTime.now();
   String? _vendorId;
   late TabController _tabController;
-
-  List<Staff> get _pageItems {
-    final start = (_currentPage - 1) * _entriesPerPage;
-    final end = (start + _entriesPerPage).clamp(0, _filteredStaff.length);
-    return _filteredStaff.sublist(start, end);
-  }
+  List<Staff> _filteredStaff = [];
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -51,6 +45,8 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       DateTime.now().month,
       DateTime.now().day,
     );
+
+    _searchController.addListener(_onSearchChanged);
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     _vendorId = authProvider.currentUser?.id;
@@ -64,21 +60,29 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
   @override
   void dispose() {
+    _searchController.dispose();
+    _scrollController.dispose();
     _tabController.dispose();
     super.dispose();
   }
 
-  void _filterStaff(String query) {
+  void _onSearchChanged() {
     setState(() {
-      _filteredStaff = _staff
-          .where(
-            (staff) =>
-                staff.name.toLowerCase().contains(query.toLowerCase()) ||
-                staff.role.toLowerCase().contains(query.toLowerCase()),
-          )
-          .toList();
-      _currentPage = 1;
+      _searchQuery = _searchController.text.toLowerCase();
+      _filterStaff();
     });
+  }
+
+  void _filterStaff() {
+    final staffProvider = context.read<StaffProvider>();
+    if (_searchQuery.isEmpty) {
+      _filteredStaff = List.from(staffProvider.staff);
+    } else {
+      _filteredStaff = staffProvider.staff.where((staff) {
+        return staff.name.toLowerCase().contains(_searchQuery) ||
+            staff.role.toLowerCase().contains(_searchQuery);
+      }).toList();
+    }
   }
 
   bool _getAttendanceStatus(String staffId, List<Attendance> todayAttendance) {
@@ -155,16 +159,13 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
-    final isToday =
-        _selectedDate.day == DateTime.now().day &&
-        _selectedDate.month == DateTime.now().month &&
-        _selectedDate.year == DateTime.now().year;
-
     final attendanceProvider = Provider.of<AttendanceProvider>(context);
-    final staffProvider = Provider.of<StaffProvider>(
-      context,
-    ); // Get StaffProvider
-    final isLoading = attendanceProvider.isLoading || staffProvider.isLoading;
+    final staffProvider = Provider.of<StaffProvider>(context);
+
+    // Update filtered staff when staff data changes
+    if (_filteredStaff.isEmpty && staffProvider.staff.isNotEmpty) {
+      _filteredStaff = List.from(staffProvider.staff);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -229,416 +230,26 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                 ),
                 const SizedBox(height: AppSpacing.lg),
 
+                SearchBarWidget(
+                  controller: _searchController,
+                  hint: 'Search employees...',
+                  onChanged: (_) => _onSearchChanged(),
+                  onClear: () {
+                    _searchController.clear();
+                    _onSearchChanged();
+                  },
+                ),
+
+                const SizedBox(height: AppSpacing.md),
+
                 Expanded(
-                  child: Consumer<StaffProvider>(
-                    builder: (context, staffProvider, child) {
-                      // Handle loading state
-                      if (staffProvider.isLoading &&
-                          staffProvider.staff.isEmpty) {
-                        return const CustomCard(
-                          child: Center(
-                            child: LoadingWidget(
-                              message: 'Loading staff data...',
-                            ),
-                          ),
-                        );
-                      }
-
-                      // Handle error state
-                      if (staffProvider.errorMessage != null) {
-                        return CustomCard(
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  size: 64,
-                                  color: colorScheme.error,
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                                Text(
-                                  'Error loading staff data',
-                                  style: Theme.of(context).textTheme.titleLarge,
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                Text(staffProvider.errorMessage!),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-
-                      // Handle empty data
-                      if (staffProvider.staff.isEmpty) {
-                        return CustomCard(
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.people_outline,
-                                  size: 64,
-                                  color: colorScheme.onSurface.withOpacity(0.5),
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                                Text(
-                                  'No staff members found',
-                                  style: Theme.of(context).textTheme.titleLarge,
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                Text(
-                                  'Add staff members to manage attendance',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-
-                      _staff = staffProvider.staff;
-                      _filteredStaff = _staff;
-
-                      return StreamBuilder<List<Attendance>>(
-                        stream: attendanceProvider.getAttendanceByDate(
-                          _selectedDate,
-                        ),
-                        builder: (context, attendanceSnapshot) {
-                          // Handle loading state for attendance
-                          if (attendanceSnapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const CustomCard(
-                              child: Center(
-                                child: LoadingWidget(
-                                  message: 'Loading attendance...',
-                                ),
-                              ),
-                            );
-                          }
-
-                          if (attendanceSnapshot.hasError) {
-                            log(
-                              'Attendance stream error: ${attendanceSnapshot.error.toString()}',
-                            );
-                            return CustomCard(
-                              child: Center(
-                                child: Text(
-                                  'Error loading attendance: ${attendanceSnapshot.error}',
-                                ),
-                              ),
-                            );
-                          }
-
-                          final todayAttendance = attendanceSnapshot.data ?? [];
-                          attendanceProvider.updateAttendanceList(
-                            todayAttendance,
-                          );
-
-                          log('Attendance records: ${todayAttendance.length}');
-
-                          return Stack(
-                            children: [
-                              CustomCard(
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Text(
-                                              'Show',
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.bodyMedium,
-                                            ),
-                                            const SizedBox(
-                                              width: AppSpacing.sm,
-                                            ),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: AppSpacing.md,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                  color: AppColors.grey300,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              child: DropdownButtonHideUnderline(
-                                                child: DropdownButton<int>(
-                                                  value: _entriesPerPage,
-                                                  items: [5, 10, 25, 50].map((
-                                                    value,
-                                                  ) {
-                                                    return DropdownMenuItem(
-                                                      value: value,
-                                                      child: Text('$value'),
-                                                    );
-                                                  }).toList(),
-                                                  onChanged: (value) {
-                                                    setState(
-                                                      () => _entriesPerPage =
-                                                          value!,
-                                                    );
-                                                  },
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(
-                                              width: AppSpacing.sm,
-                                            ),
-                                            Text(
-                                              'entries',
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.bodyMedium,
-                                            ),
-                                          ],
-                                        ),
-                                        const Spacer(),
-                                        SizedBox(
-                                          width: 300,
-                                          child: SearchBarWidget(
-                                            hint: 'Search employees...',
-                                            onChanged: _filterStaff,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: AppSpacing.md),
-
-                                    Expanded(
-                                      child: _filteredStaff.isEmpty
-                                          ? Center(
-                                              child: Text(
-                                                'No staff members match your search',
-                                                style: Theme.of(
-                                                  context,
-                                                ).textTheme.titleMedium,
-                                              ),
-                                            )
-                                          : DataTableWidget(
-                                              columns: const [
-                                                DataColumn(label: Text('No')),
-                                                DataColumn(
-                                                  label: Text('Employee Role'),
-                                                ),
-                                                DataColumn(label: Text('Name')),
-                                                DataColumn(
-                                                  label: Text('Daily Wage'),
-                                                ),
-                                                DataColumn(
-                                                  label: Text('Attendance'),
-                                                ),
-                                              ],
-                                              rows: _pageItems.asMap().entries.map((
-                                                entry,
-                                              ) {
-                                                final index = entry.key;
-                                                final staff = entry.value;
-                                                final isPresent =
-                                                    _getAttendanceStatus(
-                                                      staff.id,
-                                                      todayAttendance,
-                                                    );
-
-                                                return DataRow(
-                                                  cells: [
-                                                    DataCell(
-                                                      Text(
-                                                        '${index + 1 + ((_currentPage - 1) * _entriesPerPage)}',
-                                                      ),
-                                                    ),
-                                                    DataCell(Text(staff.role)),
-                                                    DataCell(Text(staff.name)),
-                                                    DataCell(
-                                                      Text(
-                                                        '${staff.dailyWage.toStringAsFixed(0)}',
-                                                      ),
-                                                    ),
-                                                    DataCell(
-                                                      Row(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        children: [
-                                                          Radio<bool>(
-                                                            value: true,
-                                                            groupValue:
-                                                                isPresent,
-                                                            onChanged: isLoading
-                                                                ? null
-                                                                : (
-                                                                    value,
-                                                                  ) => _markAttendance(
-                                                                    staff,
-                                                                    true,
-                                                                    attendanceProvider,
-                                                                  ),
-                                                          ),
-                                                          const Text('Present'),
-                                                          const SizedBox(
-                                                            width:
-                                                                AppSpacing.sm,
-                                                          ),
-                                                          Radio<bool>(
-                                                            value: false,
-                                                            groupValue:
-                                                                isPresent,
-                                                            onChanged: isLoading
-                                                                ? null
-                                                                : (
-                                                                    value,
-                                                                  ) => _markAttendance(
-                                                                    staff,
-                                                                    false,
-                                                                    attendanceProvider,
-                                                                  ),
-                                                          ),
-                                                          const Text('Absent'),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                );
-                                              }).toList(),
-                                              mobileItemBuilder: (context, index) {
-                                                final staff = _pageItems[index];
-                                                final isPresent =
-                                                    _getAttendanceStatus(
-                                                      staff.id,
-                                                      todayAttendance,
-                                                    );
-                                                final attendance =
-                                                    _getAttendanceRecord(
-                                                      staff.id,
-                                                      todayAttendance,
-                                                    );
-
-                                                return CustomCard(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Row(
-                                                        children: [
-                                                          Expanded(
-                                                            child: Column(
-                                                              crossAxisAlignment:
-                                                                  CrossAxisAlignment
-                                                                      .start,
-                                                              children: [
-                                                                Text(
-                                                                  staff.name,
-                                                                  style: Theme.of(context)
-                                                                      .textTheme
-                                                                      .titleMedium
-                                                                      ?.copyWith(
-                                                                        fontWeight:
-                                                                            FontWeight.w600,
-                                                                      ),
-                                                                ),
-                                                                Text(
-                                                                  staff.role,
-                                                                  style: Theme.of(context)
-                                                                      .textTheme
-                                                                      .bodyMedium
-                                                                      ?.copyWith(
-                                                                        color: Theme.of(
-                                                                          context,
-                                                                        ).textTheme.bodyMedium?.color?.withOpacity(0.8),
-                                                                      ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                          StatusBadge(
-                                                            text: isPresent
-                                                                ? 'Present'
-                                                                : 'Absent',
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(
-                                                        height: AppSpacing.md,
-                                                      ),
-                                                      Text(
-                                                        'Daily Wage: ${staff.dailyWage.toStringAsFixed(0)}',
-                                                      ),
-                                                      if (attendance !=
-                                                          null) ...[
-                                                        Text(
-                                                          'Hours: ${attendance.calculatedHours.toStringAsFixed(1)}',
-                                                        ),
-                                                        Text(
-                                                          'Wage Earned: ${attendance.calculatedWage.toStringAsFixed(2)}',
-                                                        ),
-                                                      ],
-                                                      const SizedBox(
-                                                        height: AppSpacing.sm,
-                                                      ),
-                                                      Row(
-                                                        children: [
-                                                          Radio<bool>(
-                                                            value: true,
-                                                            groupValue:
-                                                                isPresent,
-                                                            onChanged: isLoading
-                                                                ? null
-                                                                : (
-                                                                    value,
-                                                                  ) => _markAttendance(
-                                                                    staff,
-                                                                    true,
-                                                                    attendanceProvider,
-                                                                  ),
-                                                          ),
-                                                          const Text('Present'),
-                                                          Radio<bool>(
-                                                            value: false,
-                                                            groupValue:
-                                                                isPresent,
-                                                            onChanged: isLoading
-                                                                ? null
-                                                                : (
-                                                                    value,
-                                                                  ) => _markAttendance(
-                                                                    staff,
-                                                                    false,
-                                                                    attendanceProvider,
-                                                                  ),
-                                                          ),
-                                                          const Text('Absent'),
-                                                        ],
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (isLoading)
-                                Positioned.fill(
-                                  child: Container(
-                                    color: Colors.black.withOpacity(0.3),
-                                    child: const Center(
-                                      child: LoadingWidget(
-                                        message: 'Processing...',
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          );
-                        },
-                      );
-                    },
+                  child: CustomCard(
+                    padding: EdgeInsets.zero,
+                    child: _buildContent(
+                      staffProvider,
+                      attendanceProvider,
+                      l10n,
+                    ),
                   ),
                 ),
               ],
@@ -647,6 +258,318 @@ class _AttendanceScreenState extends State<AttendanceScreen>
           MonthlyAttendanceScreen(),
         ],
       ),
+    );
+  }
+
+  Widget _buildContent(
+    StaffProvider staffProvider,
+    AttendanceProvider attendanceProvider,
+    AppLocalizations l10n,
+  ) {
+    // Handle loading state
+    if (staffProvider.isLoading && staffProvider.staff.isEmpty) {
+      return const Center(
+        child: LoadingWidget(message: 'Loading staff data...'),
+      );
+    }
+
+    // Handle error state
+    if (staffProvider.errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Error loading staff data',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(staffProvider.errorMessage!),
+            const SizedBox(height: AppSpacing.md),
+            CustomButton(
+              text: 'Retry',
+              onPressed: () => staffProvider.loadStaff(refresh: true),
+              variant: ButtonVariant.filled,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Handle empty data
+    if (staffProvider.staff.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.people_outline,
+              size: 64,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'No staff members found',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Add staff members to manage attendance',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Handle search with no results
+    if (_filteredStaff.isEmpty && _searchQuery.isNotEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 64,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'No staff members found',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'No results for "$_searchQuery"',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            CustomButton(
+              text: 'Clear Search',
+              onPressed: () {
+                _searchController.clear();
+                _onSearchChanged();
+              },
+              variant: ButtonVariant.outlined,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return StreamBuilder<List<Attendance>>(
+      stream: attendanceProvider.getAttendanceByDate(_selectedDate),
+      builder: (context, attendanceSnapshot) {
+        // Handle loading state for attendance
+        if (attendanceSnapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: LoadingWidget(message: 'Loading attendance...'),
+          );
+        }
+
+        if (attendanceSnapshot.hasError) {
+          log(
+            'Attendance stream error: ${attendanceSnapshot.error.toString()}',
+          );
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text('Error loading attendance: ${attendanceSnapshot.error}'),
+              ],
+            ),
+          );
+        }
+
+        final todayAttendance = attendanceSnapshot.data ?? [];
+        attendanceProvider.updateAttendanceList(todayAttendance);
+
+        log('Attendance records: ${todayAttendance.length}');
+
+        return SingleChildScrollView(
+          controller: _scrollController,
+          child: Column(
+            children: [
+              DataTableWidget(
+                columns: const [
+                  DataColumn(label: Text('No')),
+                  DataColumn(label: Text('Employee Role')),
+                  DataColumn(label: Text('Name')),
+                  DataColumn(label: Text('Daily Wage')),
+                  DataColumn(label: Text('Attendance')),
+                ],
+                rows: _filteredStaff.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final staff = entry.value;
+                  final isPresent = _getAttendanceStatus(
+                    staff.id,
+                    todayAttendance,
+                  );
+
+                  return DataRow(
+                    cells: [
+                      DataCell(Text('${index + 1}')),
+                      DataCell(Text(staff.role)),
+                      DataCell(Text(staff.name)),
+                      DataCell(Text(staff.dailyWage.toStringAsFixed(0))),
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Radio<bool>(
+                              value: true,
+                              groupValue: isPresent,
+                              onChanged: attendanceProvider.isLoading
+                                  ? null
+                                  : (value) => _markAttendance(
+                                      staff,
+                                      true,
+                                      attendanceProvider,
+                                    ),
+                            ),
+                            const Text('Present'),
+                            const SizedBox(width: AppSpacing.sm),
+                            Radio<bool>(
+                              value: false,
+                              groupValue: isPresent,
+                              onChanged: attendanceProvider.isLoading
+                                  ? null
+                                  : (value) => _markAttendance(
+                                      staff,
+                                      false,
+                                      attendanceProvider,
+                                    ),
+                            ),
+                            const Text('Absent'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+                mobileItemBuilder: (context, index) {
+                  final staff = _filteredStaff[index];
+                  final isPresent = _getAttendanceStatus(
+                    staff.id,
+                    todayAttendance,
+                  );
+                  final attendance = _getAttendanceRecord(
+                    staff.id,
+                    todayAttendance,
+                  );
+
+                  return CustomCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    staff.name,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600),
+                                  ),
+                                  Text(
+                                    staff.role,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.color
+                                              ?.withOpacity(0.8),
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            StatusBadge(text: isPresent ? 'Present' : 'Absent'),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          'Daily Wage: ${staff.dailyWage.toStringAsFixed(0)}',
+                        ),
+                        if (attendance != null) ...[
+                          Text(
+                            'Hours: ${attendance.calculatedHours.toStringAsFixed(1)}',
+                          ),
+                          Text(
+                            'Wage Earned: ${attendance.calculatedWage.toStringAsFixed(2)}',
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(
+                          children: [
+                            Radio<bool>(
+                              value: true,
+                              groupValue: isPresent,
+                              onChanged: attendanceProvider.isLoading
+                                  ? null
+                                  : (value) => _markAttendance(
+                                      staff,
+                                      true,
+                                      attendanceProvider,
+                                    ),
+                            ),
+                            const Text('Present'),
+                            Radio<bool>(
+                              value: false,
+                              groupValue: isPresent,
+                              onChanged: attendanceProvider.isLoading
+                                  ? null
+                                  : (value) => _markAttendance(
+                                      staff,
+                                      false,
+                                      attendanceProvider,
+                                    ),
+                            ),
+                            const Text('Absent'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+              // Show message if search has results
+              if (_searchQuery.isNotEmpty && _filteredStaff.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Text(
+                    'Showing ${_filteredStaff.length} result(s) for "$_searchQuery"',
+                    style: TextStyle(
+                      color: AppColors.grey600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -661,7 +584,6 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
-        _currentPage = 1;
       });
     }
   }

@@ -6,9 +6,11 @@ class SupplierProvider with ChangeNotifier {
   final SupplierService _supplierService = SupplierService();
   List<Supplier> _suppliers = [];
   List<Supplier> _filteredSuppliers = [];
+  bool _isLoading = true;
 
   List<Supplier> get suppliers => _suppliers;
   List<Supplier> get filteredSuppliers => _filteredSuppliers;
+  bool get isLoading => _isLoading;
 
   // Load suppliers from Firebase
   Stream<List<Supplier>> getSuppliersStream() {
@@ -33,6 +35,7 @@ class SupplierProvider with ChangeNotifier {
   void setSuppliers(List<Supplier> suppliers) {
     _suppliers = suppliers;
     _filteredSuppliers = List.from(_suppliers);
+    _isLoading = false;
     notifyListeners();
   }
 

@@ -277,7 +277,7 @@ class _ModernHeaderButtonState extends State<_ModernHeaderButton>
 class _HeaderActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
+    Provider.of<ThemeProvider>(context);
     final localeProvider = Provider.of<LocaleProvider>(context);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
@@ -333,7 +333,6 @@ class _HeaderActions extends StatelessWidget {
     BuildContext context,
     AuthProvider authProvider,
   ) {
-    final l10n = AppLocalizations.of(context)!;
 
     showDialog(
       context: context,

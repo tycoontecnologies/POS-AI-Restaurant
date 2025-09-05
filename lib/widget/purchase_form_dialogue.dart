@@ -438,8 +438,7 @@ class _PurchaseFormDialogState extends State<PurchaseFormDialog> {
                                         ),
                                       )
                                       .quantity
-                                      .toString() ??
-                                  '0',
+                                      .toString(),
                             ),
                           );
 

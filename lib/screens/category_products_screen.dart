@@ -6,7 +6,6 @@ import 'package:pos/providers/category_provider.dart';
 import 'package:pos/providers/product_provider.dart';
 import 'package:pos/providers/cart_provider.dart';
 import 'package:provider/provider.dart';
-import '../utils/responsive.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
 import '../components/ui/custom_card.dart';
@@ -608,7 +607,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                             ],
                                           ),
                                           Text(
-                                            '\$${product.salePrice.toStringAsFixed(2)}',
+                                            '${product.salePrice.toStringAsFixed(2)}',
                                             style: const TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
@@ -868,7 +867,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                   ),
                                 ),
                                 Text(
-                                  '\$${cartProvider.total.toStringAsFixed(2)}',
+                                  '${cartProvider.total.toStringAsFixed(2)}',
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,

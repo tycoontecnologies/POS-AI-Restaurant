@@ -396,7 +396,47 @@ class _StaffScreenState extends State<StaffScreen> {
                       ),
                     ),
                   )
-                : _buildStaffContent(provider),
+                : NotificationListener<ScrollNotification>(
+                    onNotification: (scrollNotification) {
+                      if (scrollNotification is ScrollEndNotification &&
+                          _scrollController.position.pixels ==
+                              _scrollController.position.maxScrollExtent) {
+                        _loadMore();
+                      }
+                      return false;
+                    },
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
+                      child: Column(
+                        children: [
+                          _buildStaffContent(provider),
+
+                          // Loading more indicator
+                          if (_isLoadingMore)
+                            const Padding(
+                              padding: EdgeInsets.all(AppSpacing.md),
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+
+                          // No more items indicator
+                          if (!provider.hasMore && provider.staff.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.all(AppSpacing.md),
+                              child: Text(
+                                'No more staff members to load',
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.6),
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -480,6 +520,7 @@ class _StaffScreenState extends State<StaffScreen> {
           padding: EdgeInsets.zero,
           child: DataTableWidget(
             columns: const [
+              DataColumn(label: Text('#')),
               DataColumn(label: Text('Employee Role')),
               DataColumn(label: Text('Name')),
               DataColumn(label: Text('Daily Wage')),
@@ -488,39 +529,24 @@ class _StaffScreenState extends State<StaffScreen> {
               DataColumn(label: Text('Status')),
               DataColumn(label: Text('Actions')),
             ],
-            rows: [
-              ...staffList.map(
-                (e) => DataRow(
-                  cells: [
-                    DataCell(Text(e.role)),
-                    DataCell(Text(e.name)),
-                    DataCell(Text('${e.dailyWage.toStringAsFixed(0)}')),
-                    DataCell(Text(e.phone)),
-                    DataCell(Text('${e.joinDate.toLocal()}'.split(' ').first)),
-                    DataCell(
-                      StatusBadge(text: e.active ? 'Active' : 'Inactive'),
-                    ),
-                    DataCell(_rowActions(e, provider.isLoading)),
-                  ],
-                ),
-              ),
-              if (_isLoadingMore)
-                DataRow(
-                  cells: List.generate(
-                    7,
-                    (index) => const DataCell(
-                      Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                    ),
-                  ),
-                ),
-            ],
-            mobileItemBuilder: (context, index) {
-              if (index >= staffList.length) {
-                return const CustomCard(
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
+            rows: staffList.asMap().entries.map((entry) {
+              final index = entry.key;
+              final e = entry.value;
 
+              return DataRow(
+                cells: [
+                  DataCell(Text('${index + 1}')),
+                  DataCell(Text(e.role)),
+                  DataCell(Text(e.name)),
+                  DataCell(Text('${e.dailyWage.toStringAsFixed(0)}')),
+                  DataCell(Text(e.phone)),
+                  DataCell(Text('${e.joinDate.toLocal()}'.split(' ').first)),
+                  DataCell(StatusBadge(text: e.active ? 'Active' : 'Inactive')),
+                  DataCell(_rowActions(e, provider.isLoading)),
+                ],
+              );
+            }).toList(),
+            mobileItemBuilder: (context, index) {
               final s = staffList[index];
               return CustomCard(
                 child: Column(

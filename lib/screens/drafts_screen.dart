@@ -105,7 +105,7 @@ class _DraftsScreenState extends State<DraftsScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final draftProvider = Provider.of<DraftProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
+    Provider.of<AuthProvider>(context);
 
     return Padding(
       padding: Responsive.getPagePadding(context),

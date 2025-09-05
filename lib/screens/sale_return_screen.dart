@@ -170,7 +170,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
                 Text('Original Sale ID: ${saleReturn.originalSaleId}'),
                 Text('Date: ${_formatDate(saleReturn.createdAt)}'),
                 Text(
-                  'Total Refund: \$${saleReturn.totalRefund.toStringAsFixed(2)}',
+                  'Total Refund: ${saleReturn.totalRefund.toStringAsFixed(2)}',
                 ),
                 Text('Reason: ${saleReturn.reason}'),
                 const SizedBox(height: AppSpacing.lg),
@@ -201,12 +201,12 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
                             DataCell(Text(item.productName)),
                             DataCell(
                               Text(
-                                '\$${item.originalPrice.toStringAsFixed(2)}',
+                                '${item.originalPrice.toStringAsFixed(2)}',
                               ),
                             ),
                             DataCell(Text('${item.returnedQuantity}')),
                             DataCell(
-                              Text('\$${item.refundAmount.toStringAsFixed(2)}'),
+                              Text('${item.refundAmount.toStringAsFixed(2)}'),
                             ),
                           ],
                         );
@@ -251,7 +251,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
   @override
   Widget build(BuildContext context) {
     final saleReturnProvider = context.watch<SaleReturnProvider>();
-    final authProvider = context.watch<AuthProvider>();
+    context.watch<AuthProvider>();
     final l10n = AppLocalizations.of(context)!;
 
     final filteredSaleReturns = _filterSaleReturns(
@@ -454,7 +454,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
                         ),
                         DataCell(
                           Text(
-                            '\$${saleReturn.totalRefund.toStringAsFixed(2)}',
+                            '${saleReturn.totalRefund.toStringAsFixed(2)}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: AppColors.error,
@@ -496,7 +496,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
                             ),
                           ),
                           Text(
-                            '\$${saleReturn.totalRefund.toStringAsFixed(2)}',
+                            '${saleReturn.totalRefund.toStringAsFixed(2)}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: AppColors.error,

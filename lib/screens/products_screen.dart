@@ -35,8 +35,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_scrollListener);
-    _loadInitialData();
+    _searchController.addListener(_onSearchChanged);
+
+    // Load initial data
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = context.read<AuthProvider>();
+      final productProvider = context.read<ProductProvider>();
+      if (authProvider.currentUser != null) {
+        productProvider.loadProducts(authProvider.currentUser!.id);
+      }
+    });
+
+    // Setup scroll listener for pagination
+    _scrollController.addListener(_onScroll);
     _loadCategories();
   }
 
@@ -85,19 +96,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
     super.dispose();
   }
 
-  void _loadInitialData() {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final productProvider = Provider.of<ProductProvider>(
-      context,
-      listen: false,
-    );
-
-    if (authProvider.currentUser != null) {
-      productProvider.loadProducts(authProvider.currentUser!.id);
-    }
+  void _onSearchChanged() {
+    final productProvider = context.read<ProductProvider>();
+    productProvider.setSearchQuery(_searchController.text);
   }
 
-  void _scrollListener() {
+  void _onScroll() {
     if (_scrollController.position.pixels ==
         _scrollController.position.maxScrollExtent) {
       _loadMoreData();
@@ -105,11 +109,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   void _loadMoreData() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final productProvider = Provider.of<ProductProvider>(
-      context,
-      listen: false,
-    );
+    final authProvider = context.read<AuthProvider>();
+    final productProvider = context.read<ProductProvider>();
 
     if (!productProvider.isLoading &&
         productProvider.hasMore &&
@@ -124,25 +125,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
   }
 
-  void _onSearchChanged() {
-    final productProvider = Provider.of<ProductProvider>(
-      context,
-      listen: false,
-    );
-    productProvider.setSearchQuery(_searchController.text);
-  }
-
   void _createOrEdit({Product? item}) async {
     final l10n = AppLocalizations.of(context)!;
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final productProvider = Provider.of<ProductProvider>(
-      context,
-      listen: false,
-    );
-    final categoryProvider = Provider.of<CategoryProvider>(
-      context,
-      listen: false,
-    );
+    final authProvider = context.read<AuthProvider>();
+    final productProvider = context.read<ProductProvider>();
+    final categoryProvider = context.read<CategoryProvider>();
 
     if (authProvider.currentUser == null) return;
 
@@ -370,11 +357,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   void _delete(Product item) async {
     final l10n = AppLocalizations.of(context)!;
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final productProvider = Provider.of<ProductProvider>(
-      context,
-      listen: false,
-    );
+    final authProvider = context.read<AuthProvider>();
+    final productProvider = context.read<ProductProvider>();
 
     if (authProvider.currentUser == null) return;
 
@@ -431,8 +415,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final authProvider = Provider.of<AuthProvider>(context);
-    final productProvider = Provider.of<ProductProvider>(context);
+    final productProvider = context.watch<ProductProvider>();
 
     return Padding(
       padding: Responsive.getPagePadding(context),
@@ -487,12 +470,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             fit: FlexFit.loose,
             child: CustomCard(
               padding: EdgeInsets.zero,
-              child:
-                  productProvider.isLoading && productProvider.products.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
-                  : productProvider.products.isEmpty
-                  ? _buildEmptyState(authProvider, productProvider)
-                  : _buildProductsList(productProvider, l10n),
+              child: _buildContent(productProvider, l10n),
             ),
           ),
         ],
@@ -500,154 +478,206 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
-  Widget _buildEmptyState(
-    AuthProvider authProvider,
-    ProductProvider productProvider,
-  ) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.inventory_2, size: 64, color: Colors.grey),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            productProvider.searchQuery.isEmpty
-                ? 'No products found'
-                : 'No products found for "${productProvider.searchQuery}"',
-            style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
-          ),
-          if (productProvider.searchQuery.isEmpty) ...[
+  Widget _buildContent(ProductProvider provider, AppLocalizations l10n) {
+    if (provider.isLoading && provider.products.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    // if (provider.error != null) {
+    //   return Center(
+    //     child: Column(
+    //       mainAxisAlignment: MainAxisAlignment.center,
+    //       children: [
+    //         Icon(Icons.error, size: 64, color: AppColors.error),
+    //         const SizedBox(height: AppSpacing.md),
+    //         Text('Error: ${provider.error}'),
+    //         const SizedBox(height: AppSpacing.md),
+    //         CustomButton(
+    //           text: 'Retry',
+    //           onPressed: () {
+    //             final authProvider = context.read<AuthProvider>();
+    //             if (authProvider.currentUser != null) {
+    //               provider.loadProducts(authProvider.currentUser!.id);
+    //             }
+    //           },
+    //           variant: ButtonVariant.filled,
+    //         ),
+    //       ],
+    //     ),
+    //   );
+    // }
+
+    final products = provider.products;
+
+    if (products.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inventory_2, size: 64, color: Colors.grey),
             const SizedBox(height: AppSpacing.md),
-            CustomButton(
-              text: 'Add Sample Data',
-              onPressed: () async {
-                if (authProvider.currentUser != null) {
-                  await productProvider.seedInitialData(
-                    authProvider.currentUser!.id,
-                  );
-                }
-              },
-              variant: ButtonVariant.filled,
+            Text(
+              _searchController.text.isEmpty
+                  ? 'No products found'
+                  : 'No products found for "${_searchController.text}"',
+              style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
             ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProductsList(
-    ProductProvider productProvider,
-    AppLocalizations l10n,
-  ) {
-    return Column(
-      children: [
-        Expanded(
-          child: DataTableWidget(
-            columns: [
-              DataColumn(label: Text('ID')),
-              DataColumn(label: Text(l10n.name)),
-              DataColumn(label: Text(l10n.category)),
-              DataColumn(label: Text(l10n.unit)),
-              DataColumn(label: Text(l10n.salePrice)),
-              DataColumn(label: Text(l10n.purchasePrice)),
-              DataColumn(label: Text(l10n.quantity)),
-              DataColumn(label: Text(l10n.status)),
-              DataColumn(label: Text(l10n.actions)),
+            if (_searchController.text.isEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              CustomButton(
+                text: 'Add Sample Data',
+                onPressed: () async {
+                  final authProvider = context.read<AuthProvider>();
+                  if (authProvider.currentUser != null) {
+                    await provider.seedInitialData(
+                      authProvider.currentUser!.id,
+                    );
+                  }
+                },
+                variant: ButtonVariant.filled,
+              ),
             ],
-            rows: productProvider.products
-                .map(
-                  (e) => DataRow(
-                    cells: [
-                      DataCell(Text(e.id)),
-                      DataCell(Text(e.name)),
-                      DataCell(Text(e.category)),
-                      DataCell(Text(e.unit)),
-                      DataCell(Text(e.salePrice.toStringAsFixed(2))),
-                      DataCell(Text(e.purchasePrice.toStringAsFixed(2))),
-                      DataCell(
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('${e.quantity}'),
-                            if (e.quantity < 20) ...[
-                              const SizedBox(width: AppSpacing.xs),
-                              const Icon(
-                                Icons.warning,
-                                color: AppColors.warning,
-                                size: 16,
-                              ),
+          ],
+        ),
+      );
+    }
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (scrollNotification) {
+        if (scrollNotification is ScrollEndNotification &&
+            _scrollController.position.pixels ==
+                _scrollController.position.maxScrollExtent) {
+          _loadMoreData();
+        }
+        return false;
+      },
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        child: Column(
+          children: [
+            DataTableWidget(
+              columns: [
+                DataColumn(label: Text('#')),
+                DataColumn(label: Text(l10n.name)),
+                DataColumn(label: Text(l10n.category)),
+                DataColumn(label: Text(l10n.unit)),
+                DataColumn(label: Text(l10n.salePrice)),
+                DataColumn(label: Text(l10n.purchasePrice)),
+                DataColumn(label: Text(l10n.quantity)),
+                DataColumn(label: Text(l10n.status)),
+                DataColumn(label: Text(l10n.actions)),
+              ],
+              rows: products
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) => DataRow(
+                      cells: [
+                        DataCell(Text('${entry.key + 1}')),
+                        DataCell(Text(entry.value.name)),
+                        DataCell(Text(entry.value.category)),
+                        DataCell(Text(entry.value.unit)),
+                        DataCell(
+                          Text(entry.value.salePrice.toStringAsFixed(2)),
+                        ),
+                        DataCell(
+                          Text(entry.value.purchasePrice.toStringAsFixed(2)),
+                        ),
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('${entry.value.quantity}'),
+                              if (entry.value.quantity < 20) ...[
+                                const SizedBox(width: AppSpacing.xs),
+                                const Icon(
+                                  Icons.warning,
+                                  color: AppColors.warning,
+                                  size: 16,
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                      ),
-                      DataCell(
-                        StatusBadge(
-                          text: e.active ? l10n.active : l10n.inactive,
-                          variant: e.active
-                              ? BadgeVariant.success
-                              : BadgeVariant.neutral,
-                        ),
-                      ),
-                      DataCell(_rowActions(e)),
-                    ],
-                  ),
-                )
-                .toList(),
-            mobileItemBuilder: (context, index) {
-              final item = productProvider.products[index];
-              return CustomCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.name,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                         ),
-                        StatusBadge(
-                          text: item.active ? l10n.active : l10n.inactive,
-                          variant: item.active
-                              ? BadgeVariant.success
-                              : BadgeVariant.neutral,
+                        DataCell(
+                          StatusBadge(
+                            text: entry.value.active
+                                ? l10n.active
+                                : l10n.inactive,
+                            variant: entry.value.active
+                                ? BadgeVariant.success
+                                : BadgeVariant.neutral,
+                          ),
                         ),
+                        DataCell(_rowActions(entry.value)),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      '${item.category} • ${item.unit} • SP: ${item.salePrice.toStringAsFixed(2)} • PP: ${item.purchasePrice.toStringAsFixed(2)} • Qty: ${item.quantity}',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [_rowActions(item)],
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        if (_isLoadingMore || productProvider.isLoading)
-          const Padding(
-            padding: EdgeInsets.all(AppSpacing.md),
-            child: CircularProgressIndicator(),
-          ),
-        if (!productProvider.hasMore && productProvider.products.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Text(
-              'No more products to load',
-              style: TextStyle(color: AppColors.grey600),
+                  )
+                  .toList(),
+              mobileItemBuilder: (context, index) {
+                final item = products[index];
+                return CustomCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${index + 1}. ${item.name}', // Serial number in mobile view
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          StatusBadge(
+                            text: item.active ? l10n.active : l10n.inactive,
+                            variant: item.active
+                                ? BadgeVariant.success
+                                : BadgeVariant.neutral,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        'ID: ${item.id} • ${item.category} • ${item.unit} • SP: ${item.salePrice.toStringAsFixed(2)} • PP: ${item.purchasePrice.toStringAsFixed(2)} • Qty: ${item.quantity}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.grey600,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [_rowActions(item)],
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
-          ),
-      ],
+
+            // Loading more indicator
+            if (_isLoadingMore)
+              const Padding(
+                padding: EdgeInsets.all(AppSpacing.md),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+
+            // No more items indicator
+            if (!provider.hasMore && products.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Text(
+                  'No more products to load',
+                  style: TextStyle(
+                    color: AppColors.grey600,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 

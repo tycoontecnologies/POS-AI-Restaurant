@@ -10,7 +10,8 @@ class SelectReturnItemsScreen extends StatefulWidget {
   const SelectReturnItemsScreen({super.key, required this.sale});
 
   @override
-  State<SelectReturnItemsScreen> createState() => _SelectReturnItemsScreenState();
+  State<SelectReturnItemsScreen> createState() =>
+      _SelectReturnItemsScreenState();
 }
 
 class _SelectReturnItemsScreenState extends State<SelectReturnItemsScreen> {
@@ -29,9 +30,7 @@ class _SelectReturnItemsScreenState extends State<SelectReturnItemsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Select Items to Return'),
-      ),
+      appBar: AppBar(title: const Text('Select Items to Return')),
       body: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
@@ -50,7 +49,7 @@ class _SelectReturnItemsScreenState extends State<SelectReturnItemsScreen> {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
-                      'Total: \$${widget.sale.total.toStringAsFixed(2)}',
+                      'Total: ${widget.sale.total.toStringAsFixed(2)}',
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                     Text(
@@ -73,7 +72,7 @@ class _SelectReturnItemsScreenState extends State<SelectReturnItemsScreen> {
                   return CheckboxListTile(
                     title: Text(item.productName),
                     subtitle: Text(
-                      'Price: \$${item.price.toStringAsFixed(2)} • Qty: ${item.quantity} • Subtotal: \$${(item.price * item.quantity).toStringAsFixed(2)}',
+                      'Price: ${item.price.toStringAsFixed(2)} • Qty: ${item.quantity} • Subtotal: ${(item.price * item.quantity).toStringAsFixed(2)}',
                     ),
                     value: _selectedItems[item.productId] ?? false,
                     onChanged: (value) {
@@ -117,7 +116,10 @@ class _SelectReturnItemsScreenState extends State<SelectReturnItemsScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                     ),
-                    child: const Text('Process Return', style: TextStyle(color: Colors.white)),
+                    child: const Text(
+                      'Process Return',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ),
               ],

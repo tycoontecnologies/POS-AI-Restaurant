@@ -44,7 +44,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
       email: _emailController.text.trim(),
       password: _passwordController.text,
       name: _nameController.text.trim(),
-      role: _selectedRole,
+      // role: _selectedRole,
+      role: UserRole.admin,
     );
 
     if (success && mounted) {
@@ -64,6 +65,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       body: Center(
         child: SingleChildScrollView(
           padding: EdgeInsets.all(isMobile ? AppSpacing.xs : AppSpacing.xl),
@@ -72,6 +74,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               maxWidth: isMobile ? double.infinity : 450,
             ),
             child: CustomCard(
+              color: Colors.white,
               child: Padding(
                 padding: EdgeInsets.all(
                   isMobile ? AppSpacing.xs : AppSpacing.xl,
@@ -139,29 +142,29 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: AppSpacing.md),
-                      DropdownButtonFormField<UserRole>(
-                        value: _selectedRole,
-                        decoration: const InputDecoration(
-                          labelText: 'Role',
-                          prefixIcon: Icon(Icons.people),
-                        ),
-                        items: UserRole.values.map((role) {
-                          return DropdownMenuItem<UserRole>(
-                            value: role,
-                            child: Text(
-                              role.toString().split('.').last.toUpperCase(),
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _selectedRole = value;
-                            });
-                          }
-                        },
-                      ),
+                      // const SizedBox(height: AppSpacing.md),
+                      // DropdownButtonFormField<UserRole>(
+                      //   value: _selectedRole,
+                      //   decoration: const InputDecoration(
+                      //     labelText: 'Role',
+                      //     prefixIcon: Icon(Icons.people),
+                      //   ),
+                      //   items: UserRole.values.map((role) {
+                      //     return DropdownMenuItem<UserRole>(
+                      //       value: role,
+                      //       child: Text(
+                      //         role.toString().split('.').last.toUpperCase(),
+                      //       ),
+                      //     );
+                      //   }).toList(),
+                      //   onChanged: (value) {
+                      //     if (value != null) {
+                      //       setState(() {
+                      //         _selectedRole = value;
+                      //       });
+                      //     }
+                      //   },
+                      // ),
                       const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: _passwordController,

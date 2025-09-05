@@ -371,30 +371,37 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           children: [
             DataTableWidget(
               columns: [
-                DataColumn(label: Text('ID')),
+                DataColumn(label: Text('#')),
                 DataColumn(label: Text(l10n.name)),
                 DataColumn(label: Text(l10n.status)),
                 DataColumn(label: Text(l10n.createdOn)),
                 DataColumn(label: Text(l10n.actions)),
               ],
               rows: categories
+                  .asMap()
+                  .entries
                   .map(
                     (e) => DataRow(
                       cells: [
-                        DataCell(Text(e.id)),
-                        DataCell(Text(e.name)),
+                        DataCell(Text('${e.key + 1}')),
+                        DataCell(Text(e.value.name)),
                         DataCell(
                           StatusBadge(
-                            text: e.active ? l10n.active : l10n.inactive,
-                            variant: e.active
+                            text: e.value.active ? l10n.active : l10n.inactive,
+                            variant: e.value.active
                                 ? BadgeVariant.success
                                 : BadgeVariant.neutral,
                           ),
                         ),
                         DataCell(
-                          Text(e.createdOn.toIso8601String().substring(0, 10)),
+                          Text(
+                            e.value.createdOn.toIso8601String().substring(
+                              0,
+                              10,
+                            ),
+                          ),
                         ),
-                        DataCell(_rowActions(e)),
+                        DataCell(_rowActions(e.value)),
                       ],
                     ),
                   )

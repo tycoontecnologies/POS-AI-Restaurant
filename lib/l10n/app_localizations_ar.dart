@@ -23,6 +23,23 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get attendance => 'الحضور';
 
+  String get addSupplier => 'إضافة مورد';
+  String get editSupplier => 'تعديل المورد';
+  String get contactNumber => 'رقم الاتصال';
+  String get address => 'العنوان';
+  String get amountToReceive => 'المبلغ المستحق';
+  String get amountToPay => 'المبلغ المستحق الدفع';
+  String get supplier => 'المورد';
+  String get addedSuccessfully => 'تمت الإضافة بنجاح';
+  String get updatedSuccessfully => 'تم التحديث بنجاح';
+  String get error => 'خطأ';
+  String get deletedSuccessfully => 'تم الحذف بنجاح';
+  String get errorDeleting => 'خطأ في الحذف';
+  String get search => 'بحث';
+  String get contact => 'اتصال';
+  String get receivable => 'مستحق القبض';
+  String get payable => 'مستحق الدفع';
+
   @override
   String get suppliers => 'الموردون';
 

@@ -14,11 +14,6 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
   final _formKey = GlobalKey<FormState>();
   bool _isSuccess = false;
 
-  void _resetState() {
-    setState(() {
-      _isSuccess = false;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {

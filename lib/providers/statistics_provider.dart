@@ -24,11 +24,6 @@ class StatisticsProvider with ChangeNotifier {
 
   bool get isLoading => _isLoading;
 
-  String _getVendorPath(String collection) {
-    final user = _auth.currentUser;
-    if (user == null) return '';
-    return 'vendors/${user.uid}/$collection';
-  }
 
   Future<void> loadStatistics() async {
     _isLoading = true;
@@ -38,7 +33,6 @@ class StatisticsProvider with ChangeNotifier {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final vendorId = user.uid;
 
       // Listen to all collections simultaneously
       final futures = [

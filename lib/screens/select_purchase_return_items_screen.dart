@@ -108,7 +108,7 @@ class _SelectPurchaseReturnItemsScreenState
                     const SizedBox(height: AppSpacing.sm),
                     Text('Supplier: ${widget.purchase.supplierName}'),
                     Text('Date: ${widget.purchase.date.toLocal().toString().split(' ').first}'),
-                    Text('Total: \$${widget.purchase.total.toStringAsFixed(2)}'),
+                    Text('Total: ${widget.purchase.total.toStringAsFixed(2)}'),
                   ],
                 ),
               ),
@@ -138,8 +138,8 @@ class _SelectPurchaseReturnItemsScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Qty: ${item.quantity}'),
-                          Text('Price: \$${item.unitPrice.toStringAsFixed(2)}'),
-                          Text('Total: \$${item.total.toStringAsFixed(2)}'),
+                          Text('Price: ${item.unitPrice.toStringAsFixed(2)}'),
+                          Text('Total: ${item.total.toStringAsFixed(2)}'),
                         ],
                       ),
                       trailing: Icon(

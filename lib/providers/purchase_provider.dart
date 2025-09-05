@@ -11,6 +11,8 @@ class PurchaseProvider with ChangeNotifier {
   bool _hasMore = true;
   DocumentSnapshot? _lastDocument;
   String _searchQuery = '';
+  String? _error;
+  String? get error => _error;
 
   List<Purchase> get purchases => _filteredPurchases;
   bool get isLoading => _isLoading;
@@ -28,10 +30,9 @@ class PurchaseProvider with ChangeNotifier {
     }
 
     try {
-      final stream = _purchaseService.getPurchasesStream(
-        limit: 20,
-        lastDocument: _lastDocument,
-      ).first;
+      final stream = _purchaseService
+          .getPurchasesStream(limit: 20, lastDocument: _lastDocument)
+          .first;
 
       final newPurchases = await stream;
 
@@ -52,6 +53,18 @@ class PurchaseProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> loadInitialPurchases() async {
+    await loadPurchases(loadMore: false);
+  }
+
+  Future<void> loadMorePurchases() async {
+    await loadPurchases(loadMore: true);
+  }
+
+  void searchPurchases(String query) {
+    setSearchQuery(query);
   }
 
   Future<DocumentSnapshot?> _getLastDocument() async {

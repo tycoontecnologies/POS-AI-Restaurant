@@ -23,8 +23,6 @@ class MonthlyAttendanceScreen extends StatefulWidget {
 
 class _MonthlyAttendanceScreenState extends State<MonthlyAttendanceScreen> {
   DateTime _selectedMonth = DateTime.now();
-  Map<String, List<Attendance>> _monthlyAttendance = {};
-  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {

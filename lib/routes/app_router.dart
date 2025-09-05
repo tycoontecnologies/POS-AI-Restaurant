@@ -60,10 +60,13 @@ class AppRouter {
       ),
       ShellRoute(
         builder: (context, state, child) {
-          final authProvider = Provider.of<AuthProvider>(
-            context,
-            listen: false,
-          );
+          final authProvider = Provider.of<AuthProvider>(context, listen: true);
+
+          // Show loading screen while auth is initializing
+          if (authProvider.isLoading) {
+            return Scaffold(body: Center(child: CircularProgressIndicator()));
+          }
+
           if (!authProvider.isAuthenticated) {
             return const LoginScreen();
           }
@@ -153,6 +156,10 @@ class AppRouter {
     ],
     redirect: (context, state) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+      // Wait until auth is initialized
+      if (authProvider.isLoading) return null;
+
       final isAuthenticated = authProvider.isAuthenticated;
       final isLoginRoute = state.matchedLocation == login;
       final isSignupRoute = state.matchedLocation == signup;

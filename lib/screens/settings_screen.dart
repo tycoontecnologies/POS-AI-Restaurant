@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:pos/l10n/app_localizations.dart';
-import 'package:pos/providers/auth_provider.dart';
 import 'package:pos/widget/forgot_password_dialog.dart';
 import 'package:provider/provider.dart';
 import '../components/ui/custom_card.dart';
@@ -185,90 +184,6 @@ class SettingsScreen extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showResetPasswordDialog(BuildContext context) {
-    final emailController = TextEditingController();
-    Provider.of<AuthProvider>(context, listen: false);
-    final formKey = GlobalKey<FormState>();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset Password'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: emailController,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              hintText: 'Enter your email address',
-            ),
-            keyboardType: TextInputType.emailAddress,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your email';
-              }
-              if (!value.contains('@')) {
-                return 'Please enter a valid email';
-              }
-              return null;
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          Consumer<AuthProvider>(
-            builder: (context, authProvider, child) {
-              return ElevatedButton(
-                onPressed: authProvider.isLoading
-                    ? null
-                    : () async {
-                        if (formKey.currentState!.validate()) {
-                          final success = await authProvider
-                              .sendPasswordResetEmail(
-                                emailController.text.trim(),
-                              );
-
-                          if (success) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Password reset email sent to ${emailController.text.trim()}',
-                                ),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  authProvider.error ??
-                                      'Failed to send reset email',
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                child: authProvider.isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Send Reset Link'),
-              );
-            },
           ),
         ],
       ),

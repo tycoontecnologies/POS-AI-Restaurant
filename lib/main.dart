@@ -1,3 +1,4 @@
+// main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:pos/l10n/app_localizations.dart';
@@ -24,7 +25,7 @@ import 'routes/app_router.dart';
 import 'utils/app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'providers/locale_provider.dart';
-// import 'package:flutter_web_plugins/flutter_web_plugins.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,7 +35,7 @@ void main() async {
 
   if (kIsWeb) {
     // This removes the # from URLs on web
-    // setUrlStrategy(PathUrlStrategy());
+    setUrlStrategy(PathUrlStrategy());
   }
 
   runApp(const MyApp());
@@ -47,7 +48,13 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final provider = AuthProvider();
+            provider.initialize();
+            return provider;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => LocaleProvider()),
         ChangeNotifierProvider(create: (_) => SupplierProvider()),
@@ -79,8 +86,15 @@ class MyApp extends StatelessWidget {
               categoryProvider!,
         ),
       ],
-      child: Consumer2<ThemeProvider, LocaleProvider>(
-        builder: (context, themeProvider, localeProvider, child) {
+      child: Consumer3<AuthProvider, ThemeProvider, LocaleProvider>(
+        builder: (context, authProvider, themeProvider, localeProvider, child) {
+          // Initialize auth if not already initialized
+          if (!authProvider.isLoading && authProvider.currentUser == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              authProvider.initialize();
+            });
+          }
+
           return MaterialApp.router(
             title: 'POS System - Modern Business Management',
             debugShowCheckedModeBanner: false,

@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:pos/models/store_out.dart';
 import 'package:pos/models/product.dart';
 import 'package:pos/providers/store_out_provider.dart';
-import 'package:pos/providers/product_provider.dart';
 import 'package:pos/services/store_out_service.dart';
 import '../components/ui/custom_button.dart';
 import '../components/ui/custom_card.dart';
@@ -26,7 +25,6 @@ class _AddEditStoreOutScreenState extends State<AddEditStoreOutScreen> {
   final _reasonController = TextEditingController();
   final _handledByController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
-  bool _isLoading = false;
 
   List<ProductQuantity> _selectedProducts = [];
   List<Product> _availableProducts = [];
@@ -146,7 +144,6 @@ class _AddEditStoreOutScreenState extends State<AddEditStoreOutScreen> {
     }
 
     setState(() {
-      _isLoading = true;
     });
 
     try {
@@ -178,7 +175,6 @@ class _AddEditStoreOutScreenState extends State<AddEditStoreOutScreen> {
     } finally {
       if (mounted) {
         setState(() {
-          _isLoading = false;
         });
       }
     }

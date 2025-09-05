@@ -20,6 +20,23 @@ class AppLocalizationsUr extends AppLocalizations {
   @override
   String get staff => 'عملہ';
 
+  String get addSupplier => 'سپلائر شامل کریں';
+String get editSupplier => 'سپلائر میں تبدیلی';
+String get contactNumber => 'رابطہ نمبر';
+String get address => 'پتہ';
+String get amountToReceive => 'وصول ہونے والی رقم';
+String get amountToPay => 'ادا کرنے والی رقم';
+String get supplier => 'سپلائر';
+String get addedSuccessfully => 'کامیابی سے شامل ہو گیا';
+String get updatedSuccessfully => 'کامیابی سے اپ ڈیٹ ہو گیا';
+String get error => 'خرابی';
+String get deletedSuccessfully => 'کامیابی سے حذف ہو گیا';
+String get errorDeleting => 'حذف کرنے میں خرابی';
+String get search => 'تلاش کریں';
+String get contact => 'رابطہ';
+String get receivable => 'وصول ہونے والا';
+String get payable => 'ادا کرنے والا';
+
   @override
   String get attendance => 'حاضری';
 

@@ -52,95 +52,12 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showResetPasswordDialog(BuildContext context) {
-    final emailController = TextEditingController();
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final formKey = GlobalKey<FormState>();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset Password'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: emailController,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              hintText: 'Enter your email address',
-            ),
-            keyboardType: TextInputType.emailAddress,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your email';
-              }
-              if (!value.contains('@')) {
-                return 'Please enter a valid email';
-              }
-              return null;
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          Consumer<AuthProvider>(
-            builder: (context, authProvider, child) {
-              return ElevatedButton(
-                onPressed: authProvider.isLoading
-                    ? null
-                    : () async {
-                        if (formKey.currentState!.validate()) {
-                          final success = await authProvider
-                              .sendPasswordResetEmail(
-                                emailController.text.trim(),
-                              );
-
-                          if (success && mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Password reset email sent to ${emailController.text.trim()}',
-                                ),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          } else if (!success && mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  authProvider.error ??
-                                      'Failed to send reset email',
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                child: authProvider.isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Send Reset Link'),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       body: Center(
         child: SingleChildScrollView(
           padding: EdgeInsets.all(isMobile ? AppSpacing.xs : AppSpacing.xl),
@@ -149,6 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
               maxWidth: isMobile ? double.infinity : 400,
             ),
             child: CustomCard(
+              color: Colors.white,
               child: Padding(
                 padding: EdgeInsets.all(
                   isMobile ? AppSpacing.xs : AppSpacing.xl,

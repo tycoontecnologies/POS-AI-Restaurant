@@ -32,7 +32,6 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
   String? _error;
 
   // Pagination variables
-  int _currentPage = 1;
   final int _itemsPerPage = 20;
   bool _hasMore = true;
   final List<Sale> _allSales = [];
@@ -81,7 +80,6 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
           _allSales.clear();
           _allSales.addAll(saleProvider.sales);
           _hasMore = saleProvider.sales.length >= _itemsPerPage;
-          _currentPage = 1;
         });
       } catch (e) {
         setState(() {
@@ -107,7 +105,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
     if (_isLoadingMore || !_hasMore) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final saleProvider = Provider.of<SaleProvider>(context, listen: false);
+    Provider.of<SaleProvider>(context, listen: false);
 
     if (authProvider.currentUser != null) {
       setState(() => _isLoadingMore = true);
@@ -173,7 +171,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
   String _formatProductNames(List<SaleItem> items) {
     if (items.isEmpty) return 'No items';
 
-    final productNames = items.map((item) => item.productName).toList();
+    items.map((item) => item.productName).toList();
 
     // Group by product name and show quantity if multiple
     final grouped = groupBy(items, (item) => item.productName);
@@ -215,7 +213,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                 const SizedBox(height: AppSpacing.md),
                 Text('Sale ID: ${sale.id}'),
                 Text('Date: ${_formatDate(sale.createdAt)}'),
-                Text('Total: \$${sale.total.toStringAsFixed(2)}'),
+                Text('Total: ${sale.total.toStringAsFixed(2)}'),
                 const SizedBox(height: AppSpacing.lg),
                 const Divider(),
                 const SizedBox(height: AppSpacing.md),
@@ -240,12 +238,12 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                           cells: [
                             DataCell(Text(item.productName)),
                             DataCell(
-                              Text('\$${item.price.toStringAsFixed(2)}'),
+                              Text('${item.price.toStringAsFixed(2)}'),
                             ),
                             DataCell(Text('${item.quantity}')),
                             DataCell(
                               Text(
-                                '\$${(item.price * item.quantity).toStringAsFixed(2)}',
+                                '${(item.price * item.quantity).toStringAsFixed(2)}',
                               ),
                             ),
                           ],
@@ -271,14 +269,6 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
     );
   }
 
-  void _printReceipt(Sale sale) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Printing receipt for sale ${sale.id}'),
-        backgroundColor: AppColors.success,
-      ),
-    );
-  }
 
   Widget _rowActions(Sale sale) {
     return // In the mobileItemBuilder section of sale_record.dart, update the actions row:
@@ -364,7 +354,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Return processed successfully for \$${totalRefund.toStringAsFixed(2)}',
+              'Return processed successfully for ${totalRefund.toStringAsFixed(2)}',
             ),
             backgroundColor: AppColors.success,
           ),
@@ -438,7 +428,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Return processed successfully for \$${totalRefund.toStringAsFixed(2)}',
+              'Return processed successfully for ${totalRefund.toStringAsFixed(2)}',
             ),
             backgroundColor: AppColors.success,
           ),
@@ -491,7 +481,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final saleProvider = Provider.of<SaleProvider>(context);
+    Provider.of<SaleProvider>(context);
     final l10n = AppLocalizations.of(context)!;
     final paginatedSales = _getPaginatedSales(_allSales);
     final filteredSales = _filterSales(_allSales);
@@ -672,7 +662,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                         ),
                         DataCell(
                           Text(
-                            '\$${sale.total.toStringAsFixed(2)}',
+                            '${sale.total.toStringAsFixed(2)}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary,
@@ -701,7 +691,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                             ),
                           ),
                           Text(
-                            '\$${sale.total.toStringAsFixed(2)}',
+                            '${sale.total.toStringAsFixed(2)}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary,

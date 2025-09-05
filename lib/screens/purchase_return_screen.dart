@@ -173,7 +173,7 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
                 Text('Supplier: ${purchaseReturn.supplierName}'),
                 Text('Date: ${_formatDate(purchaseReturn.createdAt)}'),
                 Text(
-                  'Total Refund: \$${purchaseReturn.totalRefund.toStringAsFixed(2)}',
+                  'Total Refund: ${purchaseReturn.totalRefund.toStringAsFixed(2)}',
                 ),
                 Text('Reason: ${purchaseReturn.reason}'),
                 const SizedBox(height: AppSpacing.lg),
@@ -204,12 +204,12 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
                             DataCell(Text(item.productName)),
                             DataCell(
                               Text(
-                                '\$${item.originalPrice.toStringAsFixed(2)}',
+                                '${item.originalPrice.toStringAsFixed(2)}',
                               ),
                             ),
                             DataCell(Text('${item.returnedQuantity}')),
                             DataCell(
-                              Text('\$${item.refundAmount.toStringAsFixed(2)}'),
+                              Text('${item.refundAmount.toStringAsFixed(2)}'),
                             ),
                           ],
                         );
@@ -254,7 +254,7 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
   @override
   Widget build(BuildContext context) {
     final purchaseReturnProvider = context.watch<PurchaseReturnProvider>();
-    final authProvider = context.watch<AuthProvider>();
+    context.watch<AuthProvider>();
     final l10n = AppLocalizations.of(context)!;
 
     final filteredPurchaseReturns = _filterPurchaseReturns(
@@ -471,7 +471,7 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
                         ),
                         DataCell(
                           Text(
-                            '\$${purchaseReturn.totalRefund.toStringAsFixed(2)}',
+                            '${purchaseReturn.totalRefund.toStringAsFixed(2)}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: AppColors.error,
@@ -513,7 +513,7 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
                             ),
                           ),
                           Text(
-                            '\$${purchaseReturn.totalRefund.toStringAsFixed(2)}',
+                            '${purchaseReturn.totalRefund.toStringAsFixed(2)}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: AppColors.error,
