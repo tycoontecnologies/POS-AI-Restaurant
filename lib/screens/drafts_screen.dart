@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pos/models/draft.dart';
+import 'package:pos/utils/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import '../components/ui/custom_button.dart';
@@ -123,7 +124,7 @@ class _DraftsScreenState extends State<DraftsScreen> {
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.onBackground,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
@@ -205,74 +206,75 @@ class _DraftsScreenState extends State<DraftsScreen> {
                     padding: EdgeInsets.zero,
                     child: DataTableWidget(
                       columns: const [
-                        DataColumn(label: Text('ID')),
-                        DataColumn(label: Text('Type')),
+                        DataColumn(label: Text('#')),
                         DataColumn(label: Text('Products')),
                         DataColumn(label: Text('Total')),
                         DataColumn(label: Text('Date')),
-                        DataColumn(label: Text('Status')),
                         DataColumn(label: Text('Actions')),
                       ],
-                      rows: draftProvider.drafts
-                          .map(
-                            (draft) => DataRow(
-                              cells: [
-                                DataCell(Text(draft.id.substring(0, 8))),
-                                DataCell(Text(draft.type)),
-                                DataCell(
-                                  SizedBox(
-                                    width: 200, // Adjust width as needed
-                                    child: Tooltip(
-                                      message: _formatProductNames(
-                                        draft.cartItems,
-                                      ),
-                                      child: Text(
-                                        _formatProductNames(draft.cartItems),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
+                      rows: draftProvider.drafts.asMap().entries.map((entry) {
+                        final index =
+                            entry.key + 1; // Serial number starts at 1
+                        final draft = entry.value;
+
+                        return DataRow(
+                          cells: [
+                            DataCell(Text('$index')),
+                            DataCell(
+                              SizedBox(
+                                width: 200,
+                                child: Tooltip(
+                                  message: _formatProductNames(draft.cartItems),
+                                  child: Text(
+                                    _formatProductNames(draft.cartItems),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                DataCell(
-                                  Text(
-                                    draft.total == 0
-                                        ? '-'
-                                        : draft.total.toStringAsFixed(2),
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    '${draft.date.toLocal()}'.split(' ').first,
-                                  ),
-                                ),
-                                DataCell(StatusBadge(text: draft.status)),
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.edit, size: 18),
-                                        onPressed: () =>
-                                            _loadDraftToSales(draft),
-                                        tooltip: 'Edit Draft',
-                                      ),
-                                      const SizedBox(width: AppSpacing.xs),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.delete,
-                                          size: 18,
-                                        ),
-                                        onPressed: () => _deleteDraft(draft.id),
-                                        tooltip: 'Delete Draft',
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          )
-                          .toList(),
+                            DataCell(
+                              Text(
+                                draft.total == 0
+                                    ? '-'
+                                    : draft.total.toStringAsFixed(2),
+                              ),
+                            ),
+                            DataCell(
+                              Text('${draft.date.toLocal()}'.split(' ').first),
+                            ),
+                            DataCell(
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, size: 18),
+                                    onPressed: () => _loadDraftToSales(draft),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: AppColors.primary
+                                          .withOpacity(0.1),
+                                      foregroundColor: AppColors.primary,
+                                    ),
+                                    tooltip: 'Edit Draft',
+                                  ),
+                                  const SizedBox(width: AppSpacing.xs),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete, size: 18),
+                                    onPressed: () => _deleteDraft(draft.id),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: AppColors.error
+                                          .withOpacity(0.1),
+                                      foregroundColor: AppColors.error,
+                                    ),
+                                    tooltip: 'Delete Draft',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+
                       mobileItemBuilder: (context, index) {
                         final draft = draftProvider.drafts[index];
                         return CustomCard(
@@ -305,7 +307,7 @@ class _DraftsScreenState extends State<DraftsScreen> {
                               ),
                               const SizedBox(height: AppSpacing.xs),
                               Text(
-                                'Total: ${draft.total == 0 ? '-' : '${draft.total.toStringAsFixed(2)}'}',
+                                'Total: ${draft.total == 0 ? '-' : draft.total.toStringAsFixed(2)}',
                               ),
                               const SizedBox(height: AppSpacing.xs),
                               Text(

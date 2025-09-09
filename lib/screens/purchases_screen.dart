@@ -346,13 +346,9 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                         return DataRow(
                           cells: [
                             DataCell(Text(item.productName)),
-                            DataCell(
-                              Text('${item.unitPrice.toStringAsFixed(2)}'),
-                            ),
+                            DataCell(Text(item.unitPrice.toStringAsFixed(2))),
                             DataCell(Text('${item.quantity}')),
-                            DataCell(
-                              Text('${item.total.toStringAsFixed(2)}'),
-                            ),
+                            DataCell(Text(item.total.toStringAsFixed(2))),
                           ],
                         );
                       }).toList(),
@@ -497,61 +493,46 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
           children: [
             DataTableWidget(
               columns: const [
-                DataColumn(label: Text('ID')),
+                DataColumn(label: Text('#')),
                 DataColumn(label: Text('Supplier')),
                 DataColumn(label: Text('Items')),
                 DataColumn(label: Text('Total')),
                 DataColumn(label: Text('Date')),
-                DataColumn(label: Text('Status')),
                 DataColumn(label: Text('Actions')),
               ],
-              rows: purchases
-                  .map(
-                    (purchase) => DataRow(
-                      cells: [
-                        DataCell(
-                          SizedBox(
-                            width: 100,
-                            child: Tooltip(
-                              message: purchase.id,
-                              child: Text(
-                                purchase.id,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontFamily: 'Monospace'),
-                              ),
-                            ),
+              rows: purchases.asMap().entries.map((entry) {
+                final index = entry.key + 1; // Serial numbers start from 1
+                final purchase = entry.value;
+
+                return DataRow(
+                  cells: [
+                    DataCell(Text('$index')), // <-- Serial number column
+                    DataCell(Text(purchase.supplierName)),
+                    DataCell(
+                      SizedBox(
+                        width: 200,
+                        child: Tooltip(
+                          message: purchase.items
+                              .map((item) => item.productName)
+                              .join(', '),
+                          child: Text(
+                            purchase.items
+                                .map((item) => item.productName)
+                                .join(', '),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        DataCell(Text(purchase.supplierName)),
-                        DataCell(
-                          SizedBox(
-                            width: 200,
-                            child: Tooltip(
-                              message: purchase.items
-                                  .map((item) => item.productName)
-                                  .join(', '),
-                              child: Text(
-                                purchase.items
-                                    .map((item) => item.productName)
-                                    .join(', '),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Text('${purchase.total.toStringAsFixed(2)}'),
-                        ),
-                        DataCell(
-                          Text('${purchase.date.toLocal()}'.split(' ').first),
-                        ),
-                        DataCell(StatusBadge(text: purchase.status)),
-                        DataCell(_rowActions(purchase)),
-                      ],
+                      ),
                     ),
-                  )
-                  .toList(),
+                    DataCell(Text(purchase.total.toStringAsFixed(2))),
+                    DataCell(
+                      Text('${purchase.date.toLocal()}'.split(' ').first),
+                    ),
+                    DataCell(_rowActions(purchase)),
+                  ],
+                );
+              }).toList(),
               mobileItemBuilder: (context, index) {
                 final purchase = purchases[index];
                 return CustomCard(
@@ -642,7 +623,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.onBackground,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                     ),
                     const SizedBox(height: AppSpacing.xs),

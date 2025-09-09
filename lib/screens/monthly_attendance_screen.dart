@@ -46,7 +46,7 @@ class _MonthlyAttendanceScreenState extends State<MonthlyAttendanceScreen> {
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.onBackground,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
@@ -169,7 +169,7 @@ class _MonthlyAttendanceScreenState extends State<MonthlyAttendanceScreen> {
                                   ),
                                 ),
                                 DataCell(
-                                  Text('${totalWage.toStringAsFixed(2)}'),
+                                  Text(totalWage.toStringAsFixed(2)),
                                 ),
                                 DataCell(
                                   IconButton(
@@ -237,7 +237,7 @@ class _MonthlyAttendanceScreenState extends State<MonthlyAttendanceScreen> {
                   DataCell(Text(DateFormat('dd/MM/yyyy').format(a.date))),
                   DataCell(Text(a.isPresent ? 'Present' : 'Absent')),
                   DataCell(Text(a.calculatedHours.toStringAsFixed(1))),
-                  DataCell(Text('${a.calculatedWage.toStringAsFixed(2)}')),
+                  DataCell(Text(a.calculatedWage.toStringAsFixed(2))),
                 ],
               );
             }).toList(),

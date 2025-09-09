@@ -299,7 +299,7 @@ class _SalesScreenState extends State<SalesScreen> {
                     pw.Text((item.price * item.quantity).toStringAsFixed(2)),
                   ],
                 );
-              }).toList(),
+              }),
               pw.Divider(),
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -410,7 +410,7 @@ class _SalesScreenState extends State<SalesScreen> {
           l10n.sales,
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.w700,
-            color: colorScheme.onBackground,
+            color: colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
@@ -449,7 +449,7 @@ class _SalesScreenState extends State<SalesScreen> {
                 final product = filteredProducts[index];
                 return CustomCard(
                   padding: const EdgeInsets.all(AppSpacing.md),
-                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   onTap: () => _addToCart(product),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -588,7 +588,7 @@ class _SalesScreenState extends State<SalesScreen> {
                           decoration: BoxDecoration(
                             color: Theme.of(
                               context,
-                            ).colorScheme.surfaceVariant.withOpacity(0.5),
+                            ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
                             borderRadius: BorderRadius.circular(
                               AppSpacing.radiusSm,
                             ),
@@ -636,7 +636,7 @@ class _SalesScreenState extends State<SalesScreen> {
                                     style: IconButton.styleFrom(
                                       backgroundColor: Theme.of(
                                         context,
-                                      ).colorScheme.surfaceVariant,
+                                      ).colorScheme.surfaceContainerHighest,
                                       minimumSize: const Size(32, 32),
                                     ),
                                   ),
@@ -711,7 +711,7 @@ class _SalesScreenState extends State<SalesScreen> {
                       ),
                     ),
                     Text(
-                      '${_total.toStringAsFixed(2)}',
+                      _total.toStringAsFixed(2),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: Theme.of(context).colorScheme.primary,

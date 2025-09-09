@@ -158,7 +158,6 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final colorScheme = Theme.of(context).colorScheme;
     final attendanceProvider = Provider.of<AttendanceProvider>(context);
     final staffProvider = Provider.of<StaffProvider>(context);
 
@@ -201,7 +200,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                   fontWeight: FontWeight.w700,
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.onBackground,
+                                  ).colorScheme.onSurface,
                                 ),
                           ),
                           const SizedBox(height: AppSpacing.xs),

@@ -62,7 +62,9 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
 
     if (authProvider.currentUser != null) {
       try {
-        await purchaseReturnProvider.fetchPurchaseReturns(authProvider.currentUser!.id);
+        await purchaseReturnProvider.fetchPurchaseReturns(
+          authProvider.currentUser!.id,
+        );
       } catch (e) {
         setState(() {
           _error = e.toString();
@@ -111,7 +113,9 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
     }
   }
 
-  List<PurchaseReturn> _filterPurchaseReturns(List<PurchaseReturn> purchaseReturns) {
+  List<PurchaseReturn> _filterPurchaseReturns(
+    List<PurchaseReturn> purchaseReturns,
+  ) {
     if (_searchQuery.isEmpty) return purchaseReturns;
 
     final query = _searchQuery.toLowerCase();
@@ -169,7 +173,9 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text('Return ID: ${purchaseReturn.id}'),
-                Text('Original Purchase ID: ${purchaseReturn.originalPurchaseId}'),
+                Text(
+                  'Original Purchase ID: ${purchaseReturn.originalPurchaseId}',
+                ),
                 Text('Supplier: ${purchaseReturn.supplierName}'),
                 Text('Date: ${_formatDate(purchaseReturn.createdAt)}'),
                 Text(
@@ -203,13 +209,11 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
                           cells: [
                             DataCell(Text(item.productName)),
                             DataCell(
-                              Text(
-                                '${item.originalPrice.toStringAsFixed(2)}',
-                              ),
+                              Text(item.originalPrice.toStringAsFixed(2)),
                             ),
                             DataCell(Text('${item.returnedQuantity}')),
                             DataCell(
-                              Text('${item.refundAmount.toStringAsFixed(2)}'),
+                              Text(item.refundAmount.toStringAsFixed(2)),
                             ),
                           ],
                         );
@@ -404,99 +408,89 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
           children: [
             DataTableWidget(
               columns: [
-                DataColumn(label: Text('Return ID')),
+                DataColumn(label: Text('#')),
                 DataColumn(label: Text('Purchase ID')),
                 DataColumn(label: Text('Supplier')),
                 DataColumn(label: Text('Products')),
-                DataColumn(label: Text('Refund Amount'), numeric: true),
+                DataColumn(label: Text('Refund Amount')),
                 DataColumn(label: Text('Reason')),
                 DataColumn(label: Text('Date')),
                 DataColumn(label: Text('Actions')),
               ],
-              rows: filteredPurchaseReturns
-                  .map(
-                    (purchaseReturn) => DataRow(
-                      cells: [
-                        DataCell(
-                          SizedBox(
-                            width: 120,
-                            child: Tooltip(
-                              message: purchaseReturn.id,
-                              child: Text(
-                                purchaseReturn.id.substring(0, 8),
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontFamily: 'Monospace'),
-                              ),
-                            ),
+              rows: filteredPurchaseReturns.asMap().entries.map((entry) {
+                final index = entry.key + 1; // Serial numbers starting from 1
+                final purchaseReturn = entry.value;
+
+                return DataRow(
+                  cells: [
+                    DataCell(Text('$index')),
+                    DataCell(
+                      SizedBox(
+                        width: 120,
+                        child: Tooltip(
+                          message: purchaseReturn.originalPurchaseId,
+                          child: Text(
+                            purchaseReturn.originalPurchaseId.substring(0, 8),
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontFamily: 'Monospace'),
                           ),
                         ),
-                        DataCell(
-                          SizedBox(
-                            width: 120,
-                            child: Tooltip(
-                              message: purchaseReturn.originalPurchaseId,
-                              child: Text(
-                                purchaseReturn.originalPurchaseId.substring(0, 8),
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontFamily: 'Monospace'),
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          SizedBox(
-                            width: 150,
-                            child: Tooltip(
-                              message: purchaseReturn.supplierName,
-                              child: Text(
-                                purchaseReturn.supplierName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          SizedBox(
-                            width: 200,
-                            child: Tooltip(
-                              message: _formatProductNames(purchaseReturn.items),
-                              child: Text(
-                                _formatProductNames(purchaseReturn.items),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Text(
-                            '${purchaseReturn.totalRefund.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.error,
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          SizedBox(
-                            width: 150,
-                            child: Tooltip(
-                              message: purchaseReturn.reason,
-                              child: Text(
-                                purchaseReturn.reason,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(Text(_formatDate(purchaseReturn.createdAt))),
-                        DataCell(_rowActions(purchaseReturn)),
-                      ],
+                      ),
                     ),
-                  )
-                  .toList(),
+                    DataCell(
+                      SizedBox(
+                        width: 150,
+                        child: Tooltip(
+                          message: purchaseReturn.supplierName,
+                          child: Text(
+                            purchaseReturn.supplierName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      SizedBox(
+                        width: 200,
+                        child: Tooltip(
+                          message: _formatProductNames(purchaseReturn.items),
+                          child: Text(
+                            _formatProductNames(purchaseReturn.items),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        purchaseReturn.totalRefund.toStringAsFixed(2),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.error,
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      SizedBox(
+                        width: 150,
+                        child: Tooltip(
+                          message: purchaseReturn.reason,
+                          child: Text(
+                            purchaseReturn.reason,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
+                    DataCell(Text(_formatDate(purchaseReturn.createdAt))),
+                    DataCell(_rowActions(purchaseReturn)),
+                  ],
+                );
+              }).toList(),
+
               mobileItemBuilder: (context, index) {
                 final purchaseReturn = filteredPurchaseReturns[index];
                 return CustomCard(
@@ -513,7 +507,7 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
                             ),
                           ),
                           Text(
-                            '${purchaseReturn.totalRefund.toStringAsFixed(2)}',
+                            purchaseReturn.totalRefund.toStringAsFixed(2),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: AppColors.error,
@@ -571,7 +565,8 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
               ),
 
             // No more items indicator
-            if (!purchaseReturnProvider.hasMore && filteredPurchaseReturns.isNotEmpty)
+            if (!purchaseReturnProvider.hasMore &&
+                filteredPurchaseReturns.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: Text(

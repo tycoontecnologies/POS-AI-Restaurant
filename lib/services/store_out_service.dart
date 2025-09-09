@@ -16,6 +16,27 @@ class StoreOutService {
     return user.uid; // Using user UID as vendor ID
   }
 
+  // Update the getStoreOuts method to return both data and last document
+  Future<Map<String, dynamic>> getStoreOutsWithPagination({
+    int limit = 10,
+    DocumentSnapshot? lastDocument,
+  }) async {
+    final query = getStoreOutsQuery(limit: limit, lastDocument: lastDocument);
+    final snapshot = await query.get();
+
+    final storeOuts = snapshot.docs
+        .map(
+          (doc) => StoreOut.fromMap(doc.data() as Map<String, dynamic>, doc.id),
+        )
+        .toList();
+
+    final newLastDocument = snapshot.docs.isNotEmpty
+        ? snapshot.docs.last
+        : null;
+
+    return {'storeOuts': storeOuts, 'lastDocument': newLastDocument};
+  }
+
   // Get store-outs collection for current vendor
   CollectionReference _getStoreOutsCollection() {
     final vendorId = _getCurrentVendorId();

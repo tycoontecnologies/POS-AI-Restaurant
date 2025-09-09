@@ -50,8 +50,8 @@ class DataTableWidget extends StatelessWidget {
                 showCheckboxColumn: showCheckboxColumn,
                 columnSpacing: columnSpacing ?? AppSpacing.lg,
                 horizontalMargin: AppSpacing.md,
-                headingRowColor: MaterialStateProperty.all(
-                  Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.6),
+                headingRowColor: WidgetStateProperty.all(
+                  Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.6),
                 ),
                 headingTextStyle: Theme.of(context).textTheme.labelLarge
                     ?.copyWith(

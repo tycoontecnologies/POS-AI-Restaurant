@@ -22,9 +22,7 @@ class DraftProvider with ChangeNotifier {
 
   // Initialize vendorId from AuthProvider
   void initialize(String vendorId) {
-    if (_vendorId == null) {
-      _vendorId = vendorId;
-    }
+    _vendorId ??= vendorId;
   }
 
   Future<void> loadDrafts({bool loadMore = false}) async {

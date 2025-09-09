@@ -1,1 +1,38 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"pos-tycoon","appId":"1:37539554666:android:1957b362b63e6136ff7113","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"pos-tycoon","configurations":{"android":"1:37539554666:android:1957b362b63e6136ff7113","ios":"1:37539554666:ios:1302c920c3c36a9eff7113","web":"1:37539554666:web:daa0155ca44716e0ff7113","windows":"1:37539554666:web:37874cc79e95b54eff7113"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "pos-tycoon",
+          "appId": "1:37539554666:android:1957b362b63e6136ff7113",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "pos-tycoon",
+          "configurations": {
+            "android": "1:37539554666:android:1957b362b63e6136ff7113",
+            "ios": "1:37539554666:ios:1302c920c3c36a9eff7113",
+            "web": "1:37539554666:web:daa0155ca44716e0ff7113",
+            "windows": "1:37539554666:web:37874cc79e95b54eff7113"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+    {
+      "source": "**",
+      "destination": "/index.html"
+    }
+  ]
+  }
+}

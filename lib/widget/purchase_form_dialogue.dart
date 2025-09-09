@@ -232,7 +232,7 @@ class _PurchaseFormDialogState extends State<PurchaseFormDialog> {
                                   spacing: AppSpacing.sm,
                                   children: [
                                     Text(
-                                      '${entry.value.total.toStringAsFixed(2)}',
+                                      entry.value.total.toStringAsFixed(2),
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                       ),

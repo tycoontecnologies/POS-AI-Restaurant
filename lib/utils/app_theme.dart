@@ -157,7 +157,7 @@ class AppTheme {
     ),
 
     dataTableTheme: DataTableThemeData(
-      headingRowColor: MaterialStateProperty.all(AppColors.grey50),
+      headingRowColor: WidgetStateProperty.all(AppColors.grey50),
       headingTextStyle: AppTypography.labelLarge.copyWith(
         color: AppColors.grey700,
         fontWeight: FontWeight.w600,
@@ -365,7 +365,7 @@ class AppTheme {
     ),
 
     dataTableTheme: DataTableThemeData(
-      headingRowColor: MaterialStateProperty.all(AppColors.grey800),
+      headingRowColor: WidgetStateProperty.all(AppColors.grey800),
       headingTextStyle: AppTypography.labelLarge.copyWith(
         color: AppColors.grey200,
         fontWeight: FontWeight.w600,

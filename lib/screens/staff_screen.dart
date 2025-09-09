@@ -157,8 +157,9 @@ class _StaffScreenState extends State<StaffScreen> {
                               firstDate: DateTime(2000),
                               lastDate: DateTime(2100),
                             );
-                            if (picked != null)
+                            if (picked != null) {
                               setDialogState(() => createdOn = picked);
+                            }
                           },
                         ),
                       ],
@@ -178,8 +179,9 @@ class _StaffScreenState extends State<StaffScreen> {
                 onPressed: () {
                   final wage = double.tryParse(wageCtrl.text.trim()) ?? 0;
                   if (roleCtrl.text.trim().isEmpty ||
-                      nameCtrl.text.trim().isEmpty)
+                      nameCtrl.text.trim().isEmpty) {
                     return;
+                  }
                   Navigator.pop(
                     context,
                     _StaffFormResult(
@@ -319,7 +321,7 @@ class _StaffScreenState extends State<StaffScreen> {
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.onBackground,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
@@ -526,7 +528,6 @@ class _StaffScreenState extends State<StaffScreen> {
               DataColumn(label: Text('Daily Wage')),
               DataColumn(label: Text('Contact Number')),
               DataColumn(label: Text('Join Date')),
-              DataColumn(label: Text('Status')),
               DataColumn(label: Text('Actions')),
             ],
             rows: staffList.asMap().entries.map((entry) {
@@ -538,10 +539,9 @@ class _StaffScreenState extends State<StaffScreen> {
                   DataCell(Text('${index + 1}')),
                   DataCell(Text(e.role)),
                   DataCell(Text(e.name)),
-                  DataCell(Text('${e.dailyWage.toStringAsFixed(0)}')),
+                  DataCell(Text(e.dailyWage.toStringAsFixed(0))),
                   DataCell(Text(e.phone)),
                   DataCell(Text('${e.joinDate.toLocal()}'.split(' ').first)),
-                  DataCell(StatusBadge(text: e.active ? 'Active' : 'Inactive')),
                   DataCell(_rowActions(e, provider.isLoading)),
                 ],
               );

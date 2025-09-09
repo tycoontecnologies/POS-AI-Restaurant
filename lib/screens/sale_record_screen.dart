@@ -237,13 +237,11 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                         return DataRow(
                           cells: [
                             DataCell(Text(item.productName)),
-                            DataCell(
-                              Text('${item.price.toStringAsFixed(2)}'),
-                            ),
+                            DataCell(Text(item.price.toStringAsFixed(2))),
                             DataCell(Text('${item.quantity}')),
                             DataCell(
                               Text(
-                                '${(item.price * item.quantity).toStringAsFixed(2)}',
+                                (item.price * item.quantity).toStringAsFixed(2),
                               ),
                             ),
                           ],
@@ -268,7 +266,6 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       ),
     );
   }
-
 
   Widget _rowActions(Sale sale) {
     return // In the mobileItemBuilder section of sale_record.dart, update the actions row:
@@ -624,57 +621,48 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
           children: [
             DataTableWidget(
               columns: [
-                DataColumn(label: Text('ID')),
+                DataColumn(label: Text('#')),
                 DataColumn(label: Text('Products')),
-                DataColumn(label: Text('Total'), numeric: true),
+                DataColumn(label: Text('Total')),
                 DataColumn(label: Text('Date')),
                 DataColumn(label: Text('Actions')),
               ],
-              rows: paginatedSales
-                  .map(
-                    (sale) => DataRow(
-                      cells: [
-                        DataCell(
-                          SizedBox(
-                            width: 150,
-                            child: Tooltip(
-                              message: sale.id,
-                              child: Text(
-                                sale.id,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontFamily: 'Monospace'),
-                              ),
-                            ),
+              rows: paginatedSales.asMap().entries.map((entry) {
+                final index = entry.key;
+                final sale = entry.value;
+                final serialNumber = index + 1; // Serial number starts from 1
+
+                return DataRow(
+                  cells: [
+                    DataCell(Text('$serialNumber')),
+                    DataCell(
+                      SizedBox(
+                        width: 300,
+                        child: Tooltip(
+                          message: _formatProductNames(sale.items),
+                          child: Text(
+                            _formatProductNames(sale.items),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        DataCell(
-                          SizedBox(
-                            width: 300,
-                            child: Tooltip(
-                              message: _formatProductNames(sale.items),
-                              child: Text(
-                                _formatProductNames(sale.items),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Text(
-                            '${sale.total.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
-                        DataCell(Text(_formatDate(sale.createdAt))),
-                        DataCell(_rowActions(sale)),
-                      ],
+                      ),
                     ),
-                  )
-                  .toList(),
+                    DataCell(
+                      Text(
+                        sale.total.toStringAsFixed(2),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    DataCell(Text(_formatDate(sale.createdAt))),
+                    DataCell(_rowActions(sale)),
+                  ],
+                );
+              }).toList(),
+
               mobileItemBuilder: (context, index) {
                 final sale = paginatedSales[index];
                 return CustomCard(
@@ -691,7 +679,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                             ),
                           ),
                           Text(
-                            '${sale.total.toStringAsFixed(2)}',
+                            sale.total.toStringAsFixed(2),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary,

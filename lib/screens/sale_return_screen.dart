@@ -200,13 +200,11 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
                           cells: [
                             DataCell(Text(item.productName)),
                             DataCell(
-                              Text(
-                                '${item.originalPrice.toStringAsFixed(2)}',
-                              ),
+                              Text(item.originalPrice.toStringAsFixed(2)),
                             ),
                             DataCell(Text('${item.returnedQuantity}')),
                             DataCell(
-                              Text('${item.refundAmount.toStringAsFixed(2)}'),
+                              Text(item.refundAmount.toStringAsFixed(2)),
                             ),
                           ],
                         );
@@ -401,85 +399,75 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
           children: [
             DataTableWidget(
               columns: [
-                DataColumn(label: Text('Return ID')),
+                DataColumn(label: Text('#')),
                 DataColumn(label: Text('Sale ID')),
                 DataColumn(label: Text('Products')),
-                DataColumn(label: Text('Refund Amount'), numeric: true),
+                DataColumn(label: Text('Refund Amount')),
                 DataColumn(label: Text('Reason')),
                 DataColumn(label: Text('Date')),
                 DataColumn(label: Text('Actions')),
               ],
-              rows: filteredSaleReturns
-                  .map(
-                    (saleReturn) => DataRow(
-                      cells: [
-                        DataCell(
-                          SizedBox(
-                            width: 120,
-                            child: Tooltip(
-                              message: saleReturn.id,
-                              child: Text(
-                                saleReturn.id.substring(0, 8),
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontFamily: 'Monospace'),
-                              ),
-                            ),
+              rows: filteredSaleReturns.asMap().entries.map((entry) {
+                final index = entry.key + 1; // Serial number starts at 1
+                final saleReturn = entry.value;
+
+                return DataRow(
+                  cells: [
+                    DataCell(Text('$index')),
+                    DataCell(
+                      SizedBox(
+                        width: 120,
+                        child: Tooltip(
+                          message: saleReturn.originalSaleId,
+                          child: Text(
+                            saleReturn.originalSaleId.substring(0, 8),
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontFamily: 'Monospace'),
                           ),
                         ),
-                        DataCell(
-                          SizedBox(
-                            width: 120,
-                            child: Tooltip(
-                              message: saleReturn.originalSaleId,
-                              child: Text(
-                                saleReturn.originalSaleId.substring(0, 8),
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontFamily: 'Monospace'),
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          SizedBox(
-                            width: 200,
-                            child: Tooltip(
-                              message: _formatProductNames(saleReturn.items),
-                              child: Text(
-                                _formatProductNames(saleReturn.items),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Text(
-                            '${saleReturn.totalRefund.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.error,
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          SizedBox(
-                            width: 150,
-                            child: Tooltip(
-                              message: saleReturn.reason,
-                              child: Text(
-                                saleReturn.reason,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(Text(_formatDate(saleReturn.createdAt))),
-                        DataCell(_rowActions(saleReturn)),
-                      ],
+                      ),
                     ),
-                  )
-                  .toList(),
+                    DataCell(
+                      SizedBox(
+                        width: 200,
+                        child: Tooltip(
+                          message: _formatProductNames(saleReturn.items),
+                          child: Text(
+                            _formatProductNames(saleReturn.items),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        saleReturn.totalRefund.toStringAsFixed(2),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.error,
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      SizedBox(
+                        width: 150,
+                        child: Tooltip(
+                          message: saleReturn.reason,
+                          child: Text(
+                            saleReturn.reason,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
+                    DataCell(Text(_formatDate(saleReturn.createdAt))),
+                    DataCell(_rowActions(saleReturn)),
+                  ],
+                );
+              }).toList(),
+
               mobileItemBuilder: (context, index) {
                 final saleReturn = filteredSaleReturns[index];
                 return CustomCard(
@@ -496,7 +484,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
                             ),
                           ),
                           Text(
-                            '${saleReturn.totalRefund.toStringAsFixed(2)}',
+                            saleReturn.totalRefund.toStringAsFixed(2),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: AppColors.error,

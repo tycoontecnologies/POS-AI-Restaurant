@@ -416,7 +416,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               DataColumn(label: Text(l10n.payable)),
               DataColumn(label: Text(l10n.address)),
               DataColumn(label: Text(l10n.createdOn)),
-              DataColumn(label: Text(l10n.status)),
               DataColumn(label: Text(l10n.actions)),
             ],
             rows: suppliers.asMap().entries.map((entry) {
@@ -462,14 +461,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                     ),
                   ),
                   DataCell(Text('${e.createdOn.toLocal()}'.split(' ').first)),
-                  DataCell(
-                    StatusBadge(
-                      text: e.active ? l10n.active : l10n.inactive,
-                      variant: e.active
-                          ? BadgeVariant.success
-                          : BadgeVariant.neutral,
-                    ),
-                  ),
                   DataCell(_rowActions(e)),
                 ],
               );

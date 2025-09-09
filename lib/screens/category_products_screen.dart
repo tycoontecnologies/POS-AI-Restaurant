@@ -105,11 +105,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                 _buildDetailRow('Unit', product.unit),
                 _buildDetailRow(
                   'Sale Price',
-                  '${product.salePrice.toStringAsFixed(2)}',
-                ),
-                _buildDetailRow(
-                  'Purchase Price',
-                  '${product.purchasePrice.toStringAsFixed(2)}',
+                  product.salePrice.toStringAsFixed(2),
                 ),
                 _buildDetailRow(
                   'Quantity',
@@ -163,12 +159,12 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                         Navigator.of(context).pop();
 
                         // Show success message
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('${product.name} added to cart'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
+                        // ScaffoldMessenger.of(context).showSnackBar(
+                        //   SnackBar(
+                        //     content: Text('${product.name} added to cart'),
+                        //     backgroundColor: Colors.green,
+                        //   ),
+                        // );
                       },
                       child: const Text('Add Item'),
                     ),
@@ -246,7 +242,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                     pw.Text((item.price * item.quantity).toStringAsFixed(2)),
                   ],
                 );
-              }).toList(),
+              }),
               pw.Divider(),
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -607,7 +603,9 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                             ],
                                           ),
                                           Text(
-                                            '${product.salePrice.toStringAsFixed(2)}',
+                                            product.salePrice.toStringAsFixed(
+                                              2,
+                                            ),
                                             style: const TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
@@ -630,16 +628,16 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                             cartProvider.addToCart(product);
 
                                             // Show success message
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  '${product.name} added to cart',
-                                                ),
-                                                backgroundColor: Colors.green,
-                                              ),
-                                            );
+                                            // ScaffoldMessenger.of(
+                                            //   context,
+                                            // ).showSnackBar(
+                                            //   SnackBar(
+                                            //     content: Text(
+                                            //       '${product.name} added to cart',
+                                            //     ),
+                                            //     backgroundColor: Colors.green,
+                                            //   ),
+                                            // );
                                           },
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: AppColors.primary,
@@ -867,7 +865,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                   ),
                                 ),
                                 Text(
-                                  '${cartProvider.total.toStringAsFixed(2)}',
+                                  cartProvider.total.toStringAsFixed(2),
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
