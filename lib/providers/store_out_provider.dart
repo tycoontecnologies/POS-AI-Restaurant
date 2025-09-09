@@ -64,25 +64,6 @@ class StoreOutProvider with ChangeNotifier {
     }
   }
 
-  Future<DocumentSnapshot?> _getLastDocument() async {
-    if (_storeOuts.isEmpty) return null;
-
-    final lastStoreOut = _storeOuts.last;
-    final storeOutsCollection = _storeOutService.getStoreOutsQuery(limit: 1);
-    final snapshot = await storeOutsCollection.get();
-
-    for (final doc in snapshot.docs) {
-      final storeOut = StoreOut.fromMap(
-        doc.data() as Map<String, dynamic>,
-        doc.id,
-      );
-      if (storeOut.id == lastStoreOut.id) {
-        return doc;
-      }
-    }
-    return null;
-  }
-
   void setSearchQuery(String query) {
     _searchQuery = query;
     _filterStoreOuts();

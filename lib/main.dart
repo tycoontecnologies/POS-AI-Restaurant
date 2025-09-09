@@ -1,6 +1,7 @@
 // main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:pos/providers/attendance_provider.dart';
 import 'package:pos/providers/auth_provider.dart';
@@ -15,6 +16,7 @@ import 'package:pos/providers/sale_return_provider.dart';
 import 'package:pos/providers/staff_provider.dart';
 import 'package:pos/providers/statistics_provider.dart';
 import 'package:pos/providers/store_out_provider.dart';
+import 'package:pos/providers/subscription_provider.dart';
 import 'package:pos/providers/supplier_provider.dart';
 import 'package:pos/services/staff_service.dart';
 import 'package:provider/provider.dart';
@@ -32,6 +34,9 @@ void main() async {
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  Stripe.publishableKey =
+      'pk_test_51QuWRrLEDyNqXPqsf4xEaQghQLareBjksZM3dI6KpOGZE4igqXQBi14pSbiQ3rGAuceYqd8iSrHcUd73mOHwGvp000xQ6HngYG';
 
   if (kIsWeb) {
     // This removes the # from URLs on web
@@ -65,6 +70,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => StoreOutProvider()),
         ChangeNotifierProvider(create: (_) => StatisticsProvider()),
         ChangeNotifierProvider(create: (_) => SaleReturnProvider()),
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => PurchaseReturnProvider()),
         ChangeNotifierProxyProvider<AuthProvider, StaffProvider>(

@@ -26,13 +26,19 @@ class AuthService {
         password: password,
       );
 
+      final now = DateTime.now();
+      final trialEndsAt = now.add(const Duration(minutes: 3));
+      // final trialEndsAt = now.add(const Duration(days: 7));
+
       // Create user document in Firestore
       final user = UserModel(
         id: userCredential.user!.uid,
         email: email,
         name: name,
         role: role,
-        createdAt: DateTime.now(),
+        createdAt: now,
+        trialEndsAt: trialEndsAt,
+        subscriptionType: SubscriptionType.trial,
       );
 
       await _firestore
@@ -98,9 +104,7 @@ class AuthService {
   // Update the sendPasswordResetEmail method in auth_service.dart
   Future<void> sendPasswordResetEmail(String email) async {
     try {
-      await _auth.sendPasswordResetEmail(
-        email: email,
-      );
+      await _auth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (e) {
       // More specific error handling
       if (e.code == 'user-not-found') {

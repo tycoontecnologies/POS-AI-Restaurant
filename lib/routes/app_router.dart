@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pos/models/user.dart';
+import 'package:pos/providers/subscription_provider.dart';
 import 'package:pos/screens/auth/login_screen.dart';
 import 'package:pos/screens/auth/signup_screen.dart';
+import 'package:pos/screens/payment_screen.dart';
+import 'package:pos/screens/pricing_screen.dart';
 import 'package:pos/screens/purchase_return_screen.dart';
 import 'package:pos/screens/sale_record_screen.dart';
 import 'package:pos/screens/sale_return_screen.dart';
@@ -40,6 +43,8 @@ class AppRouter {
   static const String settings = '/settings';
   static const String salesRecord = '/sales-record';
   static const String categoryProducts = '/category-products';
+  static const String pricing = '/pricing';
+  static const String payment = '/payment';
 
   static final GoRouter router = GoRouter(
     initialLocation: login,
@@ -73,20 +78,35 @@ class AppRouter {
           return MainShell(child: child);
         },
         routes: [
-          GoRoute(
-            path: dashboard,
-            name: 'dashboard',
-            builder: (context, state) => const DashboardScreen(),
-          ),
+          // GoRoute(
+          //   path: dashboard,
+          //   name: 'dashboard',
+          //   builder: (context, state) => const DashboardScreen(),
+          // ),
           GoRoute(
             path: categories,
             name: 'categories',
             builder: (context, state) => const CategoriesScreen(),
           ),
           GoRoute(
+            path: AppRouter.dashboard,
+            name: 'dashboard',
+            builder: (context, state) => const DashboardScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
+          ),
+          GoRoute(
             path: products,
             name: 'products',
             builder: (context, state) => const ProductsScreen(),
+          ),
+          GoRoute(
+            path: pricing,
+            builder: (context, state) => const PricingScreen(),
+          ),
+          GoRoute(
+            path: '$payment/:plan',
+            builder: (context, state) =>
+                PaymentScreen(plan: state.pathParameters['plan']!),
           ),
           GoRoute(
             path: '/category-products/:categoryId',
@@ -175,6 +195,28 @@ class AppRouter {
       return null;
     },
   );
+
+  static Future<String?> _checkSubscription(
+    BuildContext context,
+    GoRouterState state,
+  ) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final subscriptionProvider = Provider.of<SubscriptionProvider>(
+      context,
+      listen: false,
+    );
+
+    if (authProvider.isAuthenticated) {
+      final hasActiveSubscription = await subscriptionProvider
+          .checkSubscriptionStatus();
+
+      if (!hasActiveSubscription && state.uri.path != AppRouter.pricing) {
+        return AppRouter.pricing;
+      }
+    }
+
+    return null;
+  }
 
   // Role-based navigation items
   static List<NavigationItem> getNavigationItems(UserRole role) {
