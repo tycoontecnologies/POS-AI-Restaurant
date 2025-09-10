@@ -69,7 +69,7 @@ class PricingScreen extends StatelessWidget {
                 // Lifetime Plan
                 _PricingCard(
                   title: 'Lifetime',
-                  price: 'PKR 1,050,000',
+                  price: 'PKR 150,000',
                   period: 'one-time payment',
                   features: const [
                     'All features included',

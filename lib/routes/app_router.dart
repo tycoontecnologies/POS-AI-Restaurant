@@ -5,6 +5,7 @@ import 'package:pos/providers/subscription_provider.dart';
 import 'package:pos/screens/auth/login_screen.dart';
 import 'package:pos/screens/auth/signup_screen.dart';
 import 'package:pos/screens/payment_screen.dart';
+import 'package:pos/screens/payment_success_screen.dart';
 import 'package:pos/screens/pricing_screen.dart';
 import 'package:pos/screens/purchase_return_screen.dart';
 import 'package:pos/screens/sale_record_screen.dart';
@@ -45,7 +46,7 @@ class AppRouter {
   static const String categoryProducts = '/category-products';
   static const String pricing = '/pricing';
   static const String payment = '/payment';
-
+  static const String paymentSuccess = '/payment-success';
   static final GoRouter router = GoRouter(
     initialLocation: login,
     routes: [
@@ -78,18 +79,14 @@ class AppRouter {
           return MainShell(child: child);
         },
         routes: [
-          // GoRoute(
-          //   path: dashboard,
-          //   name: 'dashboard',
-          //   builder: (context, state) => const DashboardScreen(),
-          // ),
           GoRoute(
             path: categories,
             name: 'categories',
             builder: (context, state) => const CategoriesScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
-            path: AppRouter.dashboard,
+            path: dashboard,
             name: 'dashboard',
             builder: (context, state) => const DashboardScreen(),
             redirect: (context, state) => _checkSubscription(context, state),
@@ -98,15 +95,7 @@ class AppRouter {
             path: products,
             name: 'products',
             builder: (context, state) => const ProductsScreen(),
-          ),
-          GoRoute(
-            path: pricing,
-            builder: (context, state) => const PricingScreen(),
-          ),
-          GoRoute(
-            path: '$payment/:plan',
-            builder: (context, state) =>
-                PaymentScreen(plan: state.pathParameters['plan']!),
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
             path: '/category-products/:categoryId',
@@ -115,61 +104,91 @@ class AppRouter {
               final categoryId = state.pathParameters['categoryId']!;
               return CategoryProductsScreen(categoryName: categoryId);
             },
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
             path: staff,
             name: 'staff',
             builder: (context, state) => const StaffScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
             path: attendance,
             name: 'attendance',
             builder: (context, state) => const AttendanceScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
             path: suppliers,
             name: 'suppliers',
             builder: (context, state) => const SuppliersScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
             path: purchases,
             name: 'purchases',
             builder: (context, state) => const PurchasesScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
             path: purchasesReturn,
             name: 'purchases-return',
             builder: (context, state) => const PurchaseReturnScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
             path: sales,
             name: 'sales',
             builder: (context, state) => const SalesScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
             path: salesRecord,
             name: 'sales-record',
             builder: (context, state) => const SalesTableScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
             path: salesReturn,
             name: 'sales-return',
             builder: (context, state) => const SaleReturnScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
             path: drafts,
             name: 'drafts',
             builder: (context, state) => const DraftsScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
             path: storeOut,
             name: 'store-out',
             builder: (context, state) => const StoreOutScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
             path: settings,
             name: 'settings',
             builder: (context, state) => const SettingsScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
+          ),
+          GoRoute(
+            path: pricing,
+            name: 'pricing',
+            builder: (context, state) => const PricingScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
+          ),
+          GoRoute(
+            path: '$payment/:plan',
+            name: 'payment',
+            builder: (context, state) =>
+                PaymentScreen(plan: state.pathParameters['plan']!),
+          ),
+
+          GoRoute(
+            path: paymentSuccess,
+            name: 'payment-success',
+            builder: (context, state) => const PaymentSuccessScreen(),
           ),
         ],
       ),
@@ -207,11 +226,23 @@ class AppRouter {
     );
 
     if (authProvider.isAuthenticated) {
-      final hasActiveSubscription = await subscriptionProvider
-          .checkSubscriptionStatus();
+      final hasValidSubscription = await subscriptionProvider
+          .hasValidSubscription();
 
-      if (!hasActiveSubscription && state.uri.path != AppRouter.pricing) {
+      // Allow access to pricing and payment routes
+      final isPricingRoute = state.uri.path == AppRouter.pricing;
+      final isPaymentRoute = state.uri.path.startsWith(AppRouter.payment);
+      final isPaymentSuccessRoute = state.uri.path == AppRouter.paymentSuccess;
+
+      if (!hasValidSubscription &&
+          !isPricingRoute &&
+          !isPaymentRoute &&
+          !isPaymentSuccessRoute) {
         return AppRouter.pricing;
+      }
+      // If user has valid subscription and is on pricing page, redirect to dashboard
+      if (hasValidSubscription && isPricingRoute) {
+        return AppRouter.dashboard;
       }
     }
 

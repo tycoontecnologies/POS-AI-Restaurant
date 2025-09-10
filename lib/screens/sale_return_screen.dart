@@ -30,9 +30,13 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
   @override
   void initState() {
     super.initState();
+
     _searchController.addListener(_onSearchChanged);
-    _loadSaleReturns();
     _scrollController.addListener(_onScroll);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadSaleReturns();
+    });
   }
 
   @override

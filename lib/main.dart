@@ -1,7 +1,9 @@
 // main.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:go_router/go_router.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:pos/providers/attendance_provider.dart';
 import 'package:pos/providers/auth_provider.dart';
@@ -34,9 +36,6 @@ void main() async {
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  Stripe.publishableKey =
-      'pk_test_51QuWRrLEDyNqXPqsf4xEaQghQLareBjksZM3dI6KpOGZE4igqXQBi14pSbiQ3rGAuceYqd8iSrHcUd73mOHwGvp000xQ6HngYG';
 
   if (kIsWeb) {
     // This removes the # from URLs on web
@@ -98,6 +97,37 @@ class MyApp extends StatelessWidget {
           if (!authProvider.isLoading && authProvider.currentUser == null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               authProvider.initialize();
+            });
+
+            // Add subscription check timer after auth is initialized
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              final subscriptionProvider = Provider.of<SubscriptionProvider>(
+                context,
+                listen: false,
+              );
+              // Check subscription status periodically (every hour)
+              Timer.periodic(Duration(hours: 1), (timer) async {
+                if (!context.mounted) {
+                  timer.cancel();
+                  return;
+                }
+
+                final hasValidSubscription = await subscriptionProvider
+                    .hasValidSubscription();
+                final currentLocation = GoRouter.of(
+                  context,
+                ).routeInformationProvider.value.location;
+                // ).routeInformationProvider.value.uri;
+
+                if (!hasValidSubscription &&
+                    currentLocation != AppRouter.pricing &&
+                    currentLocation != AppRouter.payment &&
+                    currentLocation != AppRouter.paymentSuccess) {
+                  if (context.mounted) {
+                    GoRouter.of(context).go(AppRouter.pricing);
+                  }
+                }
+              });
             });
           }
 

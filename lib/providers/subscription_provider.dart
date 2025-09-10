@@ -55,15 +55,31 @@ class SubscriptionProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> checkSubscriptionStatus() async {
+  // Add this method to check if subscription/trial has expired
+  Future<bool> hasValidSubscription() async {
     final user = _auth.currentUser;
     if (user == null) return false;
 
     final userDoc = await _firestore.collection('vendors').doc(user.uid).get();
     if (userDoc.exists) {
       final userData = UserModel.fromMap(userDoc.data()!, userDoc.id);
-      return !userData.shouldRedirectToPricing;
+      final now = DateTime.now();
+
+      if (userData.subscriptionType == SubscriptionType.trial) {
+        return userData.trialEndsAt.isAfter(now);
+      }
+
+      // Check if paid subscription has ended
+      if (userData.subscriptionEndsAt != null) {
+        return userData.subscriptionEndsAt!.isAfter(now);
+      }
+
+      return userData.hasActiveSubscription;
     }
     return false;
+  }
+
+  Future<bool> checkSubscriptionStatus() async {
+    return await hasValidSubscription();
   }
 }

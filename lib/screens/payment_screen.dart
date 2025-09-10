@@ -1,11 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:pos/providers/subscription_provider.dart';
 import 'package:pos/routes/app_router.dart';
 import 'package:pos/utils/app_spacing.dart';
 import 'package:pos/components/ui/custom_button.dart';
 import 'package:pos/components/ui/custom_card.dart';
-import 'package:provider/provider.dart';
+import 'package:pos/services/stripe_service.dart';
 
 class PaymentScreen extends StatefulWidget {
   final String plan;
@@ -18,10 +19,7 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   bool _isProcessing = false;
-  final _cardNumberController = TextEditingController();
-  final _expiryController = TextEditingController();
-  final _cvcController = TextEditingController();
-  final _nameController = TextEditingController();
+  String? _errorMessage;
 
   Map<String, dynamic> get _planDetails {
     switch (widget.plan) {
@@ -42,9 +40,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
       case 'lifetime':
         return {
           'name': 'Lifetime',
-          'price': 'PKR 1,050,000',
+          'price': 'PKR 150,000',
           'period': 'one-time payment',
-          'amount': 1050000,
+          'amount': 150000,
         };
       default:
         return {
@@ -56,86 +54,40 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _cardNumberController.dispose();
-    _expiryController.dispose();
-    _cvcController.dispose();
-    _nameController.dispose();
-    super.dispose();
-  }
-
   Future<void> _processPayment() async {
-    if (!_validateForm()) return;
-
-    setState(() => _isProcessing = true);
+    setState(() {
+      _isProcessing = true;
+      _errorMessage = null;
+    });
 
     try {
-      // TODO: Integrate with Stripe payment processing
-      // This is where you'll call your Stripe API
-      await Future.delayed(
-        const Duration(seconds: 2),
-      ); // Simulate payment processing
+      final success = await StripeService.processPayment(
+        amount: (_planDetails['amount'] as int) * 100,
+        currency: 'pkr',
+        planType: widget.plan,
+      ).timeout(const Duration(seconds: 30)); // ADD TIMEOUT HERE
 
-      await Provider.of<SubscriptionProvider>(
-        context,
-        listen: false,
-      ).updateSubscription(planType: widget.plan);
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Payment successful! ${_planDetails['name']} plan activated.',
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Redirecting to secure payment...'),
+            backgroundColor: Colors.blue,
           ),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      // Navigate back to dashboard
-      if (mounted) {
-        context.go(AppRouter.dashboard);
+        );
+        await Future.delayed(const Duration(seconds: 2));
       }
+    } on TimeoutException {
+      setState(() {
+        _errorMessage = 'Payment request timed out. Please try again.';
+      });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Payment failed: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      setState(() {
+        _errorMessage = e.toString();
+      });
+      // ... rest of error handling
     } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
+      setState(() => _isProcessing = false);
     }
-  }
-
-  bool _validateForm() {
-    if (_cardNumberController.text.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please enter card number')));
-      return false;
-    }
-    if (_expiryController.text.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please enter expiry date')));
-      return false;
-    }
-    if (_cvcController.text.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please enter CVC')));
-      return false;
-    }
-    if (_nameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter cardholder name')),
-      );
-      return false;
-    }
-    return true;
   }
 
   @override
@@ -148,93 +100,66 @@ class _PaymentScreenState extends State<PaymentScreen> {
           onPressed: () => context.go(AppRouter.pricing),
         ),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Plan Summary
-            CustomCard(
-              child: Padding(
+            if (_errorMessage != null)
+              Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red),
+                ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _planDetails['name'],
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        Text(_planDetails['period']),
-                      ],
-                    ),
-                    Text(
-                      _planDetails['price'],
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
+                    const Icon(Icons.error, color: Colors.red),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: TextStyle(color: Colors.red[700]),
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
 
-            const SizedBox(height: AppSpacing.xl),
+            if (_errorMessage != null) const SizedBox(height: AppSpacing.lg),
 
-            // Payment Form
-            Text(
-              'Payment Details',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: AppSpacing.md),
-
+            // Plan Summary
             CustomCard(
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(
                   children: [
-                    TextFormField(
-                      controller: _cardNumberController,
-                      decoration: const InputDecoration(
-                        labelText: 'Card Number',
-                        hintText: '1234 5678 9012 3456',
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          child: TextFormField(
-                            controller: _expiryController,
-                            decoration: const InputDecoration(
-                              labelText: 'Expiry Date',
-                              hintText: 'MM/YY',
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _planDetails['name'],
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineSmall,
+                              ),
+                              Text(_planDetails['period']),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _cvcController,
-                            decoration: const InputDecoration(
-                              labelText: 'CVC',
-                              hintText: '123',
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
+                        Text(
+                          _planDetails['price'],
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Cardholder Name',
-                      ),
                     ),
                   ],
                 ),
@@ -243,23 +168,69 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
             const SizedBox(height: AppSpacing.xl),
 
-            // Security Note
-            const Row(
-              children: [
-                Icon(Icons.lock, size: 16, color: Colors.green),
-                SizedBox(width: AppSpacing.sm),
-                Text('Your payment details are secure and encrypted'),
-              ],
+            Text(
+              'Secure Payment',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: AppSpacing.md),
+
+            // Web payment UI
+            CustomCard(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  children: [
+                    const Icon(Icons.credit_card, size: 48, color: Colors.blue),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Secure Payment with Stripe',
+                      style: Theme.of(context).textTheme.titleMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    const Text(
+                      'You will be redirected to Stripe Checkout to complete your payment securely. We accept all major credit and debit cards.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.lock, size: 16, color: Colors.green),
+                        SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            'SSL encrypted and PCI compliant',
+                            style: TextStyle(color: Colors.green),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+
+                    // Pay Button
+                    CustomButton(
+                      text: 'Pay ${_planDetails['price']}',
+                      onPressed: _isProcessing ? null : _processPayment,
+                      isLoading: _isProcessing,
+                      fullWidth: true,
+                    ),
+                  ],
+                ),
+              ),
             ),
 
-            const Spacer(),
+            const SizedBox(height: AppSpacing.xl * 2),
 
-            // Pay Button
-            CustomButton(
-              text: 'Pay ${_planDetails['price']}',
-              onPressed: _isProcessing ? null : _processPayment,
-              isLoading: _isProcessing,
-              fullWidth: true,
+            // Cancel Button
+            TextButton(
+              onPressed: _isProcessing
+                  ? null
+                  : () => context.go(AppRouter.pricing),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+              ),
+              child: const Text('Cancel'),
             ),
           ],
         ),

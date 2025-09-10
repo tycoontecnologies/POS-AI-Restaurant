@@ -1,6 +1,7 @@
 // providers/category_provider.dart
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:pos/models/category.dart';
 import 'package:pos/services/category_service.dart';
 import 'package:pos/providers/auth_provider.dart';
@@ -32,8 +33,6 @@ class CategoryProvider with ChangeNotifier {
     notifyListeners();
   }
 
-
-
   // Get vendor ID from auth provider
   String? get _vendorId => _authProvider.currentUser?.id;
 
@@ -43,8 +42,10 @@ class CategoryProvider with ChangeNotifier {
 
     _isLoading = true;
     _error = null;
-    notifyListeners();
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
     try {
       final categories = await _categoryService
           .getCategories(vendorId: _vendorId!, limit: 20)
@@ -53,7 +54,7 @@ class CategoryProvider with ChangeNotifier {
       _categories = categories;
       _filteredCategories = _applySearchFilter(_categories);
       _hasMore = categories.length == 20;
-      
+
       if (categories.isNotEmpty) {
         _lastDocument = await _getLastDocument();
       }
@@ -118,7 +119,7 @@ class CategoryProvider with ChangeNotifier {
   // Apply search filter
   List<Category> _applySearchFilter(List<Category> categories) {
     if (_searchQuery.isEmpty) return categories;
-    
+
     return categories
         .where((category) => category.name.toLowerCase().contains(_searchQuery))
         .toList();
@@ -133,7 +134,7 @@ class CategoryProvider with ChangeNotifier {
 
     try {
       await _categoryService.addCategory(category, _vendorId!);
-      
+
       // Reload categories to include the new one
       await loadInitialCategories();
       return true;
@@ -155,14 +156,14 @@ class CategoryProvider with ChangeNotifier {
 
     try {
       await _categoryService.updateCategory(category, _vendorId!);
-      
+
       // Update local list
       final index = _categories.indexWhere((c) => c.id == category.id);
       if (index != -1) {
         _categories[index] = category;
         _filteredCategories = _applySearchFilter(_categories);
       }
-      
+
       return true;
     } catch (e) {
       _error = 'Failed to update category: $e';
@@ -182,11 +183,11 @@ class CategoryProvider with ChangeNotifier {
 
     try {
       await _categoryService.deleteCategory(categoryId, _vendorId!);
-      
+
       // Remove from local list
       _categories.removeWhere((c) => c.id == categoryId);
       _filteredCategories = _applySearchFilter(_categories);
-      
+
       return true;
     } catch (e) {
       _error = 'Failed to delete category: $e';

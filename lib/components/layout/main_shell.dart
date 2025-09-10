@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:pos/models/user.dart';
 import 'package:pos/providers/auth_provider.dart';
+import 'package:pos/providers/subscription_provider.dart';
 import 'package:provider/provider.dart';
 import '../../routes/app_router.dart';
 import '../../utils/app_colors.dart';
@@ -99,7 +100,42 @@ class _ModernAppHeader extends StatelessWidget {
                             _ModernHeaderButton(
                               item: items[i],
                               selected: currentLocation == items[i].route,
-                              onTap: () => context.go(items[i].route),
+                              onTap: () async {
+                                try {
+                                  final subscriptionProvider =
+                                      Provider.of<SubscriptionProvider>(
+                                        context,
+                                        listen: false,
+                                      );
+                                  final hasValidSubscription =
+                                      await subscriptionProvider
+                                          .hasValidSubscription();
+
+                                  if (!hasValidSubscription &&
+                                      items[i].route != AppRouter.pricing) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Please renew your subscription to access this feature',
+                                        ),
+                                        backgroundColor: Colors.orange,
+                                      ),
+                                    );
+                                    context.go(AppRouter.pricing);
+                                  } else {
+                                    context.go(items[i].route);
+                                  }
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Error checking subscription: $e',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              },
                               compact: isCompact,
                             ),
                         ],
@@ -333,7 +369,6 @@ class _HeaderActions extends StatelessWidget {
     BuildContext context,
     AuthProvider authProvider,
   ) {
-
     showDialog(
       context: context,
       builder: (BuildContext context) {
