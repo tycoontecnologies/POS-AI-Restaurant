@@ -1,7 +1,12 @@
 // categories_screen.dart
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:pos/components/ui/onboarding_completion.dart';
+import 'package:pos/components/ui/onboarding_tooltip.dart';
+import 'package:pos/routes/app_router.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/category.dart';
 import '../providers/category_provider.dart';
 import '../components/ui/custom_button.dart';
@@ -25,10 +30,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingMore = false;
+  final bool _showCompletion = false;
+  bool _hasData = false;
 
   @override
   void initState() {
     super.initState();
+    _checkIfHasData();
+
     _searchController.addListener(_onSearchChanged);
 
     // Load initial data
@@ -39,6 +48,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
     // Setup scroll listener for pagination
     _scrollController.addListener(_onScroll);
+  }
+
+  Future<void> _checkIfHasData() async {
+    final categoryProvider = context.read<CategoryProvider>();
+    await categoryProvider.loadInitialCategories();
+    setState(() {
+      _hasData = categoryProvider.categories.isNotEmpty;
+    });
   }
 
   @override
@@ -158,6 +175,22 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               backgroundColor: AppColors.success,
             ),
           );
+
+          // Check if this was the first category added
+          if (item == null) {
+            final prefs = await SharedPreferences.getInstance();
+            final hasSeenProducts =
+                prefs.getBool('onboarding_products_seen') ?? false;
+
+            if (!hasSeenProducts) {
+              // Navigate to products screen after a short delay
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (mounted) {
+                  context.go(AppRouter.products);
+                }
+              });
+            }
+          }
         }
       } else {
         // Update existing category
@@ -248,6 +281,17 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (!_hasData)
+            OnboardingTooltip(
+              screenKey: 'categories',
+              title: 'Add Category',
+              description:
+                  'From here, you can add your categories to organize your products. Categories help you manage your inventory efficiently.',
+            ),
+
+          // Completion message (if needed)
+          if (_showCompletion) const OnboardingCompletion(),
+
           Row(
             children: [
               Expanded(

@@ -1,8 +1,13 @@
 // products_screen.dart (updated)
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:pos/components/ui/onboarding_completion.dart';
+import 'package:pos/components/ui/onboarding_tooltip.dart';
 import 'package:pos/providers/category_provider.dart';
+import 'package:pos/routes/app_router.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/product.dart';
 import '../providers/product_provider.dart';
 import '../providers/auth_provider.dart';
@@ -29,12 +34,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingMore = false;
   List<String> _categories = [];
+  final bool _showCompletion = false;
+  bool _hasData = false;
 
   final List<String> _units = ['piece', 'kg', 'litre', 'pack', 'box'];
 
   @override
   void initState() {
     super.initState();
+    _checkIfHasData();
     _searchController.addListener(_onSearchChanged);
 
     // Load initial data
@@ -49,6 +57,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
     // Setup scroll listener for pagination
     _scrollController.addListener(_onScroll);
     _loadCategories();
+  }
+
+  Future<void> _checkIfHasData() async {
+    final authProvider = context.read<AuthProvider>();
+    final productProvider = context.read<ProductProvider>();
+    if (authProvider.currentUser != null) {
+      await productProvider.loadProducts(authProvider.currentUser!.id);
+      setState(() {
+        _hasData = productProvider.products.isNotEmpty;
+      });
+    }
   }
 
   void _loadCategories() {
@@ -342,6 +361,21 @@ class _ProductsScreenState extends State<ProductsScreen> {
             backgroundColor: AppColors.success,
           ),
         );
+
+        // Check if this was the first product added
+        if (item == null) {
+          final prefs = await SharedPreferences.getInstance();
+          final hasSeenStaff = prefs.getBool('onboarding_staff_seen') ?? false;
+
+          if (!hasSeenStaff) {
+            // Navigate to staff screen after a short delay
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                context.go(AppRouter.staff);
+              }
+            });
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -422,6 +456,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (!_hasData)
+            OnboardingTooltip(
+              screenKey: 'products',
+              title: 'Add Product',
+              description:
+                  'From here, you can add your products to build your inventory. Products are the items you sell to your customers.',
+            ),
+
+          // Completion message (if needed)
+          if (_showCompletion) const OnboardingCompletion(),
+
           Row(
             children: [
               Expanded(

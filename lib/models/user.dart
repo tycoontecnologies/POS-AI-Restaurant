@@ -41,7 +41,7 @@ class UserModel {
       isActive: data['isActive'] ?? true,
       trialEndsAt: data['trialEndsAt'] != null
           ? (data['trialEndsAt'] as Timestamp).toDate()
-          : DateTime.now().add(const Duration(minutes: 3)),
+          : DateTime.now().add(const Duration(days: 7)),
       // : DateTime.now().add(const Duration(days: 7)),
       subscriptionType: _parseSubscriptionType(data['subscriptionType']),
       subscriptionEndsAt: data['subscriptionEndsAt'] != null

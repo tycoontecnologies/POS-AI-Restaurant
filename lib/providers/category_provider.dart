@@ -1,5 +1,4 @@
 // providers/category_provider.dart
-import 'package:flutter/foundation.dart' hide Category;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:pos/models/category.dart';

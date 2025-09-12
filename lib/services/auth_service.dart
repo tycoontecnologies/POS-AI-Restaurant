@@ -27,7 +27,7 @@ class AuthService {
       );
 
       final now = DateTime.now();
-      final trialEndsAt = now.add(const Duration(minutes: 3));
+      final trialEndsAt = now.add(const Duration(days: 7));
       // final trialEndsAt = now.add(const Duration(days: 7));
 
       // Create user document in Firestore

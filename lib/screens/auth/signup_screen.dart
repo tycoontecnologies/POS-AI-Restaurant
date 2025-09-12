@@ -7,6 +7,7 @@ import 'package:pos/providers/auth_provider.dart';
 import 'package:pos/utils/app_spacing.dart';
 import 'package:pos/components/ui/custom_button.dart';
 import 'package:pos/components/ui/custom_card.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SignUpScreen extends StatefulWidget {
   final VoidCallback? onLoginPressed;
@@ -48,7 +49,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
 
     if (success && mounted) {
-      GoRouter.of(context).go(AppRouter.dashboard);
+      // Clear any previous onboarding state
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('onboarding_categories');
+      await prefs.remove('onboarding_products');
+      await prefs.remove('onboarding_staff');
+      await prefs.remove('onboarding_suppliers');
+
+      GoRouter.of(context).go(AppRouter.categories);
     } else if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

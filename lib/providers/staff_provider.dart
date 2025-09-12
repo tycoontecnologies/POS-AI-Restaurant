@@ -6,7 +6,7 @@ import '../models/staff.dart';
 
 class StaffProvider with ChangeNotifier {
   final FirebaseStaffService _staffService;
-  
+
   List<Staff> _staff = [];
   List<Staff> _filteredStaff = [];
   bool _isLoading = false;
@@ -24,13 +24,16 @@ class StaffProvider with ChangeNotifier {
 
   // Load initial staff data with pagination
   Future<void> loadStaff({int limit = 10, bool refresh = false}) async {
+    if (_isLoading) return;
+    if (!_hasMore) return;
+    
     if (refresh) {
       _staff.clear();
       _lastDocument = null;
       _hasMore = true;
     }
 
-    if (!_hasMore) return;
+
 
     _setLoading(true);
     _errorMessage = null;
@@ -43,18 +46,18 @@ class StaffProvider with ChangeNotifier {
 
       // Listen to the first snapshot to get initial data
       final firstSnapshot = await staffStream.first;
-      
+
       if (firstSnapshot.isNotEmpty) {
         _lastDocument = await _staffService.staffCollection
             .doc(firstSnapshot.last.id)
             .get();
-        
+
         if (refresh) {
           _staff = firstSnapshot;
         } else {
           _staff.addAll(firstSnapshot);
         }
-        
+
         _hasMore = firstSnapshot.length == limit;
       } else {
         _hasMore = false;
@@ -74,7 +77,7 @@ class StaffProvider with ChangeNotifier {
   // Load more staff for pagination
   Future<void> loadMoreStaff({int limit = 10}) async {
     if (_isLoading || !_hasMore) return;
-    
+
     await loadStaff(limit: limit);
   }
 
@@ -86,8 +89,8 @@ class StaffProvider with ChangeNotifier {
       final q = query.toLowerCase();
       _filteredStaff = _staff.where((staff) {
         return staff.name.toLowerCase().contains(q) ||
-               staff.role.toLowerCase().contains(q) ||
-               staff.phone.toLowerCase().contains(q);
+            staff.role.toLowerCase().contains(q) ||
+            staff.phone.toLowerCase().contains(q);
       }).toList();
     }
     notifyListeners();
@@ -118,7 +121,7 @@ class StaffProvider with ChangeNotifier {
 
     try {
       await _staffService.updateStaff(staff);
-      
+
       // Update local list
       final index = _staff.indexWhere((s) => s.id == staff.id);
       if (index != -1) {
@@ -142,7 +145,7 @@ class StaffProvider with ChangeNotifier {
 
     try {
       await _staffService.deleteStaff(staffId);
-      
+
       // Remove from local lists
       _staff.removeWhere((s) => s.id == staffId);
       _filteredStaff = _staff;

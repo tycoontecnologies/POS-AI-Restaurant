@@ -1,7 +1,12 @@
-// staff_screen.dart
+// staff_screen.dart - UPDATED VERSION
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:pos/components/ui/onboarding_completion.dart';
+import 'package:pos/components/ui/onboarding_tooltip.dart';
+import 'package:pos/routes/app_router.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../components/ui/custom_button.dart';
 import '../components/ui/custom_card.dart';
 import '../components/ui/status_badge.dart';
@@ -24,6 +29,10 @@ class _StaffScreenState extends State<StaffScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingMore = false;
+  final bool _showCompletion = false;
+  bool _hasData = false;
+  bool _initialLoadComplete = false;
+  bool _isProcessing = false; // ADD THIS FLAG
 
   @override
   void initState() {
@@ -31,10 +40,18 @@ class _StaffScreenState extends State<StaffScreen> {
     _searchController.addListener(_onSearchChanged);
     _scrollController.addListener(_onScroll);
 
-    // Load initial data
+    // Load initial data after the first frame is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<StaffProvider>(context, listen: false);
-      provider.loadStaff();
+      _checkIfHasData();
+    });
+  }
+
+  Future<void> _checkIfHasData() async {
+    final provider = Provider.of<StaffProvider>(context, listen: false);
+    await provider.loadStaff();
+    setState(() {
+      _hasData = provider.staff.isNotEmpty;
+      _initialLoadComplete = true;
     });
   }
 
@@ -71,6 +88,11 @@ class _StaffScreenState extends State<StaffScreen> {
   }
 
   void _createOrEdit({Staff? item}) async {
+    // PREVENT MULTIPLE SIMULTANEOUS OPERATIONS
+    if (_isProcessing) return;
+
+    setState(() => _isProcessing = true);
+
     final l10n = AppLocalizations.of(context)!;
     final provider = Provider.of<StaffProvider>(context, listen: false);
 
@@ -201,7 +223,10 @@ class _StaffScreenState extends State<StaffScreen> {
       ),
     );
 
-    if (result == null) return;
+    if (result == null) {
+      setState(() => _isProcessing = false);
+      return;
+    }
 
     try {
       if (item == null) {
@@ -238,6 +263,23 @@ class _StaffScreenState extends State<StaffScreen> {
             backgroundColor: Colors.green,
           ),
         );
+
+        // Check if this was the first staff added
+        if (item == null) {
+          final prefs = await SharedPreferences.getInstance();
+          final hasSeenSuppliers =
+              prefs.getBool('onboarding_suppliers_seen') ?? false;
+
+          if (!hasSeenSuppliers) {
+            // ADD DELAY AND SAFETY CHECK
+            await Future.delayed(const Duration(milliseconds: 1000));
+            if (mounted && context.mounted) {
+              // MARK AS SEEN BEFORE NAVIGATING
+              await prefs.setBool('onboarding_suppliers_seen', true);
+              context.go(AppRouter.suppliers);
+            }
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -248,10 +290,16 @@ class _StaffScreenState extends State<StaffScreen> {
           ),
         );
       }
+    } finally {
+      setState(() => _isProcessing = false);
     }
   }
 
   void _delete(Staff s) async {
+    if (_isProcessing) return;
+
+    setState(() => _isProcessing = true);
+
     final provider = Provider.of<StaffProvider>(context, listen: false);
 
     final ok = await showDialog<bool>(
@@ -298,6 +346,8 @@ class _StaffScreenState extends State<StaffScreen> {
         }
       }
     }
+
+    setState(() => _isProcessing = false);
   }
 
   @override
@@ -305,11 +355,40 @@ class _StaffScreenState extends State<StaffScreen> {
     final l10n = AppLocalizations.of(context)!;
     final provider = Provider.of<StaffProvider>(context);
 
+    if (!_initialLoadComplete) {
+      if (provider.errorMessage != null) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Error: ${provider.errorMessage}'),
+              ElevatedButton(
+                onPressed: () => _checkIfHasData(),
+                child: Text('Retry'),
+              ),
+            ],
+          ),
+        );
+      }
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Padding(
       padding: Responsive.getPagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (!_hasData)
+            OnboardingTooltip(
+              screenKey: 'staff',
+              title: 'Add Staff',
+              description:
+                  'From here, you can add your staff members to manage your team. Staff members can have different roles.',
+            ),
+
+          // Completion message (if needed)
+          if (_showCompletion) const OnboardingCompletion(),
+
           Row(
             children: [
               Expanded(
@@ -339,7 +418,9 @@ class _StaffScreenState extends State<StaffScreen> {
               CustomButton(
                 text: 'Add Employee',
                 icon: Icons.person_add,
-                onPressed: provider.isLoading ? null : () => _createOrEdit(),
+                onPressed: (provider.isLoading || _isProcessing)
+                    ? null
+                    : () => _createOrEdit(),
               ),
             ],
           ),
@@ -477,7 +558,7 @@ class _StaffScreenState extends State<StaffScreen> {
               CustomButton(
                 text: 'Add Employee',
                 icon: Icons.person_add,
-                onPressed: () => _createOrEdit(),
+                onPressed: _isProcessing ? null : () => _createOrEdit(),
               ),
             ],
           ),
@@ -542,44 +623,72 @@ class _StaffScreenState extends State<StaffScreen> {
                   DataCell(Text(e.dailyWage.toStringAsFixed(0))),
                   DataCell(Text(e.phone)),
                   DataCell(Text('${e.joinDate.toLocal()}'.split(' ').first)),
-                  DataCell(_rowActions(e, provider.isLoading)),
+                  DataCell(_rowActions(e, provider.isLoading || _isProcessing)),
                 ],
               );
             }).toList(),
             mobileItemBuilder: (context, index) {
               final s = staffList[index];
               return CustomCard(
+                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.person_outline),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            s.name,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        StatusBadge(text: s.role),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
                     Row(
                       children: [
                         Expanded(
                           child: Text(
-                            s.name,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
+                            'Daily Wage: ${s.dailyWage.toStringAsFixed(0)}',
                           ),
                         ),
-                        StatusBadge(text: s.active ? 'Active' : 'Inactive'),
+                        Expanded(
+                          child: Text(
+                            'Join Date: ${s.joinDate.toLocal().toString().split(' ').first}',
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text('${s.role} • Wage: ${s.dailyWage.toStringAsFixed(0)}'),
-                    const SizedBox(height: AppSpacing.xs),
+                    const SizedBox(height: AppSpacing.sm),
                     Text('Phone: ${s.phone}'),
-                    if (s.address.isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.xs),
-                      Text('Address: ${s.address}'),
-                    ],
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      'Join Date: ${'${s.joinDate.toLocal()}'.split(' ').first}',
-                    ),
                     const SizedBox(height: AppSpacing.sm),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [_rowActions(s, provider.isLoading)],
+                      children: [
+                        Expanded(
+                          child: CustomButton(
+                            text: 'Edit',
+                            variant: ButtonVariant.outlined,
+                            onPressed: (provider.isLoading || _isProcessing)
+                                ? null
+                                : () => _createOrEdit(item: s),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: CustomButton(
+                            text: 'Delete',
+                            variant: ButtonVariant.outlined,
+                            color: Colors.red,
+                            onPressed: (provider.isLoading || _isProcessing)
+                                ? null
+                                : () => _delete(s),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -590,42 +699,26 @@ class _StaffScreenState extends State<StaffScreen> {
         if (provider.isLoading)
           Positioned.fill(
             child: Container(
-              color: Colors.black.withOpacity(0.3),
-              child: const Center(
-                child: LoadingWidget(message: 'Processing...'),
-              ),
+              color: Colors.black.withOpacity(0.1),
+              child: const Center(child: CircularProgressIndicator()),
             ),
           ),
       ],
     );
   }
 
-  Widget _rowActions(Staff s, bool isLoading) {
+  Widget _rowActions(Staff s, bool isDisabled) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: 'Edit',
-          icon: const Icon(Icons.edit, size: 18),
-          onPressed: isLoading ? null : () => _createOrEdit(item: s),
-          style: IconButton.styleFrom(
-            backgroundColor: Theme.of(
-              context,
-            ).colorScheme.primary.withOpacity(0.1),
-            foregroundColor: Theme.of(context).colorScheme.primary,
-          ),
+          icon: const Icon(Icons.edit),
+          onPressed: isDisabled ? null : () => _createOrEdit(item: s),
         ),
-        const SizedBox(width: AppSpacing.xs),
         IconButton(
-          tooltip: 'Delete',
-          icon: const Icon(Icons.delete, size: 18),
-          onPressed: isLoading ? null : () => _delete(s),
-          style: IconButton.styleFrom(
-            backgroundColor: Theme.of(
-              context,
-            ).colorScheme.error.withOpacity(0.1),
-            foregroundColor: Theme.of(context).colorScheme.error,
-          ),
+          icon: const Icon(Icons.delete),
+          color: Colors.red,
+          onPressed: isDisabled ? null : () => _delete(s),
         ),
       ],
     );

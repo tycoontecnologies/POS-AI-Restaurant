@@ -1,9 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:pos/components/ui/onboarding_completion.dart';
+import 'package:pos/components/ui/onboarding_tooltip.dart';
 import 'package:pos/models/supplier.dart';
+import 'package:pos/routes/app_router.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../components/ui/custom_button.dart';
 import '../components/ui/custom_card.dart';
 import '../components/ui/status_badge.dart';
@@ -27,23 +32,23 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
   late SupplierProvider _supplierProvider;
   String _searchQuery = '';
   StreamSubscription<List<Supplier>>? _subscription;
+  bool _showCompletion = false;
+  bool _hasData = false;
 
   @override
   void initState() {
     super.initState();
+
     _supplierProvider = Provider.of<SupplierProvider>(context, listen: false);
 
     _subscription = _supplierProvider.getSuppliersStream().listen((suppliers) {
       _supplierProvider.setSuppliers(suppliers);
+      // Check if has data after suppliers are loaded
+      _checkIfHasData();
       setState(() {}); // To trigger rebuild
     });
-    _searchController.addListener(_applyFilter);
-  }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _supplierProvider = Provider.of<SupplierProvider>(context, listen: false);
+    _searchController.addListener(_applyFilter);
   }
 
   @override
@@ -52,6 +57,12 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkIfHasData() async {
+    setState(() {
+      _hasData = _supplierProvider.suppliers.isNotEmpty;
+    });
   }
 
   void _applyFilter() {
@@ -193,10 +204,36 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${l10n.supplier} ${l10n.addedSuccessfully}'),
+              content: Text(
+                '${l10n.supplier} ${item == null ? l10n.addedSuccessfully : l10n.updatedSuccessfully}',
+              ),
               backgroundColor: AppColors.success,
             ),
           );
+
+          // Check if this was the first supplier added
+          if (item == null) {
+            final prefs = await SharedPreferences.getInstance();
+            final hasCompletedOnboarding =
+                prefs.getBool('onboarding_completed') ?? false;
+
+            if (!hasCompletedOnboarding) {
+              // Mark onboarding as completed
+              await prefs.setBool('onboarding_completed', true);
+
+              // Show completion message and navigate to dashboard
+              setState(() {
+                _showCompletion = true;
+              });
+
+              // Navigate to dashboard after 3 seconds
+              Future.delayed(const Duration(seconds: 3), () {
+                if (mounted) {
+                  context.go(AppRouter.dashboard);
+                }
+              });
+            }
+          }
         }
       } else {
         await _supplierProvider.updateSupplier(result);
@@ -285,6 +322,17 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (!_hasData && !_showCompletion)
+                OnboardingTooltip(
+                  screenKey: 'suppliers',
+                  title: 'Add Supplier',
+                  description:
+                      'From here, you can add your suppliers to manage your vendor relationships. Suppliers provide the products you sell.',
+                ),
+
+              // Completion message
+              if (_showCompletion) const OnboardingCompletion(),
+
               Row(
                 children: [
                   Expanded(

@@ -96,21 +96,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get save => 'Save';
 
   String get addSupplier => 'Add Supplier';
-String get editSupplier => 'Edit Supplier';
-String get contactNumber => 'Contact Number';
-String get address => 'Address';
-String get amountToReceive => 'Amount to Receive';
-String get amountToPay => 'Amount to Pay';
-String get supplier => 'Supplier';
-String get addedSuccessfully => 'Added Successfully';
-String get updatedSuccessfully => 'Updated Successfully';
-String get error => 'Error';
-String get deletedSuccessfully => 'Deleted Successfully';
-String get errorDeleting => 'Error Deleting';
-String get search => 'Search';
-String get contact => 'Contact';
-String get receivable => 'Receivable';
-String get payable => 'Payable';
+  String get editSupplier => 'Edit Supplier';
+  String get contactNumber => 'Contact Number';
+  String get address => 'Address';
+  String get amountToReceive => 'Receivable';
+  String get amountToPay => 'Payable';
+  String get supplier => 'Supplier';
+  String get addedSuccessfully => 'Added Successfully';
+  String get updatedSuccessfully => 'Updated Successfully';
+  String get error => 'Error';
+  String get deletedSuccessfully => 'Deleted Successfully';
+  String get errorDeleting => 'Error Deleting';
+  String get search => 'Search';
+  String get contact => 'Contact';
+  String get receivable => 'Receivable';
+  String get payable => 'Payable';
 
   @override
   String get cancel => 'Cancel';
