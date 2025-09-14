@@ -3,12 +3,10 @@ import 'package:pos/models/draft.dart';
 import 'package:pos/utils/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
-import '../components/ui/custom_button.dart';
 import '../components/ui/custom_card.dart';
 import '../components/ui/status_badge.dart';
 import '../components/ui/search_bar_widget.dart';
 import '../components/ui/data_table_widget.dart';
-import '../utils/responsive.dart';
 import '../utils/app_spacing.dart';
 import '../providers/draft_provider.dart';
 import '../providers/auth_provider.dart';
@@ -109,7 +107,7 @@ class _DraftsScreenState extends State<DraftsScreen> {
     Provider.of<AuthProvider>(context);
 
     return Padding(
-      padding: Responsive.getPagePadding(context),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -139,14 +137,9 @@ class _DraftsScreenState extends State<DraftsScreen> {
                   ],
                 ),
               ),
-              CustomButton(
-                text: 'Refresh',
-                icon: Icons.refresh,
-                onPressed: _loadDrafts,
-              ),
             ],
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
           SearchBarWidget(
             controller: _searchController,
             hint: 'Search drafts...',
@@ -156,7 +149,8 @@ class _DraftsScreenState extends State<DraftsScreen> {
               _applyFilter();
             },
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
+
           if (draftProvider.error != null)
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -165,8 +159,7 @@ class _DraftsScreenState extends State<DraftsScreen> {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
-          Flexible(
-            fit: FlexFit.loose,
+          Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : draftProvider.drafts.isEmpty
@@ -202,8 +195,7 @@ class _DraftsScreenState extends State<DraftsScreen> {
                       ],
                     ),
                   )
-                : CustomCard(
-                    padding: EdgeInsets.zero,
+                : SingleChildScrollView(
                     child: DataTableWidget(
                       columns: const [
                         DataColumn(label: Text('#')),

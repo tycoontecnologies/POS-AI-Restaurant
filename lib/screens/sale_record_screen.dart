@@ -12,7 +12,6 @@ import '../components/ui/custom_card.dart';
 import '../components/ui/custom_button.dart';
 import '../components/ui/search_bar_widget.dart';
 import '../components/ui/data_table_widget.dart';
-import '../utils/responsive.dart';
 import '../utils/app_spacing.dart';
 import '../utils/app_colors.dart';
 
@@ -484,7 +483,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
     final filteredSales = _filterSales(_allSales);
 
     return Padding(
-      padding: Responsive.getPagePadding(context),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -516,7 +515,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
             ],
           ),
 
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
 
           // Search bar
           SearchBarWidget(
@@ -529,25 +528,9 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
             },
           ),
 
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
 
-          // Results count
-          Text(
-            '${filteredSales.length} sales found',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
-          ),
-
-          const SizedBox(height: AppSpacing.md),
-
-          Flexible(
-            fit: FlexFit.loose,
-            child: CustomCard(
-              padding: EdgeInsets.zero,
-              child: _buildContent(l10n, paginatedSales, filteredSales),
-            ),
-          ),
+          Expanded(child: _buildContent(l10n, paginatedSales, filteredSales)),
         ],
       ),
     );
@@ -617,38 +600,65 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       },
       child: SingleChildScrollView(
         controller: _scrollController,
-        child: Column(
-          children: [
-            DataTableWidget(
-              columns: [
-                DataColumn(label: Text('#')),
-                DataColumn(label: Text('Products')),
-                DataColumn(label: Text('Total')),
-                DataColumn(label: Text('Date')),
-                DataColumn(label: Text('Actions')),
-              ],
-              rows: paginatedSales.asMap().entries.map((entry) {
-                final index = entry.key;
-                final sale = entry.value;
-                final serialNumber = index + 1; // Serial number starts from 1
+        child: DataTableWidget(
+          columns: [
+            DataColumn(label: Text('#')),
+            DataColumn(label: Text('Products')),
+            DataColumn(label: Text('Total')),
+            DataColumn(label: Text('Date')),
+            DataColumn(label: Text('Actions')),
+          ],
+          rows: paginatedSales.asMap().entries.map((entry) {
+            final index = entry.key;
+            final sale = entry.value;
+            final serialNumber = index + 1; // Serial number starts from 1
 
-                return DataRow(
-                  cells: [
-                    DataCell(Text('$serialNumber')),
-                    DataCell(
-                      SizedBox(
-                        width: 300,
-                        child: Tooltip(
-                          message: _formatProductNames(sale.items),
-                          child: Text(
-                            _formatProductNames(sale.items),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+            return DataRow(
+              cells: [
+                DataCell(Text('$serialNumber')),
+                DataCell(
+                  SizedBox(
+                    width: 300,
+                    child: Tooltip(
+                      message: _formatProductNames(sale.items),
+                      child: Text(
+                        _formatProductNames(sale.items),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    DataCell(
+                  ),
+                ),
+                DataCell(
+                  Text(
+                    sale.total.toStringAsFixed(2),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                DataCell(Text(_formatDate(sale.createdAt))),
+                DataCell(_rowActions(sale)),
+              ],
+            );
+          }).toList(),
+
+          mobileItemBuilder: (context, index) {
+            final sale = paginatedSales[index];
+            return CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Sale #${sale.id.substring(0, 8)}...',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
                       Text(
                         sale.total.toStringAsFixed(2),
                         style: TextStyle(
@@ -656,83 +666,31 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                           color: AppColors.primary,
                         ),
                       ),
-                    ),
-                    DataCell(Text(_formatDate(sale.createdAt))),
-                    DataCell(_rowActions(sale)),
-                  ],
-                );
-              }).toList(),
-
-              mobileItemBuilder: (context, index) {
-                final sale = paginatedSales[index];
-                return CustomCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Sale #${sale.id.substring(0, 8)}...',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          Text(
-                            sale.total.toStringAsFixed(2),
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        _formatProductNames(sale.items),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Date: ${_formatDate(sale.createdAt)}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.grey600,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [_rowActions(sale)],
-                      ),
                     ],
                   ),
-                );
-              },
-            ),
-
-            // Loading more indicator
-            if (_isLoadingMore)
-              const Padding(
-                padding: EdgeInsets.all(AppSpacing.md),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-
-            // No more items indicator
-            if (!_hasMore && paginatedSales.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Text(
-                  'No more sales to load',
-                  style: TextStyle(
-                    color: AppColors.grey600,
-                    fontStyle: FontStyle.italic,
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    _formatProductNames(sale.items),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Date: ${_formatDate(sale.createdAt)}',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [_rowActions(sale)],
+                  ),
+                ],
               ),
-          ],
+            );
+          },
         ),
       ),
     );

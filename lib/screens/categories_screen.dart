@@ -15,7 +15,6 @@ import '../components/ui/custom_input.dart';
 import '../components/ui/status_badge.dart';
 import '../components/ui/data_table_widget.dart';
 import '../components/ui/search_bar_widget.dart';
-import '../utils/responsive.dart';
 import '../utils/app_spacing.dart';
 import '../utils/app_colors.dart';
 
@@ -29,7 +28,6 @@ class CategoriesScreen extends StatefulWidget {
 class _CategoriesScreenState extends State<CategoriesScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _isLoadingMore = false;
   final bool _showCompletion = false;
   bool _hasData = false;
 
@@ -62,6 +60,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   void dispose() {
     _searchController.dispose();
     _scrollController.dispose();
+    _searchController.removeListener(_onSearchChanged);
+    _scrollController.removeListener(_onScroll);
     super.dispose();
   }
 
@@ -80,9 +80,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   void _loadMoreCategories() async {
     final categoryProvider = context.read<CategoryProvider>();
     if (!categoryProvider.isLoading && categoryProvider.hasMore) {
-      setState(() => _isLoadingMore = true);
       await categoryProvider.loadMoreCategories();
-      setState(() => _isLoadingMore = false);
     }
   }
 
@@ -90,6 +88,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     final l10n = AppLocalizations.of(context)!;
     final categoryProvider = context.read<CategoryProvider>();
 
+    final formKey = GlobalKey<FormState>();
     final controller = TextEditingController(text: item?.name ?? '');
     bool isActive = item?.active ?? true;
 
@@ -104,29 +103,39 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               title: Text(item == null ? l10n.addCategory : l10n.editCategory),
               content: SizedBox(
                 width: 400,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CustomInput(
-                      label: l10n.name,
-                      controller: controller,
-                      hint: 'Enter category name',
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Row(
-                      children: [
-                        Text(
-                          l10n.active,
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                        const Spacer(),
-                        Switch(
-                          value: isActive,
-                          onChanged: (v) => setDialogState(() => isActive = v),
-                        ),
-                      ],
-                    ),
-                  ],
+                child: Form(
+                  key: formKey, // 🟡 Important: Use GlobalKey here
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CustomInput(
+                        label: l10n.name,
+                        controller: controller,
+                        hint: 'Enter category name',
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Category name is required';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Row(
+                        children: [
+                          Text(
+                            l10n.active,
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                          const Spacer(),
+                          Switch(
+                            value: isActive,
+                            onChanged: (v) =>
+                                setDialogState(() => isActive = v),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
               actions: [
@@ -138,7 +147,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 CustomButton(
                   text: l10n.save,
                   onPressed: () {
-                    if (controller.text.trim().isNotEmpty) {
+                    // ✅ Validate before proceeding
+                    if (formKey.currentState?.validate() ?? false) {
                       Navigator.pop(
                         context,
                         _CategoryFormResult(
@@ -277,7 +287,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     final categoryProvider = context.watch<CategoryProvider>();
 
     return Padding(
-      padding: Responsive.getPagePadding(context),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -324,7 +334,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             ],
           ),
 
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
 
           SearchBarWidget(
             controller: _searchController,
@@ -335,14 +345,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               _onSearchChanged();
             },
           ),
+          const SizedBox(height: AppSpacing.sm),
 
-          Flexible(
-            fit: FlexFit.loose,
-            child: CustomCard(
-              padding: EdgeInsets.zero,
-              child: _buildContent(categoryProvider, l10n),
-            ),
-          ),
+          Expanded(child: _buildContent(categoryProvider, l10n)),
         ],
       ),
     );
@@ -411,107 +416,101 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       },
       child: SingleChildScrollView(
         controller: _scrollController,
-        child: Column(
-          children: [
-            DataTableWidget(
-              columns: [
-                DataColumn(label: Text('#')),
-                DataColumn(label: Text(l10n.name)),
-                DataColumn(label: Text(l10n.status)),
-                DataColumn(label: Text(l10n.createdOn)),
-                DataColumn(label: Text(l10n.actions)),
-              ],
-              rows: categories
-                  .asMap()
-                  .entries
-                  .map(
-                    (e) => DataRow(
-                      cells: [
-                        DataCell(Text('${e.key + 1}')),
-                        DataCell(Text(e.value.name)),
-                        DataCell(
-                          StatusBadge(
-                            text: e.value.active ? l10n.active : l10n.inactive,
-                            variant: e.value.active
-                                ? BadgeVariant.success
-                                : BadgeVariant.neutral,
-                          ),
-                        ),
-                        DataCell(
-                          Text(
-                            e.value.createdOn.toIso8601String().substring(
-                              0,
-                              10,
-                            ),
-                          ),
-                        ),
-                        DataCell(_rowActions(e.value)),
-                      ],
+        child: DataTableWidget(
+          columns: const [
+            DataColumn(
+              label: Text('#', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+            DataColumn(
+              label: Text(
+                'Name',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Status',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Created On',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Actions',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+          rows: categories
+              .asMap()
+              .entries
+              .map(
+                (e) => DataRow(
+                  cells: [
+                    DataCell(Text('${e.key + 1}')),
+                    DataCell(Text(e.value.name)),
+                    DataCell(
+                      StatusBadge(
+                        text: e.value.active ? l10n.active : l10n.inactive,
+                        variant: e.value.active
+                            ? BadgeVariant.success
+                            : BadgeVariant.neutral,
+                      ),
                     ),
-                  )
-                  .toList(),
-              mobileItemBuilder: (context, index) {
-                final item = categories[index];
-                return CustomCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              item.name,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          StatusBadge(
-                            text: item.active ? l10n.active : l10n.inactive,
-                            variant: item.active
-                                ? BadgeVariant.success
-                                : BadgeVariant.neutral,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
+                    DataCell(
                       Text(
-                        'ID: ${item.id} • Created: ${item.createdOn.toIso8601String().substring(0, 10)}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.grey600,
+                        e.value.createdOn.toIso8601String().substring(0, 10),
+                      ),
+                    ),
+                    DataCell(_rowActions(e.value)),
+                  ],
+                ),
+              )
+              .toList(),
+          mobileItemBuilder: (context, index) {
+            final item = categories[index];
+            return CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.name,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [_rowActions(item)],
+                      StatusBadge(
+                        text: item.active ? l10n.active : l10n.inactive,
+                        variant: item.active
+                            ? BadgeVariant.success
+                            : BadgeVariant.neutral,
                       ),
                     ],
                   ),
-                );
-              },
-            ),
-
-            // Loading more indicator
-            if (_isLoadingMore)
-              const Padding(
-                padding: EdgeInsets.all(AppSpacing.md),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-
-            // No more items indicator
-            if (!provider.hasMore && categories.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Text(
-                  'No more categories to load',
-                  style: TextStyle(
-                    color: AppColors.grey600,
-                    fontStyle: FontStyle.italic,
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'ID: ${item.id} • Created: ${item.createdOn.toIso8601String().substring(0, 10)}',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [_rowActions(item)],
+                  ),
+                ],
               ),
-          ],
+            );
+          },
         ),
       ),
     );

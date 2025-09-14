@@ -18,7 +18,6 @@ import '../components/ui/custom_dropdown.dart';
 import '../components/ui/status_badge.dart';
 import '../components/ui/data_table_widget.dart';
 import '../components/ui/search_bar_widget.dart';
-import '../utils/responsive.dart';
 import '../utils/app_spacing.dart';
 import '../utils/app_colors.dart';
 
@@ -58,6 +57,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
     _scrollController.addListener(_onScroll);
     _loadCategories();
   }
+
+  
 
   Future<void> _checkIfHasData() async {
     final authProvider = context.read<AuthProvider>();
@@ -353,6 +354,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text(
               item == null
                   ? 'Product added successfully'
@@ -452,7 +454,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final productProvider = context.watch<ProductProvider>();
 
     return Padding(
-      padding: Responsive.getPagePadding(context),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -499,7 +501,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ],
           ),
 
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
 
           SearchBarWidget(
             controller: _searchController,
@@ -510,14 +512,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
               _onSearchChanged();
             },
           ),
+          const SizedBox(height: AppSpacing.sm),
 
-          Flexible(
-            fit: FlexFit.loose,
-            child: CustomCard(
-              padding: EdgeInsets.zero,
-              child: _buildContent(productProvider, l10n),
-            ),
-          ),
+          Expanded(child: _buildContent(productProvider, l10n)),
         ],
       ),
     );
@@ -527,30 +524,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (provider.isLoading && provider.products.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-
-    // if (provider.error != null) {
-    //   return Center(
-    //     child: Column(
-    //       mainAxisAlignment: MainAxisAlignment.center,
-    //       children: [
-    //         Icon(Icons.error, size: 64, color: AppColors.error),
-    //         const SizedBox(height: AppSpacing.md),
-    //         Text('Error: ${provider.error}'),
-    //         const SizedBox(height: AppSpacing.md),
-    //         CustomButton(
-    //           text: 'Retry',
-    //           onPressed: () {
-    //             final authProvider = context.read<AuthProvider>();
-    //             if (authProvider.currentUser != null) {
-    //               provider.loadProducts(authProvider.currentUser!.id);
-    //             }
-    //           },
-    //           variant: ButtonVariant.filled,
-    //         ),
-    //       ],
-    //     ),
-    //   );
-    // }
 
     final products = provider.products;
 
@@ -598,129 +571,100 @@ class _ProductsScreenState extends State<ProductsScreen> {
       },
       child: SingleChildScrollView(
         controller: _scrollController,
-        child: Column(
-          children: [
-            DataTableWidget(
-              columns: [
-                DataColumn(label: Text('#')),
-                DataColumn(label: Text(l10n.name)),
-                DataColumn(label: Text(l10n.category)),
-                DataColumn(label: Text(l10n.unit)),
-                DataColumn(label: Text(l10n.salePrice)),
-                DataColumn(label: Text(l10n.purchasePrice)),
-                DataColumn(label: Text(l10n.quantity)),
-                DataColumn(label: Text(l10n.status)),
-                DataColumn(label: Text(l10n.actions)),
-              ],
-              rows: products
-                  .asMap()
-                  .entries
-                  .map(
-                    (entry) => DataRow(
-                      cells: [
-                        DataCell(Text('${entry.key + 1}')),
-                        DataCell(Text(entry.value.name)),
-                        DataCell(Text(entry.value.category)),
-                        DataCell(Text(entry.value.unit)),
-                        DataCell(
-                          Text(entry.value.salePrice.toStringAsFixed(2)),
-                        ),
-                        DataCell(
-                          Text(entry.value.purchasePrice.toStringAsFixed(2)),
-                        ),
-                        DataCell(
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('${entry.value.quantity}'),
-                              if (entry.value.quantity < 20) ...[
-                                const SizedBox(width: AppSpacing.xs),
-                                const Icon(
-                                  Icons.warning,
-                                  color: AppColors.warning,
-                                  size: 16,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        DataCell(
-                          StatusBadge(
-                            text: entry.value.active
-                                ? l10n.active
-                                : l10n.inactive,
-                            variant: entry.value.active
-                                ? BadgeVariant.success
-                                : BadgeVariant.neutral,
-                          ),
-                        ),
-                        DataCell(_rowActions(entry.value)),
-                      ],
+        child: DataTableWidget(
+          columns: [
+            DataColumn(label: Text('#')),
+            DataColumn(label: Text(l10n.name)),
+            DataColumn(label: Text(l10n.category)),
+            DataColumn(label: Text(l10n.unit)),
+            DataColumn(label: Text(l10n.salePrice)),
+            DataColumn(label: Text(l10n.purchasePrice)),
+            DataColumn(label: Text(l10n.quantity)),
+            DataColumn(label: Text(l10n.status)),
+            DataColumn(label: Text(l10n.actions)),
+          ],
+          rows: products
+              .asMap()
+              .entries
+              .map(
+                (entry) => DataRow(
+                  cells: [
+                    DataCell(Text('${entry.key + 1}')),
+                    DataCell(Text(entry.value.name)),
+                    DataCell(Text(entry.value.category)),
+                    DataCell(Text(entry.value.unit)),
+                    DataCell(Text(entry.value.salePrice.toStringAsFixed(2))),
+                    DataCell(
+                      Text(entry.value.purchasePrice.toStringAsFixed(2)),
                     ),
-                  )
-                  .toList(),
-              mobileItemBuilder: (context, index) {
-                final item = products[index];
-                return CustomCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    DataCell(
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: Text(
-                              '${index + 1}. ${item.name}', // Serial number in mobile view
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
+                          Text('${entry.value.quantity}'),
+                          if (entry.value.quantity < 20) ...[
+                            const SizedBox(width: AppSpacing.xs),
+                            const Icon(
+                              Icons.warning,
+                              color: AppColors.warning,
+                              size: 16,
                             ),
-                          ),
-                          StatusBadge(
-                            text: item.active ? l10n.active : l10n.inactive,
-                            variant: item.active
-                                ? BadgeVariant.success
-                                : BadgeVariant.neutral,
-                          ),
+                          ],
                         ],
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'ID: ${item.id} • ${item.category} • ${item.unit} • SP: ${item.salePrice.toStringAsFixed(2)} • PP: ${item.purchasePrice.toStringAsFixed(2)} • Qty: ${item.quantity}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.grey600,
+                    ),
+                    DataCell(
+                      StatusBadge(
+                        text: entry.value.active ? l10n.active : l10n.inactive,
+                        variant: entry.value.active
+                            ? BadgeVariant.success
+                            : BadgeVariant.neutral,
+                      ),
+                    ),
+                    DataCell(_rowActions(entry.value)),
+                  ],
+                ),
+              )
+              .toList(),
+          mobileItemBuilder: (context, index) {
+            final item = products[index];
+            return CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${index + 1}. ${item.name}', // Serial number in mobile view
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [_rowActions(item)],
+                      StatusBadge(
+                        text: item.active ? l10n.active : l10n.inactive,
+                        variant: item.active
+                            ? BadgeVariant.success
+                            : BadgeVariant.neutral,
                       ),
                     ],
                   ),
-                );
-              },
-            ),
-
-            // Loading more indicator
-            if (_isLoadingMore)
-              const Padding(
-                padding: EdgeInsets.all(AppSpacing.md),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-
-            // No more items indicator
-            if (!provider.hasMore && products.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Text(
-                  'No more products to load',
-                  style: TextStyle(
-                    color: AppColors.grey600,
-                    fontStyle: FontStyle.italic,
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'ID: ${item.id} • ${item.category} • ${item.unit} • SP: ${item.salePrice.toStringAsFixed(2)} • PP: ${item.purchasePrice.toStringAsFixed(2)} • Qty: ${item.quantity}',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [_rowActions(item)],
+                  ),
+                ],
               ),
-          ],
+            );
+          },
         ),
       ),
     );

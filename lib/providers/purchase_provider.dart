@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pos/models/purchase.dart';
@@ -48,7 +50,7 @@ class PurchaseProvider with ChangeNotifier {
         _hasMore = false;
       }
     } catch (e) {
-      print('Error loading purchases: $e');
+      log('Error loading purchases: $e');
     } finally {
       _isLoading = false;
       notifyListeners();

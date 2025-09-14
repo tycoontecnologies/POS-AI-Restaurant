@@ -118,6 +118,7 @@ class _ModernAppHeader extends StatelessWidget {
                                         content: Text(
                                           'Please renew your subscription to access this feature',
                                         ),
+                                        duration: Duration(seconds: 1),
                                         backgroundColor: Colors.orange,
                                       ),
                                     );

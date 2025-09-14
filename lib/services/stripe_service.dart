@@ -33,9 +33,7 @@ class StripeService {
         if (data['url'] != null) {
           html.window.open(data['url'], '_blank');
           return true;
-        } else {
-          log('No URL in response: $data'); // Add logging
-        }
+        } 
       }
 
       throw Exception(
@@ -44,7 +42,6 @@ class StripeService {
     } on TimeoutException {
       throw Exception('Payment request timed out');
     } catch (e) {
-      log('Payment error: $e'); // Add logging
       throw Exception('Payment failed: $e');
     }
   }

@@ -9,7 +9,6 @@ import '../components/ui/custom_card.dart';
 import '../components/ui/custom_button.dart';
 import '../components/ui/search_bar_widget.dart';
 import '../components/ui/data_table_widget.dart';
-import '../utils/responsive.dart';
 import '../utils/app_spacing.dart';
 import '../utils/app_colors.dart';
 
@@ -261,7 +260,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
     );
 
     return Padding(
-      padding: Responsive.getPagePadding(context),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -293,7 +292,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
             ],
           ),
 
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
 
           // Search bar
           SearchBarWidget(
@@ -306,28 +305,10 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
             },
           ),
 
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
 
-          // Results count
-          Text(
-            '${filteredSaleReturns.length} sale returns found',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
-          ),
-
-          const SizedBox(height: AppSpacing.md),
-
-          Flexible(
-            fit: FlexFit.loose,
-            child: CustomCard(
-              padding: EdgeInsets.zero,
-              child: _buildContent(
-                l10n,
-                filteredSaleReturns,
-                saleReturnProvider,
-              ),
-            ),
+          Expanded(
+            child: _buildContent(l10n, filteredSaleReturns, saleReturnProvider),
           ),
         ],
       ),
@@ -399,52 +380,92 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
       },
       child: SingleChildScrollView(
         controller: _scrollController,
-        child: Column(
-          children: [
-            DataTableWidget(
-              columns: [
-                DataColumn(label: Text('#')),
-                DataColumn(label: Text('Sale ID')),
-                DataColumn(label: Text('Products')),
-                DataColumn(label: Text('Refund Amount')),
-                DataColumn(label: Text('Reason')),
-                DataColumn(label: Text('Date')),
-                DataColumn(label: Text('Actions')),
-              ],
-              rows: filteredSaleReturns.asMap().entries.map((entry) {
-                final index = entry.key + 1; // Serial number starts at 1
-                final saleReturn = entry.value;
+        child: DataTableWidget(
+          columns: [
+            DataColumn(label: Text('#')),
+            DataColumn(label: Text('Sale ID')),
+            DataColumn(label: Text('Products')),
+            DataColumn(label: Text('Refund Amount')),
+            DataColumn(label: Text('Reason')),
+            DataColumn(label: Text('Date')),
+            DataColumn(label: Text('Actions')),
+          ],
+          rows: filteredSaleReturns.asMap().entries.map((entry) {
+            final index = entry.key + 1; // Serial number starts at 1
+            final saleReturn = entry.value;
 
-                return DataRow(
-                  cells: [
-                    DataCell(Text('$index')),
-                    DataCell(
-                      SizedBox(
-                        width: 120,
-                        child: Tooltip(
-                          message: saleReturn.originalSaleId,
-                          child: Text(
-                            saleReturn.originalSaleId.substring(0, 8),
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontFamily: 'Monospace'),
-                          ),
-                        ),
+            return DataRow(
+              cells: [
+                DataCell(Text('$index')),
+                DataCell(
+                  SizedBox(
+                    width: 120,
+                    child: Tooltip(
+                      message: saleReturn.originalSaleId,
+                      child: Text(
+                        saleReturn.originalSaleId.substring(0, 8),
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontFamily: 'Monospace'),
                       ),
                     ),
-                    DataCell(
-                      SizedBox(
-                        width: 200,
-                        child: Tooltip(
-                          message: _formatProductNames(saleReturn.items),
-                          child: Text(
-                            _formatProductNames(saleReturn.items),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    width: 200,
+                    child: Tooltip(
+                      message: _formatProductNames(saleReturn.items),
+                      child: Text(
+                        _formatProductNames(saleReturn.items),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    DataCell(
+                  ),
+                ),
+                DataCell(
+                  Text(
+                    saleReturn.totalRefund.toStringAsFixed(2),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.error,
+                    ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    width: 150,
+                    child: Tooltip(
+                      message: saleReturn.reason,
+                      child: Text(
+                        saleReturn.reason,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(Text(_formatDate(saleReturn.createdAt))),
+                DataCell(_rowActions(saleReturn)),
+              ],
+            );
+          }).toList(),
+
+          mobileItemBuilder: (context, index) {
+            final saleReturn = filteredSaleReturns[index];
+            return CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Return #${saleReturn.id.substring(0, 8)}...',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
                       Text(
                         saleReturn.totalRefund.toStringAsFixed(2),
                         style: TextStyle(
@@ -452,108 +473,43 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
                           color: AppColors.error,
                         ),
                       ),
-                    ),
-                    DataCell(
-                      SizedBox(
-                        width: 150,
-                        child: Tooltip(
-                          message: saleReturn.reason,
-                          child: Text(
-                            saleReturn.reason,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ),
-                    DataCell(Text(_formatDate(saleReturn.createdAt))),
-                    DataCell(_rowActions(saleReturn)),
-                  ],
-                );
-              }).toList(),
-
-              mobileItemBuilder: (context, index) {
-                final saleReturn = filteredSaleReturns[index];
-                return CustomCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Return #${saleReturn.id.substring(0, 8)}...',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          Text(
-                            saleReturn.totalRefund.toStringAsFixed(2),
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.error,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Sale ID: ${saleReturn.originalSaleId.substring(0, 8)}...',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        _formatProductNames(saleReturn.items),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Reason: ${saleReturn.reason}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Date: ${_formatDate(saleReturn.createdAt)}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.grey600,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [_rowActions(saleReturn)],
-                      ),
                     ],
                   ),
-                );
-              },
-            ),
-
-            // Loading more indicator
-            if (_isLoadingMore)
-              const Padding(
-                padding: EdgeInsets.all(AppSpacing.md),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-
-            // No more items indicator
-            if (!saleReturnProvider.hasMore && filteredSaleReturns.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Text(
-                  'No more sale returns to load',
-                  style: TextStyle(
-                    color: AppColors.grey600,
-                    fontStyle: FontStyle.italic,
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Sale ID: ${saleReturn.originalSaleId.substring(0, 8)}...',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    _formatProductNames(saleReturn.items),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Reason: ${saleReturn.reason}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Date: ${_formatDate(saleReturn.createdAt)}',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [_rowActions(saleReturn)],
+                  ),
+                ],
               ),
-          ],
+            );
+          },
         ),
       ),
     );

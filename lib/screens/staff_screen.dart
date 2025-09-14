@@ -1,21 +1,28 @@
-// staff_screen.dart - UPDATED VERSION
+// staff_screen.dart - UPDATED VERSION WITH FORM VALIDATION
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
+import 'package:intl_phone_field/phone_number.dart';
+import 'package:pos/components/ui/custom_input.dart';
 import 'package:pos/components/ui/onboarding_completion.dart';
 import 'package:pos/components/ui/onboarding_tooltip.dart';
 import 'package:pos/routes/app_router.dart';
+import 'package:pos/utils/app_colors.dart';
+import 'package:pos/widget/international_phone_input.dart';
+import 'package:pos/widget/validated_input.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../components/ui/custom_button.dart';
 import '../components/ui/custom_card.dart';
-import '../components/ui/status_badge.dart';
 import '../components/ui/search_bar_widget.dart';
 import '../components/ui/data_table_widget.dart';
 import '../components/ui/loading_widget.dart';
 import '../models/staff.dart';
 import '../providers/staff_provider.dart';
-import '../utils/responsive.dart';
 import '../utils/app_spacing.dart';
 
 class StaffScreen extends StatefulWidget {
@@ -88,9 +95,7 @@ class _StaffScreenState extends State<StaffScreen> {
   }
 
   void _createOrEdit({Staff? item}) async {
-    // PREVENT MULTIPLE SIMULTANEOUS OPERATIONS
     if (_isProcessing) return;
-
     setState(() => _isProcessing = true);
 
     final l10n = AppLocalizations.of(context)!;
@@ -105,91 +110,206 @@ class _StaffScreenState extends State<StaffScreen> {
     );
     DateTime createdOn = item?.joinDate ?? DateTime.now();
 
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
     final result = await showDialog<_StaffFormResult>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
+          // Validation functions
+          String? validateRequired(String? value, String fieldName) {
+            if (value == null || value.isEmpty) {
+              return '$fieldName is required';
+            }
+            return null;
+          }
+
+          String? validateWage(String? value) {
+            if (value == null || value.isEmpty) {
+              return null; // Wage is optional
+            }
+            final wage = double.tryParse(value);
+            if (wage == null) {
+              return 'Please enter a valid number';
+            }
+            if (wage < 0) {
+              return 'Wage cannot be negative';
+            }
+            return null;
+          }
+
           return AlertDialog(
             backgroundColor: const Color(0xFFFDFDFE),
             surfaceTintColor: Colors.transparent,
-            title: Text(item == null ? 'Add Employee' : 'Edit Employee'),
-            content: SizedBox(
-              width: 520,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: roleCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Employee Role',
-                        hintText: 'e.g. Waiter',
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Text(
+              item == null ? 'Add Employee' : 'Edit Employee',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            content: Form(
+              key: formKey,
+              child: SizedBox(
+                width: 520,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      /// Employee Role
+                      CustomInput(
+                        label: 'Employee Role',
+                        hint: 'e.g. Waiter',
+                        controller: roleCtrl,
+                        validator: (value) => validateRequired(value, 'Role'),
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    TextField(
-                      controller: nameCtrl,
-                      decoration: const InputDecoration(labelText: 'Name'),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    TextField(
-                      controller: wageCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
+                      const SizedBox(height: AppSpacing.sm),
+
+                      /// Name
+                      CustomInput(
+                        label: 'Name',
+                        controller: nameCtrl,
+                        validator: (value) => validateRequired(value, 'Name'),
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'Daily Wage',
-                        prefixIcon: Icon(Icons.attach_money),
+                      const SizedBox(height: AppSpacing.sm),
+
+                      /// Daily Wage
+                      CustomInput(
+                        label: 'Daily Wage',
+                        controller: wageCtrl,
+                        prefixIcon: const Icon(Icons.attach_money),
+                        validator: validateWage,
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    TextField(
-                      controller: phoneCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Contact Number',
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    TextField(
-                      controller: addressCtrl,
-                      decoration: const InputDecoration(labelText: 'Address'),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: 'Join Date',
+                      const SizedBox(height: AppSpacing.sm),
+
+                      /// Phone Number
+                      Theme(
+                        data: Theme.of(context).copyWith(
+                          inputDecorationTheme: InputDecorationTheme(
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.radiusSm,
+                              ),
+                              borderSide: const BorderSide(
+                                color: AppColors.grey300,
+                              ),
                             ),
-                            child: Text(
-                              '${createdOn.toLocal()}'.split(' ').first,
+                            filled: true,
+                            fillColor: AppColors.grey50,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.md,
                             ),
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.md),
-                        CustomButton(
-                          text: 'Pick Date',
-                          variant: ButtonVariant.outlined,
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: createdOn,
-                              firstDate: DateTime(2000),
-                              lastDate: DateTime(2100),
-                            );
-                            if (picked != null) {
-                              setDialogState(() => createdOn = picked);
+                        child: FormField<String>(
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Phone number is required';
                             }
+
+                            // Extract just the digits for validation
+                            final digitsOnly = value.replaceAll(
+                              RegExp(r'[^0-9]'),
+                              '',
+                            );
+
+                            // Check if we have a reasonable number of digits
+                            // (country code + phone number, typically at least 8 digits)
+                            if (digitsOnly.length < 8) {
+                              return 'Please enter a valid phone number';
+                            }
+
+                            return null;
                           },
+                          builder: (field) => IntlPhoneField(
+                            decoration: InputDecoration(
+                              border: const OutlineInputBorder(),
+                              errorText: field.errorText,
+                              labelText: 'Phone Number',
+                            ),
+                            initialCountryCode: 'PK',
+                            // disableLengthCheck: true,
+                            keyboardType:
+                                TextInputType.phone, // Numeric keyboard
+                            inputFormatters: [
+                              FilteringTextInputFormatter
+                                  .digitsOnly, // Only allow digits
+                            ],
+                            onChanged: (phone) {
+                              // Set full number for backend use
+                              phoneCtrl.text = phone.completeNumber;
+
+                              // Notify FormField about the change
+                              field.didChange(phone.completeNumber);
+                            },
+                          ),
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+
+                      /// Address
+                      CustomInput(
+                        label: 'Address',
+                        controller: addressCtrl,
+                        maxLines: 1,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+
+                      /// Join Date
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: 'Join Date',
+                                border: OutlineInputBorder(),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.sm,
+                                  vertical: AppSpacing.sm,
+                                ),
+                                child: Text(
+                                  '${createdOn.toLocal()}'.split(' ').first,
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          SizedBox(
+                            height: 48,
+                            child: CustomButton(
+                              text: 'Pick Date',
+                              variant: ButtonVariant.outlined,
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: createdOn,
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime(2100),
+                                );
+                                if (picked != null) {
+                                  setDialogState(() => createdOn = picked);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
+            actionsPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
+            ),
+            actionsAlignment: MainAxisAlignment.end,
             actions: [
               CustomButton(
                 text: l10n.cancel,
@@ -199,22 +319,20 @@ class _StaffScreenState extends State<StaffScreen> {
               CustomButton(
                 text: l10n.save,
                 onPressed: () {
-                  final wage = double.tryParse(wageCtrl.text.trim()) ?? 0;
-                  if (roleCtrl.text.trim().isEmpty ||
-                      nameCtrl.text.trim().isEmpty) {
-                    return;
+                  if (formKey.currentState!.validate()) {
+                    final wage = double.tryParse(wageCtrl.text.trim()) ?? 0;
+                    Navigator.pop(
+                      context,
+                      _StaffFormResult(
+                        role: roleCtrl.text.trim(),
+                        name: nameCtrl.text.trim(),
+                        dailyWage: wage,
+                        phone: phoneCtrl.text.trim(),
+                        address: addressCtrl.text.trim(),
+                        createdOn: createdOn,
+                      ),
+                    );
                   }
-                  Navigator.pop(
-                    context,
-                    _StaffFormResult(
-                      role: roleCtrl.text.trim(),
-                      name: nameCtrl.text.trim(),
-                      dailyWage: wage,
-                      phone: phoneCtrl.text.trim(),
-                      address: addressCtrl.text.trim(),
-                      createdOn: createdOn,
-                    ),
-                  );
                 },
               ),
             ],
@@ -374,7 +492,7 @@ class _StaffScreenState extends State<StaffScreen> {
     }
 
     return Padding(
-      padding: Responsive.getPagePadding(context),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -424,7 +542,7 @@ class _StaffScreenState extends State<StaffScreen> {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
           SearchBarWidget(
             controller: _searchController,
             hint: 'Search employees...',
@@ -434,7 +552,7 @@ class _StaffScreenState extends State<StaffScreen> {
               _onSearchChanged();
             },
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           Expanded(
             child: provider.isLoading && provider.staff.isEmpty
                 ? const CustomCard(
@@ -490,34 +608,7 @@ class _StaffScreenState extends State<StaffScreen> {
                     },
                     child: SingleChildScrollView(
                       controller: _scrollController,
-                      child: Column(
-                        children: [
-                          _buildStaffContent(provider),
-
-                          // Loading more indicator
-                          if (_isLoadingMore)
-                            const Padding(
-                              padding: EdgeInsets.all(AppSpacing.md),
-                              child: Center(child: CircularProgressIndicator()),
-                            ),
-
-                          // No more items indicator
-                          if (!provider.hasMore && provider.staff.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.all(AppSpacing.md),
-                              child: Text(
-                                'No more staff members to load',
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(0.6),
-                                  fontStyle: FontStyle.italic,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                        ],
-                      ),
+                      child: _buildStaffContent(provider),
                     ),
                   ),
           ),
@@ -597,134 +688,55 @@ class _StaffScreenState extends State<StaffScreen> {
       );
     }
 
-    return Stack(
-      children: [
-        CustomCard(
-          padding: EdgeInsets.zero,
-          child: DataTableWidget(
-            columns: const [
-              DataColumn(label: Text('#')),
-              DataColumn(label: Text('Employee Role')),
-              DataColumn(label: Text('Name')),
-              DataColumn(label: Text('Daily Wage')),
-              DataColumn(label: Text('Contact Number')),
-              DataColumn(label: Text('Join Date')),
-              DataColumn(label: Text('Actions')),
-            ],
-            rows: staffList.asMap().entries.map((entry) {
-              final index = entry.key;
-              final e = entry.value;
+    return SizedBox(
+      width: double.infinity,
+      child: DataTableWidget(
+        columns: const [
+          DataColumn(label: Text('#')),
+          DataColumn(label: Text('Employee Role')),
+          DataColumn(label: Text('Name')),
+          DataColumn(label: Text('Daily Wage')),
+          DataColumn(label: Text('Contact Number')),
+          DataColumn(label: Text('Join Date')),
+          DataColumn(label: Text('Actions')),
+        ],
+        rows: staffList.asMap().entries.map((entry) {
+          final index = entry.key;
+          final e = entry.value;
 
-              return DataRow(
-                cells: [
-                  DataCell(Text('${index + 1}')),
-                  DataCell(Text(e.role)),
-                  DataCell(Text(e.name)),
-                  DataCell(Text(e.dailyWage.toStringAsFixed(0))),
-                  DataCell(Text(e.phone)),
-                  DataCell(Text('${e.joinDate.toLocal()}'.split(' ').first)),
-                  DataCell(_rowActions(e, provider.isLoading || _isProcessing)),
-                ],
-              );
-            }).toList(),
-            mobileItemBuilder: (context, index) {
-              final s = staffList[index];
-              return CustomCard(
-                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+          return DataRow(
+            cells: [
+              DataCell(Text('${index + 1}')),
+              DataCell(Text(e.role)),
+              DataCell(Text(e.name)),
+              DataCell(Text(e.dailyWage.toStringAsFixed(0))),
+              DataCell(Text(e.phone)),
+              DataCell(Text('${e.joinDate.toLocal()}'.split(' ').first)),
+              DataCell(
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.person_outline),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            s.name,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ),
-                        StatusBadge(text: s.role),
-                      ],
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: _isProcessing
+                          ? null
+                          : () => _createOrEdit(item: e),
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Daily Wage: ${s.dailyWage.toStringAsFixed(0)}',
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Join Date: ${s.joinDate.toLocal().toString().split(' ').first}',
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text('Phone: ${s.phone}'),
-                    const SizedBox(height: AppSpacing.sm),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: CustomButton(
-                            text: 'Edit',
-                            variant: ButtonVariant.outlined,
-                            onPressed: (provider.isLoading || _isProcessing)
-                                ? null
-                                : () => _createOrEdit(item: s),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: CustomButton(
-                            text: 'Delete',
-                            variant: ButtonVariant.outlined,
-                            color: Colors.red,
-                            onPressed: (provider.isLoading || _isProcessing)
-                                ? null
-                                : () => _delete(s),
-                          ),
-                        ),
-                      ],
+                    IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: _isProcessing ? null : () => _delete(e),
                     ),
                   ],
                 ),
-              );
-            },
-          ),
-        ),
-        if (provider.isLoading)
-          Positioned.fill(
-            child: Container(
-              color: Colors.black.withOpacity(0.1),
-              child: const Center(child: CircularProgressIndicator()),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _rowActions(Staff s, bool isDisabled) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.edit),
-          onPressed: isDisabled ? null : () => _createOrEdit(item: s),
-        ),
-        IconButton(
-          icon: const Icon(Icons.delete),
-          color: Colors.red,
-          onPressed: isDisabled ? null : () => _delete(s),
-        ),
-      ],
+              ),
+            ],
+          );
+        }).toList(),
+      ),
     );
   }
 }
 
+// Helper class to pass form results
 class _StaffFormResult {
   final String role;
   final String name;

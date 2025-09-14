@@ -10,7 +10,6 @@ import '../components/ui/custom_card.dart';
 import '../components/ui/status_badge.dart';
 import '../components/ui/search_bar_widget.dart';
 import '../components/ui/data_table_widget.dart';
-import '../utils/responsive.dart';
 import '../utils/app_spacing.dart';
 import '../providers/purchase_provider.dart';
 import '../models/purchase_return.dart';
@@ -30,7 +29,6 @@ class PurchasesScreen extends StatefulWidget {
 class _PurchasesScreenState extends State<PurchasesScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _isLoadingMore = false;
 
   @override
   void initState() {
@@ -85,9 +83,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   void _loadMorePurchases() async {
     final purchaseProvider = context.read<PurchaseProvider>();
     if (!purchaseProvider.isLoading && purchaseProvider.hasMore) {
-      setState(() => _isLoadingMore = true);
       await purchaseProvider.loadMorePurchases();
-      setState(() => _isLoadingMore = false);
     }
   }
 
@@ -489,114 +485,87 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       },
       child: SingleChildScrollView(
         controller: _scrollController,
-        child: Column(
-          children: [
-            DataTableWidget(
-              columns: const [
-                DataColumn(label: Text('#')),
-                DataColumn(label: Text('Supplier')),
-                DataColumn(label: Text('Items')),
-                DataColumn(label: Text('Total')),
-                DataColumn(label: Text('Date')),
-                DataColumn(label: Text('Actions')),
-              ],
-              rows: purchases.asMap().entries.map((entry) {
-                final index = entry.key + 1; // Serial numbers start from 1
-                final purchase = entry.value;
+        child: DataTableWidget(
+          columns: const [
+            DataColumn(label: Text('#')),
+            DataColumn(label: Text('Supplier')),
+            DataColumn(label: Text('Items')),
+            DataColumn(label: Text('Total')),
+            DataColumn(label: Text('Date')),
+            DataColumn(label: Text('Actions')),
+          ],
+          rows: purchases.asMap().entries.map((entry) {
+            final index = entry.key + 1; // Serial numbers start from 1
+            final purchase = entry.value;
 
-                return DataRow(
-                  cells: [
-                    DataCell(Text('$index')), // <-- Serial number column
-                    DataCell(Text(purchase.supplierName)),
-                    DataCell(
-                      SizedBox(
-                        width: 200,
-                        child: Tooltip(
-                          message: purchase.items
-                              .map((item) => item.productName)
-                              .join(', '),
-                          child: Text(
-                            purchase.items
-                                .map((item) => item.productName)
-                                .join(', '),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ),
-                    DataCell(Text(purchase.total.toStringAsFixed(2))),
-                    DataCell(
-                      Text('${purchase.date.toLocal()}'.split(' ').first),
-                    ),
-                    DataCell(_rowActions(purchase)),
-                  ],
-                );
-              }).toList(),
-              mobileItemBuilder: (context, index) {
-                final purchase = purchases[index];
-                return CustomCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Purchase #${purchase.id.substring(0, 8)}...',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          StatusBadge(text: purchase.status),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text('Supplier: ${purchase.supplierName}'),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        'Items: ${purchase.items.map((item) => item.productName).join(', ')}',
+            return DataRow(
+              cells: [
+                DataCell(Text('$index')), // <-- Serial number column
+                DataCell(Text(purchase.supplierName)),
+                DataCell(
+                  SizedBox(
+                    width: 200,
+                    child: Tooltip(
+                      message: purchase.items
+                          .map((item) => item.productName)
+                          .join(', '),
+                      child: Text(
+                        purchase.items
+                            .map((item) => item.productName)
+                            .join(', '),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text('Total: ${purchase.total.toStringAsFixed(2)}'),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        'Date: ${'${purchase.date.toLocal()}'.split(' ').first}',
+                    ),
+                  ),
+                ),
+                DataCell(Text(purchase.total.toStringAsFixed(2))),
+                DataCell(Text('${purchase.date.toLocal()}'.split(' ').first)),
+                DataCell(_rowActions(purchase)),
+              ],
+            );
+          }).toList(),
+          mobileItemBuilder: (context, index) {
+            final purchase = purchases[index];
+            return CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Purchase #${purchase.id.substring(0, 8)}...',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [_rowActions(purchase)],
-                      ),
+                      StatusBadge(text: purchase.status),
                     ],
                   ),
-                );
-              },
-            ),
-
-            // Loading more indicator
-            if (_isLoadingMore)
-              const Padding(
-                padding: EdgeInsets.all(AppSpacing.md),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-
-            // No more items indicator
-            if (!provider.hasMore && purchases.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Text(
-                  'No more purchases to load',
-                  style: TextStyle(
-                    color: AppColors.grey600,
-                    fontStyle: FontStyle.italic,
+                  const SizedBox(height: AppSpacing.xs),
+                  Text('Supplier: ${purchase.supplierName}'),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Items: ${purchase.items.map((item) => item.productName).join(', ')}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text('Total: ${purchase.total.toStringAsFixed(2)}'),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Date: ${'${purchase.date.toLocal()}'.split(' ').first}',
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [_rowActions(purchase)],
+                  ),
+                ],
               ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -608,7 +577,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     final purchaseProvider = context.watch<PurchaseProvider>();
 
     return Padding(
-      padding: Responsive.getPagePadding(context),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -653,7 +622,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
           SearchBarWidget(
             controller: _searchController,
             hint: 'Search purchases...',
@@ -663,14 +632,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
               _applyFilter();
             },
           ),
-          const SizedBox(height: AppSpacing.md),
-          Flexible(
-            fit: FlexFit.loose,
-            child: CustomCard(
-              padding: EdgeInsets.zero,
-              child: _buildContent(purchaseProvider, l10n),
-            ),
-          ),
+          const SizedBox(height: AppSpacing.sm),
+          Expanded(child: _buildContent(purchaseProvider, l10n)),
         ],
       ),
     );

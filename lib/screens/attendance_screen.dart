@@ -13,9 +13,7 @@ import '../components/ui/status_badge.dart';
 import '../components/ui/data_table_widget.dart';
 import '../components/ui/search_bar_widget.dart';
 import '../components/ui/loading_widget.dart';
-import '../utils/responsive.dart';
 import '../utils/app_spacing.dart';
-import '../utils/app_colors.dart';
 import '../providers/attendance_provider.dart';
 import '../providers/auth_provider.dart';
 
@@ -167,23 +165,28 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.attendance),
-        bottom: TabBar(
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white,
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Daily View'),
-            Tab(text: 'Monthly Report'),
-          ],
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(
+          kToolbarHeight,
+        ), // Adjust height if needed
+        child: AppBar(
+          automaticallyImplyLeading: false,
+          bottom: TabBar(
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white,
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'Daily View'),
+              Tab(text: 'Monthly Report'),
+            ],
+          ),
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
           Padding(
-            padding: Responsive.getPagePadding(context),
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -227,7 +230,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.lg),
+                const SizedBox(height: AppSpacing.md),
 
                 SearchBarWidget(
                   controller: _searchController,
@@ -239,17 +242,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                   },
                 ),
 
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
 
                 Expanded(
-                  child: CustomCard(
-                    padding: EdgeInsets.zero,
-                    child: _buildContent(
-                      staffProvider,
-                      attendanceProvider,
-                      l10n,
-                    ),
-                  ),
+                  child: _buildContent(staffProvider, attendanceProvider, l10n),
                 ),
               ],
             ),
@@ -373,9 +369,6 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         }
 
         if (attendanceSnapshot.hasError) {
-          log(
-            'Attendance stream error: ${attendanceSnapshot.error.toString()}',
-          );
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -395,177 +388,145 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         final todayAttendance = attendanceSnapshot.data ?? [];
         attendanceProvider.updateAttendanceList(todayAttendance);
 
-        log('Attendance records: ${todayAttendance.length}');
-
         return SingleChildScrollView(
           controller: _scrollController,
-          child: Column(
-            children: [
-              DataTableWidget(
-                columns: const [
-                  DataColumn(label: Text('No')),
-                  DataColumn(label: Text('Employee Role')),
-                  DataColumn(label: Text('Name')),
-                  DataColumn(label: Text('Daily Wage')),
-                  DataColumn(label: Text('Attendance')),
-                ],
-                rows: _filteredStaff.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final staff = entry.value;
-                  final isPresent = _getAttendanceStatus(
-                    staff.id,
-                    todayAttendance,
-                  );
+          child: DataTableWidget(
+            columns: const [
+              DataColumn(label: Text('No')),
+              DataColumn(label: Text('Employee Role')),
+              DataColumn(label: Text('Name')),
+              DataColumn(label: Text('Daily Wage')),
+              DataColumn(label: Text('Attendance')),
+            ],
+            rows: _filteredStaff.asMap().entries.map((entry) {
+              final index = entry.key;
+              final staff = entry.value;
+              final isPresent = _getAttendanceStatus(staff.id, todayAttendance);
 
-                  return DataRow(
-                    cells: [
-                      DataCell(Text('${index + 1}')),
-                      DataCell(Text(staff.role)),
-                      DataCell(Text(staff.name)),
-                      DataCell(Text(staff.dailyWage.toStringAsFixed(0))),
-                      DataCell(
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Radio<bool>(
-                              value: true,
-                              groupValue: isPresent,
-                              onChanged: attendanceProvider.isLoading
-                                  ? null
-                                  : (value) => _markAttendance(
-                                      staff,
-                                      true,
-                                      attendanceProvider,
-                                    ),
-                            ),
-                            const Text('Present'),
-                            const SizedBox(width: AppSpacing.sm),
-                            Radio<bool>(
-                              value: false,
-                              groupValue: isPresent,
-                              onChanged: attendanceProvider.isLoading
-                                  ? null
-                                  : (value) => _markAttendance(
-                                      staff,
-                                      false,
-                                      attendanceProvider,
-                                    ),
-                            ),
-                            const Text('Absent'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList(),
-                mobileItemBuilder: (context, index) {
-                  final staff = _filteredStaff[index];
-                  final isPresent = _getAttendanceStatus(
-                    staff.id,
-                    todayAttendance,
-                  );
-                  final attendance = _getAttendanceRecord(
-                    staff.id,
-                    todayAttendance,
-                  );
-
-                  return CustomCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              return DataRow(
+                cells: [
+                  DataCell(Text('${index + 1}')),
+                  DataCell(Text(staff.role)),
+                  DataCell(Text(staff.name)),
+                  DataCell(Text(staff.dailyWage.toStringAsFixed(0))),
+                  DataCell(
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    staff.name,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w600),
-                                  ),
-                                  Text(
-                                    staff.role,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium
-                                              ?.color
-                                              ?.withOpacity(0.8),
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            StatusBadge(text: isPresent ? 'Present' : 'Absent'),
-                          ],
+                        Radio<bool>(
+                          value: true,
+                          groupValue: isPresent,
+                          onChanged: attendanceProvider.isLoading
+                              ? null
+                              : (value) => _markAttendance(
+                                  staff,
+                                  true,
+                                  attendanceProvider,
+                                ),
                         ),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(
-                          'Daily Wage: ${staff.dailyWage.toStringAsFixed(0)}',
+                        const Text('Present'),
+                        const SizedBox(width: AppSpacing.sm),
+                        Radio<bool>(
+                          value: false,
+                          groupValue: isPresent,
+                          onChanged: attendanceProvider.isLoading
+                              ? null
+                              : (value) => _markAttendance(
+                                  staff,
+                                  false,
+                                  attendanceProvider,
+                                ),
                         ),
-                        if (attendance != null) ...[
-                          Text(
-                            'Hours: ${attendance.calculatedHours.toStringAsFixed(1)}',
-                          ),
-                          Text(
-                            'Wage Earned: ${attendance.calculatedWage.toStringAsFixed(2)}',
-                          ),
-                        ],
-                        const SizedBox(height: AppSpacing.sm),
-                        Row(
-                          children: [
-                            Radio<bool>(
-                              value: true,
-                              groupValue: isPresent,
-                              onChanged: attendanceProvider.isLoading
-                                  ? null
-                                  : (value) => _markAttendance(
-                                      staff,
-                                      true,
-                                      attendanceProvider,
-                                    ),
-                            ),
-                            const Text('Present'),
-                            Radio<bool>(
-                              value: false,
-                              groupValue: isPresent,
-                              onChanged: attendanceProvider.isLoading
-                                  ? null
-                                  : (value) => _markAttendance(
-                                      staff,
-                                      false,
-                                      attendanceProvider,
-                                    ),
-                            ),
-                            const Text('Absent'),
-                          ],
-                        ),
+                        const Text('Absent'),
                       ],
                     ),
-                  );
-                },
-              ),
-
-              // Show message if search has results
-              if (_searchQuery.isNotEmpty && _filteredStaff.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Text(
-                    'Showing ${_filteredStaff.length} result(s) for "$_searchQuery"',
-                    style: TextStyle(
-                      color: AppColors.grey600,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    textAlign: TextAlign.center,
                   ),
+                ],
+              );
+            }).toList(),
+            mobileItemBuilder: (context, index) {
+              final staff = _filteredStaff[index];
+              final isPresent = _getAttendanceStatus(staff.id, todayAttendance);
+              final attendance = _getAttendanceRecord(
+                staff.id,
+                todayAttendance,
+              );
+
+              return CustomCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                staff.name,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              Text(
+                                staff.role,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.color
+                                          ?.withOpacity(0.8),
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        StatusBadge(text: isPresent ? 'Present' : 'Absent'),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text('Daily Wage: ${staff.dailyWage.toStringAsFixed(0)}'),
+                    if (attendance != null) ...[
+                      Text(
+                        'Hours: ${attendance.calculatedHours.toStringAsFixed(1)}',
+                      ),
+                      Text(
+                        'Wage Earned: ${attendance.calculatedWage.toStringAsFixed(2)}',
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        Radio<bool>(
+                          value: true,
+                          groupValue: isPresent,
+                          onChanged: attendanceProvider.isLoading
+                              ? null
+                              : (value) => _markAttendance(
+                                  staff,
+                                  true,
+                                  attendanceProvider,
+                                ),
+                        ),
+                        const Text('Present'),
+                        Radio<bool>(
+                          value: false,
+                          groupValue: isPresent,
+                          onChanged: attendanceProvider.isLoading
+                              ? null
+                              : (value) => _markAttendance(
+                                  staff,
+                                  false,
+                                  attendanceProvider,
+                                ),
+                        ),
+                        const Text('Absent'),
+                      ],
+                    ),
+                  ],
                 ),
-            ],
+              );
+            },
           ),
         );
       },

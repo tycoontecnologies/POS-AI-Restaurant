@@ -10,7 +10,6 @@ import '../components/ui/custom_card.dart';
 import '../components/ui/search_bar_widget.dart';
 import '../components/ui/data_table_widget.dart';
 import '../components/ui/loading_widget.dart';
-import '../utils/responsive.dart';
 import '../utils/app_spacing.dart';
 
 class StoreOutScreen extends StatefulWidget {
@@ -23,7 +22,6 @@ class StoreOutScreen extends StatefulWidget {
 class _StoreOutScreenState extends State<StoreOutScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _isLoadingMore = false;
 
   @override
   void initState() {
@@ -62,9 +60,7 @@ class _StoreOutScreenState extends State<StoreOutScreen> {
   void _loadMoreStoreOuts() async {
     final provider = context.read<StoreOutProvider>();
     if (!provider.isLoading && provider.hasMore) {
-      setState(() => _isLoadingMore = true);
       await provider.loadStoreOuts(loadMore: true);
-      setState(() => _isLoadingMore = false);
     }
   }
 
@@ -165,89 +161,81 @@ class _StoreOutScreenState extends State<StoreOutScreen> {
     final l10n = AppLocalizations.of(context)!;
     final provider = context.watch<StoreOutProvider>();
 
-    return Scaffold(
-      body: Padding(
-        padding: Responsive.getPagePadding(context),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.storeOut,
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.grey800,
-                            ),
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.storeOut,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.grey800,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Track inventory outgoing',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.grey600,
                       ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        'Track inventory outgoing',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.grey600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                CustomButton(
-                  text: 'Record Outgoing',
-                  icon: Icons.output,
-                  onPressed: _navigateToAddStoreOut,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-
-            if (provider.error != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                child: CustomCard(
-                  color: AppColors.error,
-                  child: Row(
-                    children: [
-                      Icon(Icons.error, color: AppColors.error),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Text(
-                          provider.error!,
-                          style: TextStyle(color: AppColors.error),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: provider.clearError,
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
+              CustomButton(
+                text: 'Record Outgoing',
+                icon: Icons.output,
+                onPressed: _navigateToAddStoreOut,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
 
-            SearchBarWidget(
-              controller: _searchController,
-              hint: 'Search store out...',
-              onChanged: (_) => _onSearchChanged(),
-              onClear: () {
-                _searchController.clear();
-                _onSearchChanged();
-              },
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            Flexible(
-              fit: FlexFit.loose,
+          if (provider.error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.md),
               child: CustomCard(
-                padding: EdgeInsets.zero,
-                child: _buildContent(provider, l10n),
+                color: AppColors.error,
+                child: Row(
+                  children: [
+                    Icon(Icons.error, color: AppColors.error),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        provider.error!,
+                        style: TextStyle(color: AppColors.error),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: provider.clearError,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
+
+          SearchBarWidget(
+            controller: _searchController,
+            hint: 'Search store out...',
+            onChanged: (_) => _onSearchChanged(),
+            onClear: () {
+              _searchController.clear();
+              _onSearchChanged();
+            },
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          Expanded(child: _buildContent(provider, l10n)),
+        ],
       ),
     );
   }
@@ -325,102 +313,77 @@ class _StoreOutScreenState extends State<StoreOutScreen> {
       },
       child: SingleChildScrollView(
         controller: _scrollController,
-        child: Column(
-          children: [
-            DataTableWidget(
-              columns: const [
-                DataColumn(label: Text('#')),
-                DataColumn(label: Text('Reason')),
-                DataColumn(label: Text('Products')),
-                DataColumn(label: Text('Date')),
-                DataColumn(label: Text('Handled By')),
-                DataColumn(label: Text('Actions')),
-              ],
-              rows: storeOuts.asMap().entries.map((entry) {
-                final index = entry.key + 1;
-                final e = entry.value;
+        child: DataTableWidget(
+          columns: const [
+            DataColumn(label: Text('#')),
+            DataColumn(label: Text('Reason')),
+            DataColumn(label: Text('Products')),
+            DataColumn(label: Text('Date')),
+            DataColumn(label: Text('Handled By')),
+            DataColumn(label: Text('Actions')),
+          ],
+          rows: storeOuts.asMap().entries.map((entry) {
+            final index = entry.key + 1;
+            final e = entry.value;
 
-                return DataRow(
-                  cells: [
-                    DataCell(Text('$index')),
-                    DataCell(Text(e.reason)),
-                    DataCell(
-                      Tooltip(
-                        message: e.products
-                            .map((p) => '${p.product.name} (${p.quantity})')
-                            .join('\n'),
+            return DataRow(
+              cells: [
+                DataCell(Text('$index')),
+                DataCell(Text(e.reason)),
+                DataCell(
+                  Tooltip(
+                    message: e.products
+                        .map((p) => '${p.product.name} (${p.quantity})')
+                        .join('\n'),
+                    child: Text(
+                      e.products
+                          .map((p) => '${p.product.name} (${p.quantity})')
+                          .join(', '),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                DataCell(Text('${e.date.toLocal()}'.split(' ').first)),
+                DataCell(Text(e.handledBy)),
+                DataCell(_rowActions(e)),
+              ],
+            );
+          }).toList(),
+
+          mobileItemBuilder: (context, index) {
+            final s = storeOuts[index];
+            return CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
                         child: Text(
-                          e.products
-                              .map((p) => '${p.product.name} (${p.quantity})')
-                              .join(', '),
-                          overflow: TextOverflow.ellipsis,
+                          s.id,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
-                    ),
-                    DataCell(Text('${e.date.toLocal()}'.split(' ').first)),
-                    DataCell(Text(e.handledBy)),
-                    DataCell(_rowActions(e)),
-                  ],
-                );
-              }).toList(),
-
-              mobileItemBuilder: (context, index) {
-                final s = storeOuts[index];
-                return CustomCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              s.id,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          _rowActions(s),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text('Reason: ${s.reason}'),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text('Items: ${s.items}'),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        'Products: ${s.products.map((p) => '${p.product.name} (${p.quantity})').join(', ')}',
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text('Date: ${'${s.date.toLocal()}'.split(' ').first}'),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text('Handled By: ${s.handledBy}'),
+                      _rowActions(s),
                     ],
                   ),
-                );
-              },
-            ),
-
-            // Loading more indicator
-            if (_isLoadingMore)
-              const Padding(
-                padding: EdgeInsets.all(AppSpacing.md),
-                child: Center(child: LoadingWidget()),
-              ),
-
-            // No more items indicator
-            if (!provider.hasMore && storeOuts.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Text(
-                  'No more store outs to load',
-                  style: TextStyle(
-                    color: AppColors.grey600,
-                    fontStyle: FontStyle.italic,
+                  const SizedBox(height: AppSpacing.xs),
+                  Text('Reason: ${s.reason}'),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text('Items: ${s.items}'),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Products: ${s.products.map((p) => '${p.product.name} (${p.quantity})').join(', ')}',
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text('Date: ${'${s.date.toLocal()}'.split(' ').first}'),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text('Handled By: ${s.handledBy}'),
+                ],
               ),
-          ],
+            );
+          },
         ),
       ),
     );

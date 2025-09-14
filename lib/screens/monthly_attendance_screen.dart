@@ -5,7 +5,6 @@ import 'package:pos/models/staff.dart';
 import 'package:pos/models/attendance.dart';
 import 'package:pos/providers/attendance_provider.dart';
 import 'package:pos/providers/staff_provider.dart';
-import 'package:pos/utils/responsive.dart';
 import 'package:pos/utils/app_spacing.dart';
 import 'package:pos/components/ui/custom_card.dart';
 import 'package:pos/components/ui/custom_button.dart';
@@ -31,7 +30,7 @@ class _MonthlyAttendanceScreenState extends State<MonthlyAttendanceScreen> {
     final staffProvider = Provider.of<StaffProvider>(context);
 
     return Padding(
-      padding: Responsive.getPagePadding(context),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -70,7 +69,7 @@ class _MonthlyAttendanceScreenState extends State<MonthlyAttendanceScreen> {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.sm),
 
           StreamBuilder<List<Attendance>>(
             stream: attendanceProvider.getAttendanceByMonth(_selectedMonth),
@@ -103,91 +102,67 @@ class _MonthlyAttendanceScreenState extends State<MonthlyAttendanceScreen> {
               }
 
               return Expanded(
-                child: CustomCard(
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Monthly Summary - ${DateFormat('MMMM yyyy').format(_selectedMonth)}',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const Spacer(),
-                          // Export button could be added here
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Expanded(
-                        child: DataTableWidget(
-                          columns: const [
-                            DataColumn(label: Text('Staff Member')),
-                            DataColumn(label: Text('Present Days')),
-                            DataColumn(label: Text('Total Hours')),
-                            DataColumn(
-                              label: Text('Total Wage'),
-                              numeric: true,
-                            ),
-                            DataColumn(label: Text('Actions')),
-                          ],
-                          rows: attendanceByStaff.entries.map((entry) {
-                            final staffId = entry.key;
-                            final staffAttendance = entry.value;
-
-                            // Find staff details
-                            final staff = staffProvider.staff.firstWhere(
-                              (s) => s.id == staffId,
-                              orElse: () => Staff(
-                                id: staffId,
-                                name: 'Unknown Staff',
-                                role: 'Unknown',
-                                dailyWage: 0,
-                                phone: '',
-                                joinDate: DateTime.now(),
-                              ),
-                            );
-
-                            // Calculate totals
-                            final presentDays = staffAttendance
-                                .where((a) => a.isPresent)
-                                .length;
-                            final totalHours = staffAttendance.fold(
-                              0.0,
-                              (sum, a) => sum + a.calculatedHours,
-                            );
-                            final totalWage = staffAttendance.fold(
-                              0.0,
-                              (sum, a) => sum + a.calculatedWage,
-                            );
-
-                            return DataRow(
-                              cells: [
-                                DataCell(Text(staff.name)),
-                                DataCell(Text('$presentDays days')),
-                                DataCell(
-                                  Text(
-                                    '${totalHours.toStringAsFixed(1)} hours',
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(totalWage.toStringAsFixed(2)),
-                                ),
-                                DataCell(
-                                  IconButton(
-                                    icon: const Icon(Icons.visibility),
-                                    onPressed: () {
-                                      _showStaffMonthlyDetails(
-                                        staff,
-                                        staffAttendance,
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-                            );
-                          }).toList(),
-                        ),
-                      ),
+                child: SingleChildScrollView(
+                  child: DataTableWidget(
+                    columns: const [
+                      DataColumn(label: Text('Staff Member')),
+                      DataColumn(label: Text('Present Days')),
+                      DataColumn(label: Text('Total Hours')),
+                      DataColumn(label: Text('Total Wage'), numeric: true),
+                      DataColumn(label: Text('Actions')),
                     ],
+                    rows: attendanceByStaff.entries.map((entry) {
+                      final staffId = entry.key;
+                      final staffAttendance = entry.value;
+
+                      // Find staff details
+                      final staff = staffProvider.staff.firstWhere(
+                        (s) => s.id == staffId,
+                        orElse: () => Staff(
+                          id: staffId,
+                          name: 'Unknown Staff',
+                          role: 'Unknown',
+                          dailyWage: 0,
+                          phone: '',
+                          joinDate: DateTime.now(),
+                        ),
+                      );
+
+                      // Calculate totals
+                      final presentDays = staffAttendance
+                          .where((a) => a.isPresent)
+                          .length;
+                      final totalHours = staffAttendance.fold(
+                        0.0,
+                        (sum, a) => sum + a.calculatedHours,
+                      );
+                      final totalWage = staffAttendance.fold(
+                        0.0,
+                        (sum, a) => sum + a.calculatedWage,
+                      );
+
+                      return DataRow(
+                        cells: [
+                          DataCell(Text(staff.name)),
+                          DataCell(Text('$presentDays days')),
+                          DataCell(
+                            Text('${totalHours.toStringAsFixed(1)} hours'),
+                          ),
+                          DataCell(Text(totalWage.toStringAsFixed(2))),
+                          DataCell(
+                            IconButton(
+                              icon: const Icon(Icons.visibility),
+                              onPressed: () {
+                                _showStaffMonthlyDetails(
+                                  staff,
+                                  staffAttendance,
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
                   ),
                 ),
               );

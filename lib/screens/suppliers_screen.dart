@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:pos/components/ui/onboarding_completion.dart';
 import 'package:pos/components/ui/onboarding_tooltip.dart';
 import 'package:pos/models/supplier.dart';
@@ -14,7 +16,6 @@ import '../components/ui/custom_card.dart';
 import '../components/ui/status_badge.dart';
 import '../components/ui/search_bar_widget.dart';
 import '../components/ui/data_table_widget.dart';
-import '../utils/responsive.dart';
 import '../utils/app_spacing.dart';
 import '../providers/supplier_provider.dart';
 import '../utils/app_colors.dart';
@@ -34,6 +35,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
   StreamSubscription<List<Supplier>>? _subscription;
   bool _showCompletion = false;
   bool _hasData = false;
+  final formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -94,73 +96,167 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
             backgroundColor: const Color(0xFFFDFDFE),
             surfaceTintColor: Colors.transparent,
             title: Text(item == null ? l10n.addSupplier : l10n.editSupplier),
-            content: SizedBox(
-              width: 520,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameCtrl,
-                      decoration: InputDecoration(labelText: l10n.name),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    TextField(
-                      controller: phoneCtrl,
-                      decoration: InputDecoration(
-                        labelText: l10n.contactNumber,
+            content: Form(
+              key: formKey, // <-- GlobalKey<FormState>
+              child: SizedBox(
+                width: 520,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Name',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Name is required';
+                          }
+                          return null;
+                        },
                       ),
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    TextField(
-                      controller: addressCtrl,
-                      decoration: InputDecoration(labelText: l10n.address),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: toReceiveCtrl,
-                            decoration: InputDecoration(
-                              labelText: l10n.amountToReceive,
+                      const SizedBox(height: AppSpacing.md),
+
+                      Theme(
+                        data: Theme.of(context).copyWith(
+                          inputDecorationTheme: InputDecorationTheme(
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.radiusSm,
+                              ),
+                              borderSide: const BorderSide(
+                                color: AppColors.grey300,
+                              ),
                             ),
-                            keyboardType: TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: TextField(
-                            controller: toPayCtrl,
-                            decoration: InputDecoration(
-                              labelText: l10n.amountToPay,
-                            ),
-                            keyboardType: TextInputType.numberWithOptions(
-                              decimal: true,
+                            filled: true,
+                            fillColor: AppColors.grey50,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.md,
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Row(
-                      children: [
-                        Text(
-                          l10n.active,
-                          style: Theme.of(context).textTheme.labelLarge,
+                        child: FormField<String>(
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Phone number is required';
+                            }
+
+                            // Extract just the digits for validation
+                            final digitsOnly = value.replaceAll(
+                              RegExp(r'[^0-9]'),
+                              '',
+                            );
+
+                            // Check if we have a reasonable number of digits
+                            // (country code + phone number, typically at least 8 digits)
+                            if (digitsOnly.length < 8) {
+                              return 'Please enter a valid phone number';
+                            }
+
+                            return null;
+                          },
+                          builder: (field) => IntlPhoneField(
+                            decoration: InputDecoration(
+                              border: const OutlineInputBorder(),
+                              errorText: field.errorText,
+                              labelText: 'Phone Number',
+                            ),
+                            initialCountryCode: 'PK',
+                            // disableLengthCheck: true,
+                            keyboardType:
+                                TextInputType.phone, // Numeric keyboard
+                            inputFormatters: [
+                              FilteringTextInputFormatter
+                                  .digitsOnly, // Only allow digits
+                            ],
+                            onChanged: (phone) {
+                              // Set full number for backend use
+                              phoneCtrl.text = phone.completeNumber;
+
+                              // Notify FormField about the change
+                              field.didChange(phone.completeNumber);
+                            },
+                          ),
                         ),
-                        const Spacer(),
-                        Switch(
-                          value: active,
-                          onChanged: (v) => setDialogState(() => active = v),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      TextFormField(
+                        controller: addressCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Address',
+                          border: OutlineInputBorder(),
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: toReceiveCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Amount to Receive',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              validator: (value) {
+                                if (value != null && value.isNotEmpty) {
+                                  if (double.tryParse(value) == null) {
+                                    return 'Enter valid amount';
+                                  }
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: TextFormField(
+                              controller: toPayCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Amount to Pay',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              validator: (value) {
+                                if (value != null && value.isNotEmpty) {
+                                  if (double.tryParse(value) == null) {
+                                    return 'Enter valid amount';
+                                  }
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: AppSpacing.md),
+                      Row(
+                        children: [
+                          Text(
+                            l10n.active,
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                          const Spacer(),
+                          Switch(
+                            value: active,
+                            onChanged: (v) => setDialogState(() => active = v),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -173,21 +269,22 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               CustomButton(
                 text: l10n.save,
                 onPressed: () {
-                  if (nameCtrl.text.trim().isEmpty) return;
-                  Navigator.pop(
-                    context,
-                    Supplier(
-                      id: item?.id ?? '',
-                      name: nameCtrl.text.trim(),
-                      phone: phoneCtrl.text.trim(),
-                      address: addressCtrl.text.trim(),
-                      active: active,
-                      createdOn: createdOn,
-                      amountToReceive:
-                          double.tryParse(toReceiveCtrl.text) ?? 0.0,
-                      amountToPay: double.tryParse(toPayCtrl.text) ?? 0.0,
-                    ),
-                  );
+                  if (formKey.currentState!.validate()) {
+                    Navigator.pop(
+                      context,
+                      Supplier(
+                        id: item?.id ?? '',
+                        name: nameCtrl.text.trim(),
+                        phone: phoneCtrl.text.trim(),
+                        address: addressCtrl.text.trim(),
+                        active: active,
+                        createdOn: createdOn,
+                        amountToReceive:
+                            double.tryParse(toReceiveCtrl.text) ?? 0.0,
+                        amountToPay: double.tryParse(toPayCtrl.text) ?? 0.0,
+                      ),
+                    );
+                  }
                 },
               ),
             ],
@@ -318,7 +415,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         }
 
         return Padding(
-          padding: Responsive.getPagePadding(context),
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -363,7 +460,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: AppSpacing.md),
 
               SearchBarWidget(
                 controller: _searchController,
@@ -375,15 +472,9 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                 },
               ),
 
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
 
-              Flexible(
-                fit: FlexFit.loose,
-                child: CustomCard(
-                  padding: EdgeInsets.zero,
-                  child: _buildContent(provider, l10n),
-                ),
-              ),
+              Expanded(child: _buildContent(provider, l10n)),
             ],
           ),
         );
@@ -453,148 +544,126 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
 
     return SingleChildScrollView(
       controller: _scrollController,
-      child: Column(
-        children: [
-          DataTableWidget(
-            columns: [
-              DataColumn(label: Text('#')),
-              DataColumn(label: Text(l10n.name)),
-              DataColumn(label: Text(l10n.contact)),
-              DataColumn(label: Text(l10n.receivable)),
-              DataColumn(label: Text(l10n.payable)),
-              DataColumn(label: Text(l10n.address)),
-              DataColumn(label: Text(l10n.createdOn)),
-              DataColumn(label: Text(l10n.actions)),
+      child: DataTableWidget(
+        columns: [
+          DataColumn(label: Text('#')),
+          DataColumn(label: Text(l10n.name)),
+          DataColumn(label: Text(l10n.contact)),
+          DataColumn(label: Text(l10n.receivable)),
+          DataColumn(label: Text(l10n.payable)),
+          DataColumn(label: Text(l10n.address)),
+          DataColumn(label: Text(l10n.createdOn)),
+          DataColumn(label: Text(l10n.actions)),
+        ],
+        rows: suppliers.asMap().entries.map((entry) {
+          int index = entry.key + 1; // +1 to start from 1 instead of 0
+          var e = entry.value;
+          return DataRow(
+            cells: [
+              DataCell(Text(index.toString())), // <-- Your numbered entry here
+              DataCell(Text(e.name)),
+              DataCell(Text(e.phone)),
+              DataCell(
+                Text(
+                  e.amountToReceive.toStringAsFixed(2),
+                  style: TextStyle(
+                    color: e.amountToReceive > 0
+                        ? Colors.green
+                        : AppColors.grey600,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              DataCell(
+                Text(
+                  e.amountToPay.toStringAsFixed(2),
+                  style: TextStyle(
+                    color: e.amountToPay > 0 ? Colors.red : AppColors.grey600,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              DataCell(
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 200),
+                  child: Text(
+                    e.address.trim().isNotEmpty ? e.address : "N/A",
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                  ),
+                ),
+              ),
+              DataCell(Text('${e.createdOn.toLocal()}'.split(' ').first)),
+              DataCell(_rowActions(e)),
             ],
-            rows: suppliers.asMap().entries.map((entry) {
-              int index = entry.key + 1; // +1 to start from 1 instead of 0
-              var e = entry.value;
-              return DataRow(
-                cells: [
-                  DataCell(
-                    Text(index.toString()),
-                  ), // <-- Your numbered entry here
-                  DataCell(Text(e.name)),
-                  DataCell(Text(e.phone)),
-                  DataCell(
-                    Text(
-                      e.amountToReceive.toStringAsFixed(2),
-                      style: TextStyle(
-                        color: e.amountToReceive > 0
-                            ? Colors.green
-                            : AppColors.grey600,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  DataCell(
-                    Text(
-                      e.amountToPay.toStringAsFixed(2),
-                      style: TextStyle(
-                        color: e.amountToPay > 0
-                            ? Colors.red
-                            : AppColors.grey600,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  DataCell(
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 200),
-                      child: Text(
-                        e.address,
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 2,
-                      ),
-                    ),
-                  ),
-                  DataCell(Text('${e.createdOn.toLocal()}'.split(' ').first)),
-                  DataCell(_rowActions(e)),
-                ],
-              );
-            }).toList(),
-            mobileItemBuilder: (context, index) {
-              final s = suppliers[index];
-              return CustomCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          );
+        }).toList(),
+        mobileItemBuilder: (context, index) {
+          final s = suppliers[index];
+          return CustomCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            s.name,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        StatusBadge(
-                          text: s.active ? l10n.active : l10n.inactive,
-                          variant: s.active
-                              ? BadgeVariant.success
-                              : BadgeVariant.neutral,
-                        ),
-                      ],
+                    Expanded(
+                      child: Text(
+                        s.name,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text('${l10n.contact}: ${s.phone}'),
-                    const SizedBox(height: AppSpacing.xs),
-                    Row(
-                      children: [
-                        Text('${l10n.receivable}: '),
-                        Text(
-                          s.amountToReceive.toStringAsFixed(2),
-                          style: TextStyle(
-                            color: s.amountToReceive > 0 ? Colors.green : null,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Row(
-                      children: [
-                        Text('${l10n.payable}: '),
-                        Text(
-                          s.amountToPay.toStringAsFixed(2),
-                          style: TextStyle(
-                            color: s.amountToPay > 0 ? Colors.red : null,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text('${l10n.address}: ${s.address}'),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      '${l10n.createdOn}: ${'${s.createdOn.toLocal()}'.split(' ').first}',
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [_rowActions(s)],
+                    StatusBadge(
+                      text: s.active ? l10n.active : l10n.inactive,
+                      variant: s.active
+                          ? BadgeVariant.success
+                          : BadgeVariant.neutral,
                     ),
                   ],
                 ),
-              );
-            },
-          ),
-
-          // Show message if search has results
-          if (_searchQuery.isNotEmpty && suppliers.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Text(
-                'Showing ${suppliers.length} result(s) for "$_searchQuery"',
-                style: TextStyle(
-                  color: AppColors.grey600,
-                  fontStyle: FontStyle.italic,
+                const SizedBox(height: AppSpacing.xs),
+                Text('${l10n.contact}: ${s.phone}'),
+                const SizedBox(height: AppSpacing.xs),
+                Row(
+                  children: [
+                    Text('${l10n.receivable}: '),
+                    Text(
+                      s.amountToReceive.toStringAsFixed(2),
+                      style: TextStyle(
+                        color: s.amountToReceive > 0 ? Colors.green : null,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-                textAlign: TextAlign.center,
-              ),
+                const SizedBox(height: AppSpacing.xs),
+                Row(
+                  children: [
+                    Text('${l10n.payable}: '),
+                    Text(
+                      s.amountToPay.toStringAsFixed(2),
+                      style: TextStyle(
+                        color: s.amountToPay > 0 ? Colors.red : null,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text('${l10n.address}: ${s.address}'),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '${l10n.createdOn}: ${'${s.createdOn.toLocal()}'.split(' ').first}',
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [_rowActions(s)],
+                ),
+              ],
             ),
-        ],
+          );
+        },
       ),
     );
   }

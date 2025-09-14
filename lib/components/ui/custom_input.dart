@@ -24,6 +24,8 @@ class CustomInput extends StatelessWidget {
   final FocusNode? focusNode;
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
+  final FormFieldValidator<String>? validator;
+
 
   const CustomInput({
     super.key,
@@ -32,6 +34,7 @@ class CustomInput extends StatelessWidget {
     this.helperText,
     this.errorText,
     this.controller,
+    this.validator,
     this.onChanged,
     this.onTap,
     this.keyboardType,
@@ -66,6 +69,7 @@ class CustomInput extends StatelessWidget {
         ],
         TextFormField(
           controller: controller,
+          validator: validator,
           initialValue: initialValue,
           onChanged: onChanged,
           onTap: onTap,

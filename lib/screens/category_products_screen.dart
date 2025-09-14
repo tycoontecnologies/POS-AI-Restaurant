@@ -37,6 +37,9 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   final SaleService _saleService = SaleService();
   bool _isProcessing = false;
 
+  int? _hoveredCardIndex;
+  bool _isHoveredIndex(int index) => _hoveredCardIndex == index;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -54,7 +57,10 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
 
   List<Product> _getProductsInCategory() {
     return _productProvider.products
-        .where((product) => product.category == widget.categoryName)
+        .where(
+          (product) =>
+              product.category == widget.categoryName && product.quantity > 0,
+        )
         .toList();
   }
 
@@ -86,7 +92,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header with product name
                 Text(
                   product.name,
                   style: const TextStyle(
@@ -95,35 +100,34 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-
-                // Divider
                 Divider(color: Colors.grey.shade300),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
 
-                // Product details
-                _buildDetailRow('Category', product.category),
-                _buildDetailRow('Unit', product.unit),
+                // Detail rows
+                _buildDetailRow("Category:", product.category),
+                _buildDetailRow("Unit:", product.unit),
                 _buildDetailRow(
-                  'Sale Price',
+                  "Sale Price:",
                   product.salePrice.toStringAsFixed(2),
                 ),
                 _buildDetailRow(
-                  'Quantity',
+                  "Quantity:",
                   '${product.quantity} ${product.unit}',
                 ),
 
-                // Stock status
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
+
+                // Stock indicator
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.xs,
+                    horizontal: 10,
+                    vertical: 4,
                   ),
                   decoration: BoxDecoration(
                     color: product.quantity > 10
                         ? AppColors.success.withOpacity(0.1)
                         : AppColors.warning.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     product.quantity > 10 ? 'In Stock' : 'Low Stock',
@@ -139,7 +143,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
 
                 const SizedBox(height: AppSpacing.lg),
 
-                // Buttons row
+                // Actions
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -148,25 +152,29 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                       child: const Text('Close'),
                     ),
                     const SizedBox(width: AppSpacing.sm),
-                    ElevatedButton(
+                    ElevatedButton.icon(
                       onPressed: () {
-                        // Add item to cart
                         final cartProvider = Provider.of<CartProvider>(
                           context,
                           listen: false,
                         );
                         cartProvider.addToCart(product);
                         Navigator.of(context).pop();
-
-                        // Show success message
-                        // ScaffoldMessenger.of(context).showSnackBar(
-                        //   SnackBar(
-                        //     content: Text('${product.name} added to cart'),
-                        //     backgroundColor: Colors.green,
-                        //   ),
-                        // );
                       },
-                      child: const Text('Add Item'),
+                      icon: const Icon(Icons.add_shopping_cart),
+                      label: const Text('Add Item'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                          horizontal: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
@@ -226,8 +234,26 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                 ),
               ),
               pw.SizedBox(height: 10),
-              pw.Text('Receipt #: ${sale.id}'),
-              pw.Text('Date: ${sale.createdAt.toString()}'),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'Receipt: ',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  ),
+                  pw.Text(sale.id),
+                ],
+              ),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'Date:',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  ),
+                  pw.Text(sale.createdAt.toString()),
+                ],
+              ),
               pw.Divider(),
               pw.Text(
                 'ITEMS:',
@@ -260,7 +286,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               pw.SizedBox(height: 20),
               pw.Center(
                 child: pw.Text(
-                  'Thank you for your business!',
+                  'Thank you Sir!',
                   style: pw.TextStyle(fontStyle: pw.FontStyle.italic),
                 ),
               ),
@@ -372,9 +398,9 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      body: Row(
+    return SizedBox(
+      // backgroundColor: AppColors.backgroundLight,
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
@@ -467,36 +493,15 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                     ),
                                   );
 
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    category.name,
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Browse products in this category',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
+                              return Text(
+                                category.name,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               );
                             },
                           ),
-                        ),
-                        // Cart icon with badge
-                        Consumer<CartProvider>(
-                          builder: (context, cartProvider, child) {
-                            return Badge(
-                              label: Text(cartProvider.totalItems.toString()),
-                              child: const Icon(Icons.shopping_cart, size: 28),
-                            );
-                          },
                         ),
                       ],
                     ),
@@ -527,12 +532,46 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                           itemCount: filteredProducts.length,
                           itemBuilder: (context, index) {
                             final product = filteredProducts[index];
-                            return GestureDetector(
-                              onTap: () => _showProductDetailsDialog(product),
-                              child: // In the GridView.builder itemBuilder, replace the current CustomCard with this:
-                              CustomCard(
-                                color: Colors.white,
-                                child: Padding(
+                            final isHovered = _isHoveredIndex(index);
+
+                            return MouseRegion(
+                              onEnter: (_) =>
+                                  setState(() => _hoveredCardIndex = index),
+                              onExit: (_) =>
+                                  setState(() => _hoveredCardIndex = null),
+                              child: GestureDetector(
+                                onTap: () => _showProductDetailsDialog(product),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 250),
+                                  curve: Curves.easeInOut,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isHovered
+                                          ? AppColors.primary
+                                          : Colors.grey.shade300,
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      if (isHovered)
+                                        BoxShadow(
+                                          color: AppColors.primary.withOpacity(
+                                            0.2,
+                                          ),
+                                          blurRadius: 12,
+                                          spreadRadius: 1,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                    ],
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.white,
+                                        Colors.grey.shade100,
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                  ),
                                   padding: const EdgeInsets.all(16),
                                   child: Column(
                                     crossAxisAlignment:
@@ -603,9 +642,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                             ],
                                           ),
                                           Text(
-                                            product.salePrice.toStringAsFixed(
-                                              2,
-                                            ),
+                                            'Rs ${product.salePrice.toStringAsFixed(2)}',
                                             style: const TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
@@ -614,11 +651,10 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                           ),
                                         ],
                                       ),
-                                      // Add this "Add Item" button at the bottom of the card
                                       const SizedBox(height: 12),
                                       SizedBox(
                                         width: double.infinity,
-                                        child: ElevatedButton(
+                                        child: ElevatedButton.icon(
                                           onPressed: () {
                                             final cartProvider =
                                                 Provider.of<CartProvider>(
@@ -626,33 +662,23 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                                   listen: false,
                                                 );
                                             cartProvider.addToCart(product);
-
-                                            // Show success message
-                                            // ScaffoldMessenger.of(
-                                            //   context,
-                                            // ).showSnackBar(
-                                            //   SnackBar(
-                                            //     content: Text(
-                                            //       '${product.name} added to cart',
-                                            //     ),
-                                            //     backgroundColor: Colors.green,
-                                            //   ),
-                                            // );
                                           },
+                                          icon: const Icon(
+                                            Icons.add_shopping_cart,
+                                            size: 16,
+                                          ),
+                                          label: const Text('Add Item'),
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: AppColors.primary,
                                             foregroundColor: Colors.white,
                                             padding: const EdgeInsets.symmetric(
-                                              vertical: 8,
+                                              vertical: 10,
                                             ),
                                             shape: RoundedRectangleBorder(
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                             ),
-                                          ),
-                                          child: const Text(
-                                            'Add Item',
-                                            style: TextStyle(
+                                            textStyle: const TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
                                             ),
@@ -700,9 +726,9 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.xs),
                         const Divider(),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.xs),
 
                         Expanded(
                           child: cartProvider.isCartEmpty
@@ -742,7 +768,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                         AppSpacing.sm,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.shade100,
+                                        color: AppColors.backgroundLight,
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Row(

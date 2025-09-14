@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../components/ui/custom_card.dart';
 import '../providers/theme_provider.dart';
 import '../providers/locale_provider.dart';
-import '../utils/responsive.dart';
 import '../utils/app_spacing.dart';
 import '../utils/app_colors.dart';
 
@@ -20,7 +19,7 @@ class SettingsScreen extends StatelessWidget {
 
     final colorScheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: Responsive.getPagePadding(context),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -216,7 +215,9 @@ class _LanguageOption extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? Theme.of(context).colorScheme.secondary.withOpacity(0.1)
-              : Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.4),
+              : Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest.withOpacity(0.4),
           borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
           border: Border.all(
             color: selected
@@ -287,7 +288,9 @@ class _SecurityOption extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.4),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withOpacity(0.4),
           borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
           border: Border.all(color: Theme.of(context).dividerColor, width: 1),
         ),

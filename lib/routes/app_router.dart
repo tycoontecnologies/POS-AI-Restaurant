@@ -19,7 +19,6 @@ import '../screens/staff_screen.dart';
 import '../screens/attendance_screen.dart';
 import '../screens/suppliers_screen.dart';
 import '../screens/purchases_screen.dart';
-import '../screens/sales_screen.dart';
 import '../screens/drafts_screen.dart';
 import '../screens/store_out_screen.dart';
 import '../screens/settings_screen.dart';
@@ -37,7 +36,7 @@ class AppRouter {
   static const String suppliers = '/suppliers';
   static const String purchases = '/purchases';
   static const String purchasesReturn = '/purchases-return';
-  static const String sales = '/sales';
+  // static const String sales = '/sales';
   static const String salesReturn = '/sales-return';
   static const String drafts = '/drafts';
   static const String storeOut = '/store-out';
@@ -136,12 +135,12 @@ class AppRouter {
             builder: (context, state) => const PurchaseReturnScreen(),
             redirect: (context, state) => _checkSubscription(context, state),
           ),
-          GoRoute(
-            path: sales,
-            name: 'sales',
-            builder: (context, state) => const SalesScreen(),
-            redirect: (context, state) => _checkSubscription(context, state),
-          ),
+          // GoRoute(
+          //   path: sales,
+          //   name: 'sales',
+          //   builder: (context, state) => const SalesScreen(),
+          //   redirect: (context, state) => _checkSubscription(context, state),
+          // ),
           GoRoute(
             path: salesRecord,
             name: 'sales-record',

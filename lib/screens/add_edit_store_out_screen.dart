@@ -1,5 +1,4 @@
 import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:pos/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
@@ -56,20 +55,15 @@ class _AddEditStoreOutScreenState extends State<AddEditStoreOutScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final currentUser = authProvider.currentUser;
-      log('Current user: $currentUser'); // Debug log
 
       final vendorId = currentUser?.id;
-      log('Vendor ID: $vendorId'); // Debug log
 
       if (vendorId != null) {
         _availableProducts = await _storeOutService.getVendorProducts(vendorId);
-        print('Loaded ${_availableProducts.length} products'); // Debug log
         setState(() {});
-      } else {
-        log('Vendor ID is null'); // Debug log
       }
     } catch (e) {
-      print('Error loading products: $e'); // Debug log
+      log('Error loading products: $e'); // Debug log
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error loading products: $e')));
@@ -414,7 +408,6 @@ class _AddProductDialogState extends State<AddProductDialog> {
 
   @override
   Widget build(BuildContext context) {
-    log(_selectedProduct.toString());
     return AlertDialog(
       title: const Text('Add Product'),
       content: Column(

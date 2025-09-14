@@ -10,7 +10,6 @@ import '../components/ui/custom_card.dart';
 import '../components/ui/custom_button.dart';
 import '../components/ui/search_bar_widget.dart';
 import '../components/ui/data_table_widget.dart';
-import '../utils/responsive.dart';
 import '../utils/app_spacing.dart';
 import '../utils/app_colors.dart';
 
@@ -266,7 +265,7 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
     );
 
     return Padding(
-      padding: Responsive.getPagePadding(context),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -298,7 +297,7 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
             ],
           ),
 
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
 
           // Search bar
           SearchBarWidget(
@@ -311,27 +310,13 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
             },
           ),
 
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
 
-          // Results count
-          Text(
-            '${filteredPurchaseReturns.length} purchase returns found',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
-          ),
-
-          const SizedBox(height: AppSpacing.md),
-
-          Flexible(
-            fit: FlexFit.loose,
-            child: CustomCard(
-              padding: EdgeInsets.zero,
-              child: _buildContent(
-                l10n,
-                filteredPurchaseReturns,
-                purchaseReturnProvider,
-              ),
+          Expanded(
+            child: _buildContent(
+              l10n,
+              filteredPurchaseReturns,
+              purchaseReturnProvider,
             ),
           ),
         ],
@@ -404,66 +389,106 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
       },
       child: SingleChildScrollView(
         controller: _scrollController,
-        child: Column(
-          children: [
-            DataTableWidget(
-              columns: [
-                DataColumn(label: Text('#')),
-                DataColumn(label: Text('Purchase ID')),
-                DataColumn(label: Text('Supplier')),
-                DataColumn(label: Text('Products')),
-                DataColumn(label: Text('Refund Amount')),
-                DataColumn(label: Text('Reason')),
-                DataColumn(label: Text('Date')),
-                DataColumn(label: Text('Actions')),
-              ],
-              rows: filteredPurchaseReturns.asMap().entries.map((entry) {
-                final index = entry.key + 1; // Serial numbers starting from 1
-                final purchaseReturn = entry.value;
+        child: DataTableWidget(
+          columns: [
+            DataColumn(label: Text('#')),
+            DataColumn(label: Text('Purchase ID')),
+            DataColumn(label: Text('Supplier')),
+            DataColumn(label: Text('Products')),
+            DataColumn(label: Text('Refund Amount')),
+            DataColumn(label: Text('Reason')),
+            DataColumn(label: Text('Date')),
+            DataColumn(label: Text('Actions')),
+          ],
+          rows: filteredPurchaseReturns.asMap().entries.map((entry) {
+            final index = entry.key + 1; // Serial numbers starting from 1
+            final purchaseReturn = entry.value;
 
-                return DataRow(
-                  cells: [
-                    DataCell(Text('$index')),
-                    DataCell(
-                      SizedBox(
-                        width: 120,
-                        child: Tooltip(
-                          message: purchaseReturn.originalPurchaseId,
-                          child: Text(
-                            purchaseReturn.originalPurchaseId.substring(0, 8),
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontFamily: 'Monospace'),
-                          ),
-                        ),
+            return DataRow(
+              cells: [
+                DataCell(Text('$index')),
+                DataCell(
+                  SizedBox(
+                    width: 120,
+                    child: Tooltip(
+                      message: purchaseReturn.originalPurchaseId,
+                      child: Text(
+                        purchaseReturn.originalPurchaseId.substring(0, 8),
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontFamily: 'Monospace'),
                       ),
                     ),
-                    DataCell(
-                      SizedBox(
-                        width: 150,
-                        child: Tooltip(
-                          message: purchaseReturn.supplierName,
-                          child: Text(
-                            purchaseReturn.supplierName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    width: 150,
+                    child: Tooltip(
+                      message: purchaseReturn.supplierName,
+                      child: Text(
+                        purchaseReturn.supplierName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    DataCell(
-                      SizedBox(
-                        width: 200,
-                        child: Tooltip(
-                          message: _formatProductNames(purchaseReturn.items),
-                          child: Text(
-                            _formatProductNames(purchaseReturn.items),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    width: 200,
+                    child: Tooltip(
+                      message: _formatProductNames(purchaseReturn.items),
+                      child: Text(
+                        _formatProductNames(purchaseReturn.items),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    DataCell(
+                  ),
+                ),
+                DataCell(
+                  Text(
+                    purchaseReturn.totalRefund.toStringAsFixed(2),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.error,
+                    ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    width: 150,
+                    child: Tooltip(
+                      message: purchaseReturn.reason,
+                      child: Text(
+                        purchaseReturn.reason,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(Text(_formatDate(purchaseReturn.createdAt))),
+                DataCell(_rowActions(purchaseReturn)),
+              ],
+            );
+          }).toList(),
+
+          mobileItemBuilder: (context, index) {
+            final purchaseReturn = filteredPurchaseReturns[index];
+            return CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Return #${purchaseReturn.id.substring(0, 8)}...',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
                       Text(
                         purchaseReturn.totalRefund.toStringAsFixed(2),
                         style: TextStyle(
@@ -471,114 +496,48 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
                           color: AppColors.error,
                         ),
                       ),
-                    ),
-                    DataCell(
-                      SizedBox(
-                        width: 150,
-                        child: Tooltip(
-                          message: purchaseReturn.reason,
-                          child: Text(
-                            purchaseReturn.reason,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ),
-                    DataCell(Text(_formatDate(purchaseReturn.createdAt))),
-                    DataCell(_rowActions(purchaseReturn)),
-                  ],
-                );
-              }).toList(),
-
-              mobileItemBuilder: (context, index) {
-                final purchaseReturn = filteredPurchaseReturns[index];
-                return CustomCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Return #${purchaseReturn.id.substring(0, 8)}...',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          Text(
-                            purchaseReturn.totalRefund.toStringAsFixed(2),
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.error,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Purchase ID: ${purchaseReturn.originalPurchaseId.substring(0, 8)}...',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Supplier: ${purchaseReturn.supplierName}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        _formatProductNames(purchaseReturn.items),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Reason: ${purchaseReturn.reason}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Date: ${_formatDate(purchaseReturn.createdAt)}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.grey600,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [_rowActions(purchaseReturn)],
-                      ),
                     ],
                   ),
-                );
-              },
-            ),
-
-            // Loading more indicator
-            if (_isLoadingMore)
-              const Padding(
-                padding: EdgeInsets.all(AppSpacing.md),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-
-            // No more items indicator
-            if (!purchaseReturnProvider.hasMore &&
-                filteredPurchaseReturns.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Text(
-                  'No more purchase returns to load',
-                  style: TextStyle(
-                    color: AppColors.grey600,
-                    fontStyle: FontStyle.italic,
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Purchase ID: ${purchaseReturn.originalPurchaseId.substring(0, 8)}...',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Supplier: ${purchaseReturn.supplierName}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    _formatProductNames(purchaseReturn.items),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Reason: ${purchaseReturn.reason}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Date: ${_formatDate(purchaseReturn.createdAt)}',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [_rowActions(purchaseReturn)],
+                  ),
+                ],
               ),
-          ],
+            );
+          },
         ),
       ),
     );

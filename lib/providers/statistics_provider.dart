@@ -1,4 +1,5 @@
-// providers/statistics_provider.dart
+import 'dart:developer';
+
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -17,13 +18,13 @@ class StatisticsProvider with ChangeNotifier {
     'suppliers': 0,
     'purchases': 0,
     'purchaseReturn': 0,
+    'storeOuts': 0, // Add storeOuts
   };
 
   Map<String, int> get statistics => _statistics;
   bool _isLoading = true;
 
   bool get isLoading => _isLoading;
-
 
   Future<void> loadStatistics() async {
     _isLoading = true;
@@ -32,7 +33,6 @@ class StatisticsProvider with ChangeNotifier {
     try {
       final user = _auth.currentUser;
       if (user == null) return;
-
 
       // Listen to all collections simultaneously
       final futures = [
@@ -45,6 +45,7 @@ class StatisticsProvider with ChangeNotifier {
         _getCount('suppliers'),
         _getCount('purchases'),
         _getCount('purchase_return'),
+        _getCount('store_outs'), // Add store_outs count
       ];
 
       final results = await Future.wait(futures);
@@ -59,10 +60,10 @@ class StatisticsProvider with ChangeNotifier {
         'suppliers': results[6],
         'purchases': results[7],
         'purchaseReturn': results[8],
+        'storeOuts': results[9], // Add storeOuts
       };
-
     } catch (e) {
-      print('Error loading statistics: $e');
+      log('Error loading statistics: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -74,15 +75,23 @@ class StatisticsProvider with ChangeNotifier {
       final user = _auth.currentUser;
       if (user == null) return 0;
 
-      final snapshot = await _firestore
-          .collection('vendors/${user.uid}/$collection')
-          .where('active', isEqualTo: true)
-          .count()
-          .get();
+      final collectionPath = 'vendors/${user.uid}/$collection';
 
-      return snapshot.count ?? 0;
+      Query query = _firestore.collection(collectionPath);
+
+      // For store_outs, drafts, purchases, and sales, we might not have an 'active' field
+      if (collection != 'store_outs' &&
+          collection != 'drafts' &&
+          collection != 'purchases' &&
+          collection != 'sales') {
+        query = query.where('active', isEqualTo: true);
+      }
+
+      final snapshot = await query.count().get();
+      final count = snapshot.count ?? 0;
+
+      return count;
     } catch (e) {
-      print('Error getting count for $collection: $e');
       return 0;
     }
   }
