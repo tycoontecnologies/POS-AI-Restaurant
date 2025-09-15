@@ -10,10 +10,7 @@ class TableFormatters {
         textAlign: align,
         maxLines: maxLines,
         overflow: maxLines != null ? TextOverflow.ellipsis : null,
-        style: const TextStyle(
-          fontSize: 14,
-          color: AppColors.grey800,
-        ),
+        style: const TextStyle(fontSize: 14, color: AppColors.grey800),
       ),
     );
   }
@@ -21,7 +18,7 @@ class TableFormatters {
   static DataCell numberCell(num value, {String? prefix, String? suffix}) {
     return DataCell(
       Text(
-        '${prefix ?? ''}${value.toStringAsFixed(2)}${suffix ?? ''}',
+        '${prefix ?? ''}${value.toStringAsFixed(0)}${suffix ?? ''}',
         style: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w500,
@@ -36,7 +33,9 @@ class TableFormatters {
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: isActive ? AppColors.success.withOpacity(0.1) : AppColors.grey100,
+          color: isActive
+              ? AppColors.success.withOpacity(0.1)
+              : AppColors.grey100,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isActive ? AppColors.success : AppColors.grey300,
@@ -59,10 +58,7 @@ class TableFormatters {
     return DataCell(
       Text(
         '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
-        style: const TextStyle(
-          fontSize: 14,
-          color: AppColors.grey600,
-        ),
+        style: const TextStyle(fontSize: 14, color: AppColors.grey600),
       ),
     );
   }

@@ -87,6 +87,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 1),
               content: Text('Failed to load sales: $e'),
               backgroundColor: AppColors.error,
             ),
@@ -127,6 +128,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 1),
               content: Text('Failed to load more sales: $e'),
               backgroundColor: AppColors.error,
             ),
@@ -212,7 +214,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                 const SizedBox(height: AppSpacing.md),
                 Text('Sale ID: ${sale.id}'),
                 Text('Date: ${_formatDate(sale.createdAt)}'),
-                Text('Total: ${sale.total.toStringAsFixed(2)}'),
+                Text('Total: ${sale.total.toStringAsFixed(0)}'),
                 const SizedBox(height: AppSpacing.lg),
                 const Divider(),
                 const SizedBox(height: AppSpacing.md),
@@ -236,11 +238,11 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                         return DataRow(
                           cells: [
                             DataCell(Text(item.productName)),
-                            DataCell(Text(item.price.toStringAsFixed(2))),
+                            DataCell(Text(item.price.toStringAsFixed(0))),
                             DataCell(Text('${item.quantity}')),
                             DataCell(
                               Text(
-                                (item.price * item.quantity).toStringAsFixed(2),
+                                (item.price * item.quantity).toStringAsFixed(0),
                               ),
                             ),
                           ],
@@ -349,8 +351,9 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text(
-              'Return processed successfully for ${totalRefund.toStringAsFixed(2)}',
+              'Return processed successfully for ${totalRefund.toStringAsFixed(0)}',
             ),
             backgroundColor: AppColors.success,
           ),
@@ -360,6 +363,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text('Failed to process return: $e'),
             backgroundColor: AppColors.error,
           ),
@@ -423,8 +427,9 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text(
-              'Return processed successfully for ${totalRefund.toStringAsFixed(2)}',
+              'Return processed successfully for ${totalRefund.toStringAsFixed(0)}',
             ),
             backgroundColor: AppColors.success,
           ),
@@ -434,6 +439,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text('Failed to process return: $e'),
             backgroundColor: AppColors.error,
           ),
@@ -631,7 +637,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                 ),
                 DataCell(
                   Text(
-                    sale.total.toStringAsFixed(2),
+                    sale.total.toStringAsFixed(0),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,
@@ -660,7 +666,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                         ),
                       ),
                       Text(
-                        sale.total.toStringAsFixed(2),
+                        sale.total.toStringAsFixed(0),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: AppColors.primary,

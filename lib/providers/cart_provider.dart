@@ -4,11 +4,39 @@ import 'package:pos/models/product.dart';
 
 class CartItem {
   final Product product;
+  final ProductVariant? variant;
   int quantity;
 
-  CartItem({required this.product, required this.quantity});
+  CartItem({
+    required this.product, 
+    this.variant,
+    required this.quantity,
+  });
   
-  double get totalPrice => product.salePrice * quantity;
+  double get totalPrice {
+    final price = variant?.getPrice(product.salePrice) ?? product.salePrice;
+    return price * quantity;
+  }
+
+  String get uniqueId {
+    return variant != null 
+        ? '${product.id}_${variant!.id}'
+        : product.id;
+  }
+
+  String get displayName {
+    return variant != null 
+        ? '${product.name} (${variant!.name})'
+        : product.name;
+  }
+
+  int get availableStock {
+    return variant?.quantity ?? product.quantity;
+  }
+
+  double get unitPrice {
+    return variant?.getPrice(product.salePrice) ?? product.salePrice;
+  }
 }
 
 class CartProvider with ChangeNotifier {
@@ -16,9 +44,13 @@ class CartProvider with ChangeNotifier {
 
   List<CartItem> get cartItems => _cartItems;
 
-  void addToCart(Product product, {int quantity = 1}) {
+  void addToCart(Product product, {ProductVariant? variant, int quantity = 1}) {
+    final uniqueId = variant != null 
+        ? '${product.id}_${variant.id}'
+        : product.id;
+        
     final existingIndex = _cartItems.indexWhere(
-      (item) => item.product.id == product.id,
+      (item) => item.uniqueId == uniqueId,
     );
     
     int requestedQuantity = quantity;
@@ -26,15 +58,19 @@ class CartProvider with ChangeNotifier {
       requestedQuantity += _cartItems[existingIndex].quantity;
     }
     
-    // Check if requested quantity exceeds available stock
-    if (requestedQuantity > product.quantity) {
-      throw Exception('Insufficient stock. Only ${product.quantity} available.');
+    final availableStock = variant?.quantity ?? product.quantity;
+    if (requestedQuantity > availableStock) {
+      throw Exception('Insufficient stock. Only $availableStock available.');
     }
     
     if (existingIndex >= 0) {
       _cartItems[existingIndex].quantity += quantity;
     } else {
-      _cartItems.add(CartItem(product: product, quantity: quantity));
+      _cartItems.add(CartItem(
+        product: product, 
+        variant: variant,
+        quantity: quantity,
+      ));
     }
     
     notifyListeners();
@@ -46,9 +82,10 @@ class CartProvider with ChangeNotifier {
   }
 
   void updateQuantity(CartItem item, int quantity) {
-    // Check if requested quantity exceeds available stock
-    if (quantity > item.product.quantity) {
-      throw Exception('Insufficient stock. Only ${item.product.quantity} available.');
+    final availableStock = item.availableStock;
+    
+    if (quantity > availableStock) {
+      throw Exception('Insufficient stock. Only $availableStock available.');
     }
     
     if (quantity <= 0) {
@@ -66,17 +103,20 @@ class CartProvider with ChangeNotifier {
 
   double get total => _cartItems.fold(
     0,
-    (sum, item) => sum + (item.product.salePrice * item.quantity),
+    (sum, item) => sum + item.totalPrice,
   );
 
   int get totalItems => _cartItems.fold(0, (sum, item) => sum + item.quantity);
   
   bool get isCartEmpty => _cartItems.isEmpty;
   
-  // Helper method to check if a product can be added to cart
-  bool canAddToCart(Product product, {int quantity = 1}) {
+  bool canAddToCart(Product product, {ProductVariant? variant, int quantity = 1}) {
+    final uniqueId = variant != null 
+        ? '${product.id}_${variant.id}'
+        : product.id;
+        
     final existingIndex = _cartItems.indexWhere(
-      (item) => item.product.id == product.id,
+      (item) => item.uniqueId == uniqueId,
     );
     
     int requestedQuantity = quantity;
@@ -84,6 +124,30 @@ class CartProvider with ChangeNotifier {
       requestedQuantity += _cartItems[existingIndex].quantity;
     }
     
-    return requestedQuantity <= product.quantity;
+    final availableStock = variant?.quantity ?? product.quantity;
+    return requestedQuantity <= availableStock;
+  }
+
+  CartItem? getCartItem(String uniqueId) {
+    try {
+      return _cartItems.firstWhere((item) => item.uniqueId == uniqueId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  bool isInCart(Product product, {ProductVariant? variant}) {
+    final uniqueId = variant != null 
+        ? '${product.id}_${variant.id}'
+        : product.id;
+    return _cartItems.any((item) => item.uniqueId == uniqueId);
+  }
+
+  int getQuantityInCart(Product product, {ProductVariant? variant}) {
+    final uniqueId = variant != null 
+        ? '${product.id}_${variant.id}'
+        : product.id;
+    final item = _cartItems.where((item) => item.uniqueId == uniqueId).firstOrNull;
+    return item?.quantity ?? 0;
   }
 }

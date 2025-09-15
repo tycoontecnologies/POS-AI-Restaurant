@@ -80,10 +80,10 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     final phoneCtrl = TextEditingController(text: item?.phone ?? '');
     final addressCtrl = TextEditingController(text: item?.address ?? '');
     final toReceiveCtrl = TextEditingController(
-      text: item?.amountToReceive.toStringAsFixed(2) ?? '0.00',
+      text: item?.amountToReceive.toStringAsFixed(0) ?? '0.00',
     );
     final toPayCtrl = TextEditingController(
-      text: item?.amountToPay.toStringAsFixed(2) ?? '0.00',
+      text: item?.amountToPay.toStringAsFixed(0) ?? '0.00',
     );
     bool active = item?.active ?? true;
     DateTime createdOn = item?.createdOn ?? DateTime.now();
@@ -186,6 +186,12 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
 
                       TextFormField(
                         controller: addressCtrl,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Address is required';
+                          }
+                          return null;
+                        },
                         decoration: const InputDecoration(
                           labelText: 'Address',
                           border: OutlineInputBorder(),
@@ -199,7 +205,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                             child: TextFormField(
                               controller: toReceiveCtrl,
                               decoration: const InputDecoration(
-                                labelText: 'Amount to Receive',
+                                labelText: 'Receiveable',
                                 border: OutlineInputBorder(),
                               ),
                               keyboardType:
@@ -221,7 +227,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                             child: TextFormField(
                               controller: toPayCtrl,
                               decoration: const InputDecoration(
-                                labelText: 'Amount to Pay',
+                                labelText: 'Payable',
                                 border: OutlineInputBorder(),
                               ),
                               keyboardType:
@@ -301,6 +307,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 1),
               content: Text(
                 '${l10n.supplier} ${item == null ? l10n.addedSuccessfully : l10n.updatedSuccessfully}',
               ),
@@ -337,6 +344,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 1),
               content: Text('${l10n.supplier} ${l10n.updatedSuccessfully}'),
               backgroundColor: AppColors.success,
             ),
@@ -347,6 +355,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text('${l10n.error}: $e'),
             backgroundColor: AppColors.error,
           ),
@@ -384,6 +393,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 1),
               content: Text('${l10n.supplier} ${l10n.deletedSuccessfully}'),
               backgroundColor: AppColors.success,
             ),
@@ -393,6 +403,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 1),
               content: Text('${l10n.errorDeleting} ${l10n.supplier}: $e'),
               backgroundColor: AppColors.error,
             ),
@@ -565,7 +576,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               DataCell(Text(e.phone)),
               DataCell(
                 Text(
-                  e.amountToReceive.toStringAsFixed(2),
+                  e.amountToReceive.toStringAsFixed(0),
                   style: TextStyle(
                     color: e.amountToReceive > 0
                         ? Colors.green
@@ -576,7 +587,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               ),
               DataCell(
                 Text(
-                  e.amountToPay.toStringAsFixed(2),
+                  e.amountToPay.toStringAsFixed(0),
                   style: TextStyle(
                     color: e.amountToPay > 0 ? Colors.red : AppColors.grey600,
                     fontWeight: FontWeight.bold,
@@ -628,7 +639,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   children: [
                     Text('${l10n.receivable}: '),
                     Text(
-                      s.amountToReceive.toStringAsFixed(2),
+                      s.amountToReceive.toStringAsFixed(0),
                       style: TextStyle(
                         color: s.amountToReceive > 0 ? Colors.green : null,
                         fontWeight: FontWeight.bold,
@@ -641,7 +652,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   children: [
                     Text('${l10n.payable}: '),
                     Text(
-                      s.amountToPay.toStringAsFixed(2),
+                      s.amountToPay.toStringAsFixed(0),
                       style: TextStyle(
                         color: s.amountToPay > 0 ? Colors.red : null,
                         fontWeight: FontWeight.bold,

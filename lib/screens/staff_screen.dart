@@ -5,14 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
-import 'package:intl_phone_field/phone_number.dart';
 import 'package:pos/components/ui/custom_input.dart';
 import 'package:pos/components/ui/onboarding_completion.dart';
 import 'package:pos/components/ui/onboarding_tooltip.dart';
 import 'package:pos/routes/app_router.dart';
 import 'package:pos/utils/app_colors.dart';
-import 'package:pos/widget/international_phone_input.dart';
-import 'package:pos/widget/validated_input.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -373,6 +370,7 @@ class _StaffScreenState extends State<StaffScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text(
               item == null
                   ? 'Employee added successfully'
@@ -403,6 +401,7 @@ class _StaffScreenState extends State<StaffScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text('Error: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
@@ -448,6 +447,7 @@ class _StaffScreenState extends State<StaffScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
+              duration: Duration(seconds: 1),
               content: Text('Employee deleted successfully'),
               backgroundColor: Colors.green,
             ),
@@ -457,6 +457,7 @@ class _StaffScreenState extends State<StaffScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 1),
               content: Text('Error deleting employee: ${e.toString()}'),
               backgroundColor: Colors.red,
             ),
@@ -716,14 +717,23 @@ class _StaffScreenState extends State<StaffScreen> {
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.edit),
+                      icon: const Icon(Icons.edit, size: 18),
                       onPressed: _isProcessing
                           ? null
                           : () => _createOrEdit(item: e),
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.primary.withOpacity(0.1),
+                        foregroundColor: AppColors.primary,
+                      ),
                     ),
+                    const SizedBox(width: AppSpacing.xs),
                     IconButton(
-                      icon: const Icon(Icons.delete),
+                      icon: const Icon(Icons.delete, size: 18),
                       onPressed: _isProcessing ? null : () => _delete(e),
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.error.withOpacity(0.1),
+                        foregroundColor: AppColors.error,
+                      ),
                     ),
                   ],
                 ),

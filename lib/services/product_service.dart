@@ -44,6 +44,10 @@ class ProductService {
       quantity: product.quantity,
       active: product.active,
       createdOn: product.createdOn,
+      hasVariants: product.hasVariants,
+      variants: product.variants,
+      attributes: product.attributes,
+      imageUrl: product.imageUrl,
     );
 
     await docRef.set(productWithId.toJson());

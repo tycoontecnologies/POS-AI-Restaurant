@@ -60,6 +60,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     } else if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          duration: Duration(seconds: 1),
           content: Text(authProvider.error ?? 'Sign up failed'),
           backgroundColor: Colors.red,
         ),

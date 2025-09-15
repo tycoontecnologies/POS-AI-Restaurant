@@ -161,8 +161,9 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text(
-              'Return processed successfully for ${totalRefund.toStringAsFixed(2)}',
+              'Return processed successfully for ${totalRefund.toStringAsFixed(0)}',
             ),
             backgroundColor: AppColors.success,
           ),
@@ -172,6 +173,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text('Failed to process return: $e'),
             backgroundColor: AppColors.error,
           ),
@@ -238,8 +240,9 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text(
-              'Return processed successfully for ${totalRefund.toStringAsFixed(2)}',
+              'Return processed successfully for ${totalRefund.toStringAsFixed(0)}',
             ),
             backgroundColor: AppColors.success,
           ),
@@ -249,6 +252,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text('Failed to process return: $e'),
             backgroundColor: AppColors.error,
           ),
@@ -312,16 +316,15 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Text('Purchase ID: ${purchase.id}'),
+                Text('Purchase ID: ${purchase.id.substring(0, 6)}'),
                 Text('Supplier: ${purchase.supplierName}'),
                 Text(
                   'Date: ${purchase.date.toLocal().toString().split(' ').first}',
                 ),
-                Text('Total: ${purchase.total.toStringAsFixed(2)}'),
-                Text('Status: ${purchase.status}'),
-                const SizedBox(height: AppSpacing.lg),
+                Text('Total: ${purchase.total.toStringAsFixed(0)}'),
+                const SizedBox(height: AppSpacing.sm),
                 const Divider(),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   'Products',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -342,9 +345,9 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                         return DataRow(
                           cells: [
                             DataCell(Text(item.productName)),
-                            DataCell(Text(item.unitPrice.toStringAsFixed(2))),
+                            DataCell(Text(item.unitPrice.toStringAsFixed(0))),
                             DataCell(Text('${item.quantity}')),
-                            DataCell(Text(item.total.toStringAsFixed(2))),
+                            DataCell(Text(item.total.toStringAsFixed(0))),
                           ],
                         );
                       }).toList(),
@@ -519,7 +522,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                     ),
                   ),
                 ),
-                DataCell(Text(purchase.total.toStringAsFixed(2))),
+                DataCell(Text(purchase.total.toStringAsFixed(0))),
                 DataCell(Text('${purchase.date.toLocal()}'.split(' ').first)),
                 DataCell(_rowActions(purchase)),
               ],
@@ -552,7 +555,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: AppSpacing.xs),
-                  Text('Total: ${purchase.total.toStringAsFixed(2)}'),
+                  Text('Total: ${purchase.total.toStringAsFixed(0)}'),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     'Date: ${'${purchase.date.toLocal()}'.split(' ').first}',

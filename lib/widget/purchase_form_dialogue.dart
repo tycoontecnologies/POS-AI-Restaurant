@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:pos/components/ui/custom_card.dart';
-import 'package:pos/utils/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/models/purchase.dart';
 import 'package:pos/models/supplier.dart';
@@ -23,7 +22,6 @@ class PurchaseFormDialog extends StatefulWidget {
   State<PurchaseFormDialog> createState() => _PurchaseFormDialogState();
 }
 
-//
 class _PurchaseFormDialogState extends State<PurchaseFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _supplierSearchController = TextEditingController();
@@ -60,19 +58,32 @@ class _PurchaseFormDialogState extends State<PurchaseFormDialog> {
     super.dispose();
   }
 
-  void _addProductItem(Product product, int quantity) {
+  void _addProductItem(
+    Product product,
+    int quantity, {
+    ProductVariant? variant,
+  }) {
     final existingIndex = _selectedItems.indexWhere(
-      (item) => item.productId == product.id,
+      (item) => item.productId == product.id && item.variantId == variant?.id,
     );
+
+    final itemName = variant != null
+        ? '${product.name} - ${variant.name}'
+        : product.name;
+    final itemPrice = variant != null
+        ? variant.getPrice(product.purchasePrice)
+        : product.purchasePrice;
 
     if (existingIndex != -1) {
       setState(() {
         _selectedItems[existingIndex] = PurchaseItem(
           productId: product.id,
-          productName: product.name,
+          productName: itemName,
           quantity: quantity,
-          unitPrice: product.purchasePrice,
-          total: product.purchasePrice * quantity,
+          unitPrice: itemPrice,
+          total: itemPrice * quantity,
+          variantId: variant?.id,
+          variantName: variant?.name,
         );
       });
     } else {
@@ -80,10 +91,12 @@ class _PurchaseFormDialogState extends State<PurchaseFormDialog> {
         _selectedItems.add(
           PurchaseItem(
             productId: product.id,
-            productName: product.name,
+            productName: itemName,
             quantity: quantity,
-            unitPrice: product.purchasePrice,
-            total: product.purchasePrice * quantity,
+            unitPrice: itemPrice,
+            total: itemPrice * quantity,
+            variantId: variant?.id,
+            variantName: variant?.name,
           ),
         );
       });
@@ -135,7 +148,7 @@ class _PurchaseFormDialogState extends State<PurchaseFormDialog> {
 
     return Dialog(
       elevation: 12,
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       insetPadding: const EdgeInsets.all(32),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
@@ -206,7 +219,8 @@ class _PurchaseFormDialogState extends State<PurchaseFormDialog> {
                                       Icons.search_rounded,
                                     ),
                                     filled: true,
-                                    fillColor: colorScheme.surfaceVariant
+                                    fillColor: colorScheme
+                                        .surfaceContainerHighest
                                         .withOpacity(0.5),
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 16,
@@ -384,7 +398,8 @@ class _PurchaseFormDialogState extends State<PurchaseFormDialog> {
                                             horizontal: 16,
                                             vertical: 12,
                                           ),
-                                          color: colorScheme.surfaceVariant
+                                          color: colorScheme
+                                              .surfaceContainerHighest
                                               .withOpacity(0.5),
                                           child: Row(
                                             children: const [
@@ -461,7 +476,7 @@ class _PurchaseFormDialogState extends State<PurchaseFormDialog> {
                                                   Expanded(
                                                     child: Text(
                                                       entry.value.unitPrice
-                                                          .toStringAsFixed(2),
+                                                          .toStringAsFixed(0),
                                                       textAlign:
                                                           TextAlign.right,
                                                       style: TextStyle(
@@ -474,7 +489,7 @@ class _PurchaseFormDialogState extends State<PurchaseFormDialog> {
                                                   Expanded(
                                                     child: Text(
                                                       entry.value.total
-                                                          .toStringAsFixed(2),
+                                                          .toStringAsFixed(0),
                                                       textAlign:
                                                           TextAlign.right,
                                                       style: const TextStyle(
@@ -533,7 +548,7 @@ class _PurchaseFormDialogState extends State<PurchaseFormDialog> {
                                               ),
                                         ),
                                         Text(
-                                          '\$${_totalAmount.toStringAsFixed(2)}',
+                                          '\$${_totalAmount.toStringAsFixed(0)}',
                                           style: theme.textTheme.headlineSmall
                                               ?.copyWith(
                                                 fontWeight: FontWeight.bold,
@@ -612,7 +627,6 @@ class _PurchaseFormDialogState extends State<PurchaseFormDialog> {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Consumer<SupplierProvider>(
-                // <-- This is key
                 builder: (context, supplierProvider, _) {
                   return Column(
                     mainAxisSize: MainAxisSize.min,
@@ -639,9 +653,10 @@ class _PurchaseFormDialogState extends State<PurchaseFormDialog> {
                             vertical: 14,
                           ),
                           filled: true,
-                          fillColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceVariant.withOpacity(0.4),
+                          fillColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                              .withOpacity(0.4),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -768,7 +783,7 @@ void showPurchaseDialog(
 
 class ProductSelectionDialog extends StatefulWidget {
   final List<PurchaseItem> selectedItems;
-  final Function(Product, int) onProductAdded;
+  final Function(Product, int, {ProductVariant? variant}) onProductAdded;
   final ProductProvider productProvider;
 
   const ProductSelectionDialog({
@@ -784,17 +799,38 @@ class ProductSelectionDialog extends StatefulWidget {
 
 class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
   final Map<String, TextEditingController> _quantityControllers = {};
+  final Map<String, ProductVariant?> _selectedVariants = {};
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    // Initialize controllers for already selected items
+    // Initialize controllers and variants for already selected items
     for (final item in widget.selectedItems) {
       _quantityControllers[item.productId] = TextEditingController(
         text: item.quantity.toString(),
       );
+      // Store variant selection if exists
+      if (item.variantId != null && item.variantId!.isNotEmpty) {
+        final product = widget.productProvider.products.firstWhere(
+          (p) => p.id == item.productId,
+          orElse: () => Product(
+            id: '',
+            name: '',
+            category: '',
+            unit: '',
+            salePrice: 0,
+            purchasePrice: 0,
+            quantity: 0,
+          ),
+        );
+        final variant = product.variants.firstWhere(
+          (v) => v.id == item.variantId,
+          orElse: () => ProductVariant(id: '', name: '', quantity: 0),
+        );
+        _selectedVariants[item.productId] = variant;
+      }
     }
   }
 
@@ -805,15 +841,108 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
     super.dispose();
   }
 
+  void _showVariantSelectionDialog(Product product) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400, maxHeight: 500),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Select Variant for ${product.name}',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  if (product.variants.isEmpty)
+                    const Center(child: Text('No variants available'))
+                  else
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: product.variants.length,
+                        itemBuilder: (context, index) {
+                          final variant = product.variants[index];
+                          return ListTile(
+                            title: Text(variant.name),
+                            subtitle: Text(
+                              'Stock: ${variant.quantity} | Price: \$${(product.purchasePrice + variant.priceModifier).toStringAsFixed(0)}',
+                            ),
+                            trailing:
+                                _selectedVariants[product.id]?.id == variant.id
+                                ? Icon(
+                                    Icons.check_circle,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  )
+                                : null,
+                            onTap: () {
+                              setState(() {
+                                _selectedVariants[product.id] = variant;
+                              });
+                              Navigator.of(context).pop();
+                            },
+                          );
+                        },
+                      ),
+                    ),
+
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      FilledButton(
+                        onPressed: () {
+                          // Clear variant selection
+                          setState(() {
+                            _selectedVariants.remove(product.id);
+                          });
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('Clear Selection'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Filter products based on search query AND exclude products with 0 stock
+    // Filter products based on search query AND exclude products/variants with 0 stock
     final filteredProducts = widget.productProvider.products.where((product) {
       final matchesSearch =
           _searchQuery.isEmpty ||
           product.name.toLowerCase().contains(_searchQuery.toLowerCase());
-      final hasStock = product.quantity > 0; // Exclude products with 0 stock
-      return matchesSearch && hasStock;
+
+      // Check if product has available stock (either base product or variants)
+      final hasAvailableStock = product.hasVariants
+          ? product.activeVariants.any((variant) => variant.quantity > 0)
+          : product.quantity > 0;
+
+      return matchesSearch && hasAvailableStock;
     }).toList();
 
     return Dialog(
@@ -821,7 +950,7 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 650),
+        constraints: const BoxConstraints(maxWidth: 900, maxHeight: 650),
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
@@ -859,7 +988,7 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
                   filled: true,
                   fillColor: Theme.of(
                     context,
-                  ).colorScheme.surfaceVariant.withOpacity(0.4),
+                  ).colorScheme.surfaceContainerHighest.withOpacity(0.4),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -915,7 +1044,7 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
                 decoration: BoxDecoration(
                   color: Theme.of(
                     context,
-                  ).colorScheme.surfaceVariant.withOpacity(0.3),
+                  ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Row(
@@ -925,6 +1054,13 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
                       child: Text(
                         'Product',
                         style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        'Variant',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                     Expanded(
@@ -982,19 +1118,28 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
                         itemCount: filteredProducts.length,
                         itemBuilder: (context, index) {
                           final product = filteredProducts[index];
+                          final selectedVariant = _selectedVariants[product.id];
+                          final availableStock = selectedVariant != null
+                              ? selectedVariant.quantity
+                              : product.totalAvailableStock;
+
                           final existingItem = widget.selectedItems.firstWhere(
-                            (item) => item.productId == product.id,
+                            (item) =>
+                                item.productId == product.id &&
+                                item.variantId == selectedVariant?.id,
                             orElse: () => PurchaseItem(
                               productId: '',
                               productName: '',
                               quantity: 0,
                               unitPrice: 0,
                               total: 0,
+                              variantId: '',
+                              variantName: '',
                             ),
                           );
 
                           final controller = _quantityControllers.putIfAbsent(
-                            product.id,
+                            '${product.id}_${selectedVariant?.id ?? 'base'}',
                             () => TextEditingController(
                               text: existingItem.quantity.toString(),
                             ),
@@ -1003,8 +1148,7 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
                           // Validate if quantity exceeds stock
                           final currentQuantity =
                               int.tryParse(controller.text) ?? 0;
-                          final exceedsStock =
-                              currentQuantity > product.quantity;
+                          final exceedsStock = currentQuantity > availableStock;
 
                           return Container(
                             margin: const EdgeInsets.only(
@@ -1040,12 +1184,84 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
+                                        if (product.hasVariants)
+                                          Text(
+                                            'Has ${product.variants.length} variants',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface
+                                                  .withOpacity(0.6),
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   ),
                                   Expanded(
+                                    child: product.hasVariants
+                                        ? InkWell(
+                                            onTap: () =>
+                                                _showVariantSelectionDialog(
+                                                  product,
+                                                ),
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 6,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: selectedVariant != null
+                                                    ? Theme.of(context)
+                                                          .colorScheme
+                                                          .primary
+                                                          .withOpacity(0.1)
+                                                    : Theme.of(context)
+                                                          .colorScheme
+                                                          .surfaceContainerHighest,
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                                border: Border.all(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .outline
+                                                      .withOpacity(0.2),
+                                                ),
+                                              ),
+                                              child: Text(
+                                                selectedVariant?.name ??
+                                                    'Select Variant',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: selectedVariant != null
+                                                      ? Theme.of(
+                                                          context,
+                                                        ).colorScheme.primary
+                                                      : Theme.of(context)
+                                                            .colorScheme
+                                                            .onSurface
+                                                            .withOpacity(0.6),
+                                                ),
+                                              ),
+                                            ),
+                                          )
+                                        : const Text(
+                                            'No variants',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                  ),
+                                  Expanded(
                                     child: Text(
-                                      '\$${product.purchasePrice.toStringAsFixed(2)}',
+                                      selectedVariant != null
+                                          ? '\$${(product.purchasePrice + selectedVariant.priceModifier).toStringAsFixed(0)}'
+                                          : '\$${product.purchasePrice.toStringAsFixed(0)}',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontWeight: FontWeight.w600,
@@ -1057,10 +1273,10 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
                                   ),
                                   Expanded(
                                     child: Text(
-                                      product.quantity.toString(),
+                                      availableStock.toString(),
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
-                                        color: product.quantity > 0
+                                        color: availableStock > 0
                                             ? Theme.of(
                                                 context,
                                               ).colorScheme.onSurface
@@ -1107,17 +1323,18 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
                                             ); // Rebuild to show validation
 
                                             if (quantity > 0 &&
-                                                quantity <= product.quantity) {
+                                                quantity <= availableStock) {
                                               widget.onProductAdded(
                                                 product,
                                                 quantity,
+                                                variant: selectedVariant,
                                               );
                                             }
                                           },
                                         ),
                                         if (exceedsStock)
                                           Text(
-                                            'Max: ${product.quantity}',
+                                            'Max: $availableStock',
                                             style: TextStyle(
                                               fontSize: 10,
                                               color: Theme.of(
@@ -1158,10 +1375,16 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
                       bool hasInvalidQuantities = false;
 
                       for (final product in filteredProducts) {
-                        final controller = _quantityControllers[product.id];
+                        final selectedVariant = _selectedVariants[product.id];
+                        final availableStock = selectedVariant != null
+                            ? selectedVariant.quantity
+                            : product.totalAvailableStock;
+
+                        final controller =
+                            _quantityControllers['${product.id}_${selectedVariant?.id ?? 'base'}'];
                         if (controller != null) {
                           final quantity = int.tryParse(controller.text) ?? 0;
-                          if (quantity > product.quantity) {
+                          if (quantity > availableStock) {
                             hasInvalidQuantities = true;
                             break;
                           }
@@ -1171,6 +1394,7 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
                       if (hasInvalidQuantities) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
+                            duration: const Duration(seconds: 1),
                             content: Text(
                               'Some quantities exceed available stock',
                               style: TextStyle(
@@ -1192,7 +1416,7 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
                         vertical: AppSpacing.md,
                       ),
                     ),
-                    child: const Text('Add Selected'),
+                    child: const Text('Done'),
                   ),
                 ],
               ),

@@ -70,6 +70,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
+            duration: Duration(seconds: 1),
             content: Text('Redirecting to secure payment...'),
             backgroundColor: Colors.blue,
           ),

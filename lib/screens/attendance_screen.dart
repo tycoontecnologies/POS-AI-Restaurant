@@ -1,4 +1,3 @@
-import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:pos/providers/staff_provider.dart';
@@ -134,6 +133,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text(
               '${staff.name} marked as ${isPresent ? 'Present' : 'Absent'}',
             ),
@@ -145,6 +145,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text('Error updating attendance: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
@@ -491,7 +492,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                         'Hours: ${attendance.calculatedHours.toStringAsFixed(1)}',
                       ),
                       Text(
-                        'Wage Earned: ${attendance.calculatedWage.toStringAsFixed(2)}',
+                        'Wage Earned: ${attendance.calculatedWage.toStringAsFixed(0)}',
                       ),
                     ],
                     const SizedBox(height: AppSpacing.sm),

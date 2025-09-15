@@ -251,7 +251,7 @@
 //             backgroundColor: const Color(0xFFFDFDFE),
 //             surfaceTintColor: Colors.transparent,
 //             title: const Text('Sale Completed'),
-//             content: Text('Total: ${_total.toStringAsFixed(2)}'),
+//             content: Text('Total: ${_total.toStringAsFixed(0)}'),
 //             actions: [
 //               CustomButton(
 //                 text: 'OK',
@@ -311,7 +311,7 @@
 //                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
 //                   children: [
 //                     pw.Text('${item.productName} x${item.quantity}'),
-//                     pw.Text((item.price * item.quantity).toStringAsFixed(2)),
+//                     pw.Text((item.price * item.quantity).toStringAsFixed(0)),
 //                   ],
 //                 );
 //               }),
@@ -324,7 +324,7 @@
 //                     style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
 //                   ),
 //                   pw.Text(
-//                     sale.total.toStringAsFixed(2),
+//                     sale.total.toStringAsFixed(0),
 //                     style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
 //                   ),
 //                 ],
@@ -491,7 +491,7 @@
 //                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
 //                         children: [
 //                           Text(
-//                             product.salePrice.toStringAsFixed(2),
+//                             product.salePrice.toStringAsFixed(0),
 //                             style: Theme.of(context).textTheme.titleMedium
 //                                 ?.copyWith(
 //                                   fontWeight: FontWeight.w700,
@@ -625,7 +625,7 @@
 //                                           ),
 //                                     ),
 //                                     Text(
-//                                       '${item.product.salePrice.toStringAsFixed(2)} each',
+//                                       '${item.product.salePrice.toStringAsFixed(0)} each',
 //                                       style: Theme.of(context)
 //                                           .textTheme
 //                                           .bodySmall
@@ -727,7 +727,7 @@
 //                       ),
 //                     ),
 //                     Text(
-//                       _total.toStringAsFixed(2),
+//                       _total.toStringAsFixed(0),
 //                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
 //                         fontWeight: FontWeight.w700,
 //                         color: Theme.of(context).colorScheme.primary,

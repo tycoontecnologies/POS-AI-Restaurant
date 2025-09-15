@@ -45,6 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } else if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          duration: Duration(seconds: 1),
           content: Text(authProvider.error ?? 'Login failed'),
           backgroundColor: Colors.red,
         ),

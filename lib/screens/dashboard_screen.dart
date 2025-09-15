@@ -9,7 +9,6 @@ import 'package:provider/provider.dart';
 import '../utils/responsive.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
-import '../components/ui/custom_card.dart';
 import '../components/ui/custom_button.dart';
 import '../routes/app_router.dart';
 
@@ -494,14 +493,13 @@ class _PagedCategoryGrid extends StatelessWidget {
     }
 
     return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
         childAspectRatio: 1.5,
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(0),
       itemCount: pageItems.length,
       itemBuilder: (context, index) {
         final category = pageItems[index];
@@ -569,7 +567,7 @@ class _HoverableCategoryCardState extends State<HoverableCategoryCard> {
       case 'indian':
         return Icons.local_fire_department;
       case 'salads':
-        return Icons.grass; // green-ish feel
+        return Icons.grass;
       case 'burgers':
         return Icons.lunch_dining;
       case 'noodles':

@@ -108,7 +108,7 @@ class _MonthlyAttendanceScreenState extends State<MonthlyAttendanceScreen> {
                       DataColumn(label: Text('Staff Member')),
                       DataColumn(label: Text('Present Days')),
                       DataColumn(label: Text('Total Hours')),
-                      DataColumn(label: Text('Total Wage'), numeric: true),
+                      DataColumn(label: Text('Total Wage')),
                       DataColumn(label: Text('Actions')),
                     ],
                     rows: attendanceByStaff.entries.map((entry) {
@@ -148,7 +148,7 @@ class _MonthlyAttendanceScreenState extends State<MonthlyAttendanceScreen> {
                           DataCell(
                             Text('${totalHours.toStringAsFixed(1)} hours'),
                           ),
-                          DataCell(Text(totalWage.toStringAsFixed(2))),
+                          DataCell(Text(totalWage.toStringAsFixed(0))),
                           DataCell(
                             IconButton(
                               icon: const Icon(Icons.visibility),
@@ -212,7 +212,7 @@ class _MonthlyAttendanceScreenState extends State<MonthlyAttendanceScreen> {
                   DataCell(Text(DateFormat('dd/MM/yyyy').format(a.date))),
                   DataCell(Text(a.isPresent ? 'Present' : 'Absent')),
                   DataCell(Text(a.calculatedHours.toStringAsFixed(1))),
-                  DataCell(Text(a.calculatedWage.toStringAsFixed(2))),
+                  DataCell(Text(a.calculatedWage.toStringAsFixed(0))),
                 ],
               );
             }).toList(),

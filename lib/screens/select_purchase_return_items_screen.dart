@@ -6,10 +6,7 @@ import 'package:pos/utils/app_spacing.dart';
 class SelectPurchaseReturnItemsScreen extends StatefulWidget {
   final Purchase purchase;
 
-  const SelectPurchaseReturnItemsScreen({
-    super.key,
-    required this.purchase,
-  });
+  const SelectPurchaseReturnItemsScreen({super.key, required this.purchase});
 
   @override
   State<SelectPurchaseReturnItemsScreen> createState() =>
@@ -46,6 +43,7 @@ class _SelectPurchaseReturnItemsScreenState
     if (_reasonController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
+          duration: Duration(seconds: 1),
           content: Text('Please enter a reason for the return'),
           backgroundColor: AppColors.error,
         ),
@@ -61,6 +59,7 @@ class _SelectPurchaseReturnItemsScreenState
     if (selectedProductIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
+          duration: Duration(seconds: 1),
           content: Text('Please select at least one item to return'),
           backgroundColor: AppColors.error,
         ),
@@ -102,13 +101,15 @@ class _SelectPurchaseReturnItemsScreenState
                     Text(
                       'Purchase #${widget.purchase.id}',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text('Supplier: ${widget.purchase.supplierName}'),
-                    Text('Date: ${widget.purchase.date.toLocal().toString().split(' ').first}'),
-                    Text('Total: ${widget.purchase.total.toStringAsFixed(2)}'),
+                    Text(
+                      'Date: ${widget.purchase.date.toLocal().toString().split(' ').first}',
+                    ),
+                    Text('Total: ${widget.purchase.total.toStringAsFixed(0)}'),
                   ],
                 ),
               ),
@@ -131,20 +132,25 @@ class _SelectPurchaseReturnItemsScreenState
                     child: ListTile(
                       leading: Checkbox(
                         value: isSelected,
-                        onChanged: (value) => _toggleItemSelection(item.productId),
+                        onChanged: (value) =>
+                            _toggleItemSelection(item.productId),
                       ),
                       title: Text(item.productName),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Qty: ${item.quantity}'),
-                          Text('Price: ${item.unitPrice.toStringAsFixed(2)}'),
-                          Text('Total: ${item.total.toStringAsFixed(2)}'),
+                          Text('Price: ${item.unitPrice.toStringAsFixed(0)}'),
+                          Text('Total: ${item.total.toStringAsFixed(0)}'),
                         ],
                       ),
                       trailing: Icon(
-                        isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-                        color: isSelected ? AppColors.success : AppColors.grey400,
+                        isSelected
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
+                        color: isSelected
+                            ? AppColors.success
+                            : AppColors.grey400,
                       ),
                       onTap: () => _toggleItemSelection(item.productId),
                     ),

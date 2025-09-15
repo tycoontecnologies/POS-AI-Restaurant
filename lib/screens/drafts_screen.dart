@@ -85,7 +85,7 @@ class _DraftsScreenState extends State<DraftsScreen> {
     try {
       await draftProvider.deleteDraft(draftId);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Draft deleted successfully')),
+        const SnackBar(content: Text('Draft deleted successfully'), duration: Duration(seconds: 1),),
       );
     } catch (e) {
       ScaffoldMessenger.of(
@@ -229,7 +229,7 @@ class _DraftsScreenState extends State<DraftsScreen> {
                               Text(
                                 draft.total == 0
                                     ? '-'
-                                    : draft.total.toStringAsFixed(2),
+                                    : draft.total.toStringAsFixed(0),
                               ),
                             ),
                             DataCell(
@@ -299,7 +299,7 @@ class _DraftsScreenState extends State<DraftsScreen> {
                               ),
                               const SizedBox(height: AppSpacing.xs),
                               Text(
-                                'Total: ${draft.total == 0 ? '-' : draft.total.toStringAsFixed(2)}',
+                                'Total: ${draft.total == 0 ? '-' : draft.total.toStringAsFixed(0)}',
                               ),
                               const SizedBox(height: AppSpacing.xs),
                               Text(

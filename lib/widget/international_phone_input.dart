@@ -5,7 +5,7 @@ import 'package:intl_phone_field/phone_number.dart';
 
 class InternationalPhoneInput extends FormField<String> {
   InternationalPhoneInput({
-    Key? key,
+    super.key,
     required String label,
     required TextEditingController controller,
     String? initialValue,
@@ -14,7 +14,6 @@ class InternationalPhoneInput extends FormField<String> {
     String? Function(String?)? validator,
     Function(PhoneNumber)? onChanged,
   }) : super(
-         key: key,
          initialValue: initialValue ?? '',
          validator: (value) {
            final fullNumber = value ?? '';

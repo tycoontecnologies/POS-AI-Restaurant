@@ -129,6 +129,7 @@ class _ModernAppHeader extends StatelessWidget {
                                 } catch (e) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
+                                      duration: Duration(seconds: 1),
                                       content: Text(
                                         'Error checking subscription: $e',
                                       ),

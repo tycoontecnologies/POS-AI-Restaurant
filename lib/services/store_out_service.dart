@@ -232,13 +232,46 @@ class StoreOutService {
 
     for (final item in products) {
       final productDoc = productsCollection.doc(item.product.id);
-      final newQuantity = item.product.quantity - item.quantity;
 
-      if (newQuantity < 0) {
-        throw Exception('Insufficient quantity for ${item.product.name}');
+      // Check if this is a variant product (ID contains variant indicator)
+      if (item.product.id.contains('_')) {
+        // Handle variant product quantity update
+        final parts = item.product.id.split('_');
+        final baseProductId = parts[0];
+        final variantId = parts[1];
+
+        final productDoc = productsCollection.doc(baseProductId);
+        final productSnapshot = await productDoc.get();
+
+        if (productSnapshot.exists) {
+          final productData = productSnapshot.data() as Map<String, dynamic>;
+          final variants = List<Map<String, dynamic>>.from(
+            productData['variants'] ?? [],
+          );
+
+          final variantIndex = variants.indexWhere((v) => v['id'] == variantId);
+          if (variantIndex != -1) {
+            final currentVariantQty = variants[variantIndex]['quantity'] ?? 0;
+            final newVariantQty = currentVariantQty - item.quantity;
+
+            if (newVariantQty < 0) {
+              throw Exception('Insufficient quantity for ${item.product.name}');
+            }
+
+            variants[variantIndex]['quantity'] = newVariantQty;
+            batch.update(productDoc, {'variants': variants});
+          }
+        }
+      } else {
+        // Handle regular product quantity update
+        final newQuantity = item.product.quantity - item.quantity;
+
+        if (newQuantity < 0) {
+          throw Exception('Insufficient quantity for ${item.product.name}');
+        }
+
+        batch.update(productDoc, {'quantity': newQuantity});
       }
-
-      batch.update(productDoc, {'quantity': newQuantity});
     }
 
     await batch.commit();

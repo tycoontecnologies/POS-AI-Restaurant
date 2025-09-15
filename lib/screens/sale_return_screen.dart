@@ -72,6 +72,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 1),
               content: Text('Failed to load sale returns: $e'),
               backgroundColor: AppColors.error,
             ),
@@ -102,6 +103,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 1),
               content: Text('Failed to load more sale returns: $e'),
               backgroundColor: AppColors.error,
             ),
@@ -173,7 +175,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
                 Text('Original Sale ID: ${saleReturn.originalSaleId}'),
                 Text('Date: ${_formatDate(saleReturn.createdAt)}'),
                 Text(
-                  'Total Refund: ${saleReturn.totalRefund.toStringAsFixed(2)}',
+                  'Total Refund: ${saleReturn.totalRefund.toStringAsFixed(0)}',
                 ),
                 Text('Reason: ${saleReturn.reason}'),
                 const SizedBox(height: AppSpacing.lg),
@@ -203,11 +205,11 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
                           cells: [
                             DataCell(Text(item.productName)),
                             DataCell(
-                              Text(item.originalPrice.toStringAsFixed(2)),
+                              Text(item.originalPrice.toStringAsFixed(0)),
                             ),
                             DataCell(Text('${item.returnedQuantity}')),
                             DataCell(
-                              Text(item.refundAmount.toStringAsFixed(2)),
+                              Text(item.refundAmount.toStringAsFixed(0)),
                             ),
                           ],
                         );
@@ -425,7 +427,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
                 ),
                 DataCell(
                   Text(
-                    saleReturn.totalRefund.toStringAsFixed(2),
+                    saleReturn.totalRefund.toStringAsFixed(0),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: AppColors.error,
@@ -467,7 +469,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
                         ),
                       ),
                       Text(
-                        saleReturn.totalRefund.toStringAsFixed(2),
+                        saleReturn.totalRefund.toStringAsFixed(0),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: AppColors.error,

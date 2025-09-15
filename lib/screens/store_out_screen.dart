@@ -161,81 +161,83 @@ class _StoreOutScreenState extends State<StoreOutScreen> {
     final l10n = AppLocalizations.of(context)!;
     final provider = context.watch<StoreOutProvider>();
 
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.storeOut,
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.grey800,
-                          ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      'Track inventory outgoing',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.grey600,
+    return Scaffold(
+      body: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.storeOut,
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.grey800,
+                            ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              CustomButton(
-                text: 'Record Outgoing',
-                icon: Icons.output,
-                onPressed: _navigateToAddStoreOut,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          if (provider.error != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: CustomCard(
-                color: AppColors.error,
-                child: Row(
-                  children: [
-                    Icon(Icons.error, color: AppColors.error),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        provider.error!,
-                        style: TextStyle(color: AppColors.error),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        'Track inventory outgoing',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.grey600,
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: provider.clearError,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+                CustomButton(
+                  text: 'Record Outgoing',
+                  icon: Icons.output,
+                  onPressed: _navigateToAddStoreOut,
+                ),
+              ],
             ),
+            const SizedBox(height: AppSpacing.md),
 
-          SearchBarWidget(
-            controller: _searchController,
-            hint: 'Search store out...',
-            onChanged: (_) => _onSearchChanged(),
-            onClear: () {
-              _searchController.clear();
-              _onSearchChanged();
-            },
-          ),
-          const SizedBox(height: AppSpacing.sm),
+            if (provider.error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: CustomCard(
+                  color: AppColors.error,
+                  child: Row(
+                    children: [
+                      Icon(Icons.error, color: AppColors.error),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          provider.error!,
+                          style: TextStyle(color: AppColors.error),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: provider.clearError,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
-          Expanded(child: _buildContent(provider, l10n)),
-        ],
+            SearchBarWidget(
+              controller: _searchController,
+              hint: 'Search store out...',
+              onChanged: (_) => _onSearchChanged(),
+              onClear: () {
+                _searchController.clear();
+                _onSearchChanged();
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+
+            Expanded(child: _buildContent(provider, l10n)),
+          ],
+        ),
       ),
     );
   }

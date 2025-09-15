@@ -27,6 +27,7 @@ class ProductProvider with ChangeNotifier {
       _products.clear();
       _lastDocument = null;
       _hasMore = true;
+      notifyListeners();
     }
 
     try {
@@ -39,12 +40,16 @@ class ProductProvider with ChangeNotifier {
       final newProducts = await stream;
 
       if (newProducts.isNotEmpty) {
-        _lastDocument = await _getLastDocument(vendorId);
+        // Update last document for pagination
         if (loadMore) {
           _products.addAll(newProducts);
         } else {
           _products = newProducts;
         }
+
+        // Set hasMore based on whether we got a full page
+        _hasMore = newProducts.length == 20;
+
         _filterProducts();
       } else {
         _hasMore = false;
@@ -53,18 +58,10 @@ class ProductProvider with ChangeNotifier {
       log('Error loading products: $e');
     } finally {
       _isLoading = false;
-      notifyListeners();
+      if (_products.isNotEmpty) {
+        notifyListeners();
+      }
     }
-  }
-
-  Future<DocumentSnapshot?> _getLastDocument(String vendorId) async {
-    if (_products.isEmpty) return null;
-
-    final lastProduct = _products.last;
-    return await FirebaseFirestore.instance
-        .collection(ProductService.getVendorProductsPath(vendorId))
-        .doc(lastProduct.id)
-        .get();
   }
 
   void setSearchQuery(String query) {

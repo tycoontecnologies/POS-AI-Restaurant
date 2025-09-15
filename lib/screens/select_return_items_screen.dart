@@ -49,7 +49,7 @@ class _SelectReturnItemsScreenState extends State<SelectReturnItemsScreen> {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
-                      'Total: ${widget.sale.total.toStringAsFixed(2)}',
+                      'Total: ${widget.sale.total.toStringAsFixed(0)}',
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                     Text(
@@ -72,7 +72,7 @@ class _SelectReturnItemsScreenState extends State<SelectReturnItemsScreen> {
                   return CheckboxListTile(
                     title: Text(item.productName),
                     subtitle: Text(
-                      'Price: ${item.price.toStringAsFixed(2)} • Qty: ${item.quantity} • Subtotal: ${(item.price * item.quantity).toStringAsFixed(2)}',
+                      'Price: ${item.price.toStringAsFixed(0)} • Qty: ${item.quantity} • Subtotal: ${(item.price * item.quantity).toStringAsFixed(0)}',
                     ),
                     value: _selectedItems[item.productId] ?? false,
                     onChanged: (value) {
@@ -143,6 +143,7 @@ class _SelectReturnItemsScreenState extends State<SelectReturnItemsScreen> {
     if (selectedProductIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
+          duration: Duration(seconds: 1),
           content: Text('Please select at least one item to return'),
           backgroundColor: AppColors.error,
         ),
@@ -153,6 +154,7 @@ class _SelectReturnItemsScreenState extends State<SelectReturnItemsScreen> {
     if (_reasonController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
+          duration: Duration(seconds: 1),
           content: Text('Please provide a reason for the return'),
           backgroundColor: AppColors.error,
         ),

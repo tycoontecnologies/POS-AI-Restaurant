@@ -1,6 +1,6 @@
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:pos/providers/auth_provider.dart';
+import 'package:pos/utils/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/models/store_out.dart';
 import 'package:pos/models/product.dart';
@@ -60,10 +60,11 @@ class _AddEditStoreOutScreenState extends State<AddEditStoreOutScreen> {
 
       if (vendorId != null) {
         _availableProducts = await _storeOutService.getVendorProducts(vendorId);
+        print('Loaded ${_availableProducts.length} products'); // Debug log
         setState(() {});
       }
     } catch (e) {
-      log('Error loading products: $e'); // Debug log
+      print('Error loading products: $e'); // Debug log
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error loading products: $e')));
@@ -89,27 +90,43 @@ class _AddEditStoreOutScreenState extends State<AddEditStoreOutScreen> {
       context: context,
       builder: (context) => AddProductDialog(
         products: _availableProducts,
-        onAdd: (product, quantity) {
+        onAdd: (product, quantity, variant) {
           setState(() {
-            // Check if product already exists in selection
+            // Handle both regular and variant products
+            final productToAdd = variant != null
+                ? _createVariantProductRepresentation(product, variant)
+                : product;
+
             final index = _selectedProducts.indexWhere(
-              (p) => p.product.id == product.id,
+              (p) => p.product.id == productToAdd.id,
             );
+
             if (index >= 0) {
-              // Update quantity if product already selected
               _selectedProducts[index] = ProductQuantity(
-                product: product,
+                product: productToAdd,
                 quantity: _selectedProducts[index].quantity + quantity,
               );
             } else {
-              // Add new product
               _selectedProducts.add(
-                ProductQuantity(product: product, quantity: quantity),
+                ProductQuantity(product: productToAdd, quantity: quantity),
               );
             }
           });
         },
       ),
+    );
+  }
+
+  Product _createVariantProductRepresentation(
+    Product product,
+    ProductVariant variant,
+  ) {
+    // Create a modified product that represents the specific variant
+    return product.copyWith(
+      id: '${product.id}_${variant.id}', // Unique ID for this variant selection
+      name: '${product.name} - ${variant.name}',
+      salePrice: variant.getPrice(product.salePrice),
+      quantity: variant.quantity,
     );
   }
 
@@ -137,8 +154,7 @@ class _AddEditStoreOutScreenState extends State<AddEditStoreOutScreen> {
       return;
     }
 
-    setState(() {
-    });
+    setState(() {});
 
     try {
       final provider = context.read<StoreOutProvider>();
@@ -168,8 +184,7 @@ class _AddEditStoreOutScreenState extends State<AddEditStoreOutScreen> {
       }
     } finally {
       if (mounted) {
-        setState(() {
-        });
+        setState(() {});
       }
     }
   }
@@ -183,7 +198,7 @@ class _AddEditStoreOutScreenState extends State<AddEditStoreOutScreen> {
         ),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(8),
         child: Form(
           key: _formKey,
           child: Column(
@@ -193,11 +208,13 @@ class _AddEditStoreOutScreenState extends State<AddEditStoreOutScreen> {
                   child: Column(
                     children: [
                       CustomCard(
+                        color: AppColors.backgroundLight,
                         child: Column(
                           children: [
                             TextFormField(
                               controller: _reasonController,
                               decoration: InputDecoration(
+                                fillColor: Colors.white,
                                 labelText: 'Reason',
                                 hintText: 'Enter reason for outgoing items',
                               ),
@@ -212,6 +229,7 @@ class _AddEditStoreOutScreenState extends State<AddEditStoreOutScreen> {
                             TextFormField(
                               controller: _handledByController,
                               decoration: InputDecoration(
+                                fillColor: Colors.white,
                                 labelText: 'Handled By',
                                 hintText: 'Enter handler name',
                               ),
@@ -228,6 +246,7 @@ class _AddEditStoreOutScreenState extends State<AddEditStoreOutScreen> {
                               child: AbsorbPointer(
                                 child: TextFormField(
                                   decoration: InputDecoration(
+                                    fillColor: Colors.white,
                                     labelText: 'Date',
                                     hintText: 'Select date',
                                     suffixIcon: const Icon(
@@ -255,6 +274,7 @@ class _AddEditStoreOutScreenState extends State<AddEditStoreOutScreen> {
                       const SizedBox(height: AppSpacing.lg),
 
                       CustomCard(
+                        color: AppColors.backgroundLight,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -378,7 +398,7 @@ class _AddEditStoreOutScreenState extends State<AddEditStoreOutScreen> {
 
 class AddProductDialog extends StatefulWidget {
   final List<Product> products;
-  final Function(Product, int) onAdd;
+  final Function(Product, int, ProductVariant?) onAdd;
 
   const AddProductDialog({
     super.key,
@@ -392,17 +412,37 @@ class AddProductDialog extends StatefulWidget {
 
 class _AddProductDialogState extends State<AddProductDialog> {
   Product? _selectedProduct;
+  ProductVariant? _selectedVariant;
   int _quantity = 1;
+  int _maxQuantity = 0;
 
   @override
   void initState() {
     super.initState();
     if (widget.products.isNotEmpty) {
       _selectedProduct = widget.products.first;
-      // Optional: cap the quantity to available stock
-      if (_quantity > _selectedProduct!.quantity) {
-        _quantity = _selectedProduct!.quantity;
+      _updateMaxQuantity();
+    }
+  }
+
+  void _updateMaxQuantity() {
+    if (_selectedProduct == null) {
+      _maxQuantity = 0;
+      return;
+    }
+
+    if (_selectedProduct!.hasVariants) {
+      if (_selectedVariant != null) {
+        _maxQuantity = _selectedVariant!.quantity;
+      } else {
+        _maxQuantity = _selectedProduct!.totalVariantQuantity;
       }
+    } else {
+      _maxQuantity = _selectedProduct!.quantity;
+    }
+
+    if (_quantity > _maxQuantity) {
+      _quantity = _maxQuantity;
     }
   }
 
@@ -420,18 +460,20 @@ class _AddProductDialogState extends State<AddProductDialog> {
               border: OutlineInputBorder(),
             ),
             items: widget.products.map((product) {
+              final availableStock = product.hasVariants
+                  ? product.totalVariantQuantity
+                  : product.quantity;
+
               return DropdownMenuItem<Product>(
                 value: product,
-                child: Text('${product.name} (${product.quantity} available)'),
+                child: Text('${product.name} ($availableStock available)'),
               );
             }).toList(),
             onChanged: (product) {
               setState(() {
                 _selectedProduct = product;
-                if (_selectedProduct != null &&
-                    _quantity > _selectedProduct!.quantity) {
-                  _quantity = _selectedProduct!.quantity;
-                }
+                _selectedVariant = null;
+                _updateMaxQuantity();
               });
             },
             validator: (value) {
@@ -442,47 +484,33 @@ class _AddProductDialogState extends State<AddProductDialog> {
             },
           ),
 
-          const SizedBox(height: AppSpacing.md),
-
-          if (_selectedProduct != null)
-            Row(
-              children: [
-                Expanded(
-                  child: Text('Quantity (Max: ${_selectedProduct!.quantity})'),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.remove),
-                  onPressed: () {
-                    if (_quantity > 1) {
-                      setState(() => _quantity--);
-                    }
-                  },
-                ),
-                SizedBox(
-                  width: 50,
-                  child: TextFormField(
-                    textAlign: TextAlign.center,
-                    keyboardType: TextInputType.number,
-                    controller: TextEditingController(
-                      text: _quantity.toString(),
-                    ), // Add controller
-                    onChanged: (value) {
-                      final qty = int.tryParse(value) ?? 1;
-                      if (qty > 0 && qty <= (_selectedProduct?.quantity ?? 1)) {
-                        setState(() => _quantity = qty);
-                      }
-                    },
+          if (_selectedProduct != null && _selectedProduct!.hasVariants)
+            DropdownButtonFormField<ProductVariant>(
+              value: _selectedVariant,
+              decoration: InputDecoration(
+                labelText: 'Variant',
+                border: OutlineInputBorder(),
+              ),
+              items: _selectedProduct!.activeVariants.map((variant) {
+                return DropdownMenuItem<ProductVariant>(
+                  value: variant,
+                  child: Text(
+                    '${variant.name} (${variant.quantity} available)',
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: () {
-                    if (_quantity < (_selectedProduct?.quantity ?? 1)) {
-                      setState(() => _quantity++);
-                    }
-                  },
-                ),
-              ],
+                );
+              }).toList(),
+              onChanged: (variant) {
+                setState(() {
+                  _selectedVariant = variant;
+                  _updateMaxQuantity();
+                });
+              },
+              validator: (value) {
+                if (_selectedProduct!.hasVariants && value == null) {
+                  return 'Please select a variant';
+                }
+                return null;
+              },
             ),
         ],
       ),
@@ -492,10 +520,22 @@ class _AddProductDialogState extends State<AddProductDialog> {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: _selectedProduct == null
+          onPressed:
+              _selectedProduct == null ||
+                  (_selectedProduct!.hasVariants && _selectedVariant == null)
               ? null
               : () {
-                  widget.onAdd(_selectedProduct!, _quantity);
+                  // Create a product copy with the selected variant if applicable
+                  Product productToAdd = _selectedProduct!;
+                  if (_selectedVariant != null) {
+                    // For variant products, we need to handle them differently
+                    // You might want to create a special representation
+                    productToAdd = productToAdd.copyWith(
+                      // You might need to adjust this based on your needs
+                    );
+                  }
+
+                  widget.onAdd(productToAdd, _quantity, _selectedVariant);
                   Navigator.pop(context);
                 },
           child: const Text('Add'),
@@ -534,6 +574,10 @@ class _ProductItemRowState extends State<ProductItemRow> {
 
   @override
   Widget build(BuildContext context) {
+    final maxQuantity = widget.product.hasVariants
+        ? widget.product.totalVariantQuantity
+        : widget.product.quantity;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
       child: Row(
@@ -575,7 +619,7 @@ class _ProductItemRowState extends State<ProductItemRow> {
                   controller: TextEditingController(text: _quantity.toString()),
                   onChanged: (value) {
                     final qty = int.tryParse(value) ?? 1;
-                    if (qty > 0 && qty <= widget.product.quantity) {
+                    if (qty > 0 && qty <= maxQuantity) {
                       setState(() => _quantity = qty);
                       widget.onQuantityChanged(_quantity);
                     }
@@ -585,7 +629,7 @@ class _ProductItemRowState extends State<ProductItemRow> {
               IconButton(
                 icon: const Icon(Icons.add, size: 18),
                 onPressed: () {
-                  if (_quantity < widget.product.quantity) {
+                  if (_quantity < maxQuantity) {
                     setState(() => _quantity++);
                     widget.onQuantityChanged(_quantity);
                   }
@@ -593,7 +637,7 @@ class _ProductItemRowState extends State<ProductItemRow> {
               ),
 
               IconButton(
-                icon: const Icon(Icons.delete, size: 18),
+                icon: const Icon(Icons.delete, size: 18, color: Colors.red),
                 onPressed: () => widget.onRemove(),
               ),
             ],

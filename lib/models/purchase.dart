@@ -78,6 +78,8 @@ class PurchaseItem {
   final int quantity;
   final double unitPrice;
   final double total;
+  final String? variantId;
+  final String? variantName;
 
   PurchaseItem({
     required this.productId,
@@ -85,6 +87,8 @@ class PurchaseItem {
     required this.quantity,
     required this.unitPrice,
     required this.total,
+    required this.variantId,
+    required this.variantName,
   });
 
   Map<String, dynamic> toJson() {
@@ -94,6 +98,8 @@ class PurchaseItem {
       'quantity': quantity,
       'unitPrice': unitPrice,
       'total': total,
+      'variantId': variantId,
+      'variantName': variantName,
     };
   }
 
@@ -104,6 +110,8 @@ class PurchaseItem {
       quantity: json['quantity'],
       unitPrice: (json['unitPrice'] as num).toDouble(),
       total: (json['total'] as num).toDouble(),
+      variantId: json['variantId'],
+      variantName: json['variantName'],
     );
   }
 }

@@ -11,7 +11,6 @@ import '../utils/app_spacing.dart';
 import '../components/ui/custom_card.dart';
 import '../components/ui/custom_button.dart';
 import '../components/ui/search_bar_widget.dart';
-// Add these imports for printing
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -19,6 +18,7 @@ import 'package:pdf/pdf.dart';
 import '../models/sale.dart';
 import '../services/sale_service.dart';
 import '../providers/sale_provider.dart';
+import '../components/ui/simple_variant_selector.dart';
 
 class CategoryProductsScreen extends StatefulWidget {
   final String categoryName;
@@ -33,7 +33,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   late ProductProvider _productProvider;
   late CategoryProvider _categoryProvider;
   String _searchQuery = '';
-  // Add printing related variables
   final SaleService _saleService = SaleService();
   bool _isProcessing = false;
 
@@ -59,7 +58,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     return _productProvider.products
         .where(
           (product) =>
-              product.category == widget.categoryName && product.quantity > 0,
+              product.category == widget.categoryName && product.hasStock,
         )
         .toList();
   }
@@ -76,7 +75,63 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
         .toList();
   }
 
-  // Function to show product details dialog
+  void _addToCart(Product product) {
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+
+    if (product.hasVariants && product.activeVariants.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (context) => SimpleVariantSelector(
+          product: product,
+          onAddToCart: (variant, quantity) {
+            try {
+              cartProvider.addToCart(
+                product,
+                variant: variant,
+                quantity: quantity,
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${variant.name} added to cart'),
+                  backgroundColor: AppColors.success,
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  duration: Duration(seconds: 1),
+                  content: Text(e.toString()),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+            }
+          },
+        ),
+      );
+    } else {
+      // Add product without variants directly
+      try {
+        cartProvider.addToCart(product);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${product.name} added to cart'),
+            backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: Duration(seconds: 1),
+            content: Text(e.toString()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
   void _showProductDetailsDialog(Product product) {
     showDialog(
       context: context,
@@ -86,99 +141,176 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
             borderRadius: BorderRadius.circular(AppSpacing.lg),
           ),
           child: Container(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            constraints: const BoxConstraints(maxWidth: 500),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.name,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Divider(color: Colors.grey.shade300),
-                const SizedBox(height: AppSpacing.sm),
-
-                // Detail rows
-                _buildDetailRow("Category:", product.category),
-                _buildDetailRow("Unit:", product.unit),
-                _buildDetailRow(
-                  "Sale Price:",
-                  product.salePrice.toStringAsFixed(2),
-                ),
-                _buildDetailRow(
-                  "Quantity:",
-                  '${product.quantity} ${product.unit}',
-                ),
-
-                const SizedBox(height: AppSpacing.sm),
-
-                // Stock indicator
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: product.quantity > 10
-                        ? AppColors.success.withOpacity(0.1)
-                        : AppColors.warning.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    product.quantity > 10 ? 'In Stock' : 'Low Stock',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: product.quantity > 10
-                          ? AppColors.success
-                          : AppColors.warning,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Divider(color: Colors.grey.shade300),
+                  const SizedBox(height: AppSpacing.xs),
 
-                const SizedBox(height: AppSpacing.lg),
-
-                // Actions
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Close'),
+                  // Detail rows
+                  _buildDetailRow("Category:", product.category),
+                  _buildDetailRow("Unit:", product.unit),
+                  if (product.hasVariants) ...[
+                    _buildDetailRow(
+                      "Base Price",
+                      product.salePrice.toStringAsFixed(0),
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        final cartProvider = Provider.of<CartProvider>(
-                          context,
-                          listen: false,
-                        );
-                        cartProvider.addToCart(product);
-                        Navigator.of(context).pop();
-                      },
-                      icon: const Icon(Icons.add_shopping_cart),
-                      label: const Text('Add Item'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 10,
-                          horizontal: 16,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
+                    _buildDetailRow(
+                      "Total Stock:",
+                      '${product.totalVariantQuantity} ${product.unit}',
+                    ),
+                    _buildDetailRow(
+                      "Variants:",
+                      '${product.variants.length} available',
+                    ),
+                  ] else ...[
+                    _buildDetailRow(
+                      "Sale Price:",
+                      product.salePrice.toStringAsFixed(0),
+                    ),
+                    _buildDetailRow(
+                      "Quantity:",
+                      '${product.quantity} ${product.unit}',
                     ),
                   ],
-                ),
-              ],
+
+                  const SizedBox(height: AppSpacing.sm),
+
+                  // Stock indicator
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: product.hasStock
+                          ? AppColors.success.withOpacity(0.1)
+                          : AppColors.error.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      product.hasStock ? 'In Stock' : 'Out of Stock',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: product.hasStock
+                            ? AppColors.success
+                            : AppColors.error,
+                      ),
+                    ),
+                  ),
+
+                  // Show variants if available
+                  if (product.hasVariants && product.variants.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    Text(
+                      'Available Variants:',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    ...product.activeVariants.take(3).map((variant) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: AppColors.grey50,
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.radiusSm,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    variant.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Price: ${variant.getPrice(product.salePrice).toStringAsFixed(0)} • Stock: ${variant.quantity}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    if (product.variants.length > 3)
+                      Text(
+                        '... and ${product.variants.length - 3} more variants',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                  ],
+
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // Actions
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Close'),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      ElevatedButton.icon(
+                        onPressed: product.hasStock
+                            ? () {
+                                Navigator.of(context).pop();
+                                _addToCart(product);
+                              }
+                            : null,
+                        icon: const Icon(Icons.add_shopping_cart),
+                        label: Text(
+                          product.hasVariants ? 'Select Variant' : 'Add Item',
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -186,7 +318,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     );
   }
 
-  // Helper method to build detail rows
   Widget _buildDetailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
@@ -196,7 +327,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
           SizedBox(
             width: 120,
             child: Text(
-              '$label:',
+              label,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: Colors.grey.shade700,
@@ -241,7 +372,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                     'Receipt: ',
                     style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                   ),
-                  pw.Text(sale.id),
+                  pw.Text(sale.id.substring(0, 6)),
                 ],
               ),
               pw.Row(
@@ -265,7 +396,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     pw.Text('${item.productName} x${item.quantity}'),
-                    pw.Text((item.price * item.quantity).toStringAsFixed(2)),
+                    pw.Text((item.price * item.quantity).toStringAsFixed(0)),
                   ],
                 );
               }),
@@ -278,7 +409,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                     style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                   ),
                   pw.Text(
-                    sale.total.toStringAsFixed(2),
+                    sale.total.toStringAsFixed(0),
                     style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                   ),
                 ],
@@ -301,7 +432,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     );
   }
 
-  // Updated checkout function with printing
   Future<void> _checkout() async {
     final cartProvider = Provider.of<CartProvider>(context, listen: false);
     final productProvider = Provider.of<ProductProvider>(
@@ -325,7 +455,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     });
 
     try {
-      // Generate auto ID
       final saleId = FirebaseFirestore.instance.collection('sales').doc().id;
 
       final sale = Sale(
@@ -335,8 +464,8 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
             .map(
               (cartItem) => SaleItem(
                 productId: cartItem.product.id,
-                productName: cartItem.product.name,
-                price: cartItem.product.salePrice,
+                productName: cartItem.displayName,
+                price: cartItem.unitPrice,
                 quantity: cartItem.quantity,
               ),
             )
@@ -347,45 +476,43 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
 
       await _saleService.createSale(authProvider.currentUser!.id, sale);
 
-      // Update product quantities in Firebase
+      // Update product/variant quantities in Firebase
       for (final cartItem in cartProvider.cartItems) {
-        final updatedProduct = cartItem.product.copyWith(
-          quantity: cartItem.product.quantity - cartItem.quantity,
-        );
-        await productProvider.updateProduct(
-          authProvider.currentUser!.id,
-          updatedProduct,
-        );
+        if (cartItem.variant != null) {
+          // Update variant quantity
+          final updatedVariants = cartItem.product.variants.map((v) {
+            if (v.id == cartItem.variant!.id) {
+              return v.copyWith(quantity: v.quantity - cartItem.quantity);
+            }
+            return v;
+          }).toList();
+
+          final updatedProduct = cartItem.product.copyWith(
+            variants: updatedVariants,
+          );
+          await productProvider.updateProduct(
+            authProvider.currentUser!.id,
+            updatedProduct,
+          );
+        } else {
+          // Update product quantity
+          final updatedProduct = cartItem.product.copyWith(
+            quantity: cartItem.product.quantity - cartItem.quantity,
+          );
+          await productProvider.updateProduct(
+            authProvider.currentUser!.id,
+            updatedProduct,
+          );
+        }
       }
 
-      // Also add to provider for local state management
       await saleProvider.createSale(authProvider.currentUser!.id, sale);
-
-      // Print bill
       await _printBill(sale);
 
-      // Show success dialog
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFFFDFDFE),
-          surfaceTintColor: Colors.transparent,
-          title: const Text('Sale Completed'),
-          content: Text('Total: ${cartProvider.total.toStringAsFixed(2)}'),
-          actions: [
-            CustomButton(
-              text: 'OK',
-              onPressed: () {
-                Navigator.pop(context);
-                cartProvider.clearCart();
-                setState(() {
-                  _isProcessing = false;
-                });
-              },
-            ),
-          ],
-        ),
-      );
+      cartProvider.clearCart();
+      setState(() {
+        _isProcessing = false;
+      });
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -399,7 +526,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      // backgroundColor: AppColors.backgroundLight,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -577,14 +703,42 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        product.name,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              product.name,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (product.hasVariants)
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 6,
+                                                    vertical: 2,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.secondary
+                                                    .withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                '${product.variants.length}V',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppColors.secondary,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                       const SizedBox(height: 8),
                                       Text(
@@ -604,7 +758,9 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                '${product.quantity} ${product.unit}',
+                                                product.hasVariants
+                                                    ? '${product.totalVariantQuantity} ${product.unit}'
+                                                    : '${product.quantity} ${product.unit}',
                                                 style: TextStyle(
                                                   fontSize: 12,
                                                   color: Colors.grey.shade600,
@@ -618,31 +774,31 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                                       vertical: 2,
                                                     ),
                                                 decoration: BoxDecoration(
-                                                  color: product.quantity > 10
+                                                  color: product.hasStock
                                                       ? AppColors.success
                                                             .withOpacity(0.1)
-                                                      : AppColors.warning
+                                                      : AppColors.error
                                                             .withOpacity(0.1),
                                                   borderRadius:
                                                       BorderRadius.circular(4),
                                                 ),
                                                 child: Text(
-                                                  product.quantity > 10
+                                                  product.hasStock
                                                       ? 'In Stock'
-                                                      : 'Low Stock',
+                                                      : 'Out of Stock',
                                                   style: TextStyle(
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.w500,
-                                                    color: product.quantity > 10
+                                                    color: product.hasStock
                                                         ? AppColors.success
-                                                        : AppColors.warning,
+                                                        : AppColors.error,
                                                   ),
                                                 ),
                                               ),
                                             ],
                                           ),
                                           Text(
-                                            'Rs ${product.salePrice.toStringAsFixed(2)}',
+                                            'Rs ${product.salePrice.toStringAsFixed(0)}',
                                             style: const TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
@@ -655,19 +811,18 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                       SizedBox(
                                         width: double.infinity,
                                         child: ElevatedButton.icon(
-                                          onPressed: () {
-                                            final cartProvider =
-                                                Provider.of<CartProvider>(
-                                                  context,
-                                                  listen: false,
-                                                );
-                                            cartProvider.addToCart(product);
-                                          },
+                                          onPressed: product.hasStock
+                                              ? () => _addToCart(product)
+                                              : null,
                                           icon: const Icon(
                                             Icons.add_shopping_cart,
                                             size: 16,
                                           ),
-                                          label: const Text('Add Item'),
+                                          label: Text(
+                                            product.hasVariants
+                                                ? 'Select'
+                                                : 'Add Item',
+                                          ),
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: AppColors.primary,
                                             foregroundColor: Colors.white,
@@ -779,18 +934,46 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                                   CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  item.product.name,
+                                                  item.displayName,
                                                   style: const TextStyle(
                                                     fontWeight: FontWeight.w600,
                                                   ),
                                                 ),
                                                 Text(
-                                                  '${item.product.salePrice.toStringAsFixed(2)} each',
+                                                  '${item.unitPrice.toStringAsFixed(0)} each',
                                                   style: TextStyle(
                                                     fontSize: 12,
                                                     color: Colors.grey.shade600,
                                                   ),
                                                 ),
+                                                if (item.variant != null &&
+                                                    item
+                                                        .variant!
+                                                        .attributes
+                                                        .isNotEmpty) ...[
+                                                  const SizedBox(height: 2),
+                                                  Wrap(
+                                                    spacing: 4,
+                                                    children: item
+                                                        .variant!
+                                                        .attributes
+                                                        .entries
+                                                        .map((entry) {
+                                                          return Text(
+                                                            '${entry.key}: ${entry.value}',
+                                                            style: TextStyle(
+                                                              fontSize: 10,
+                                                              color: AppColors
+                                                                  .secondary,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                            ),
+                                                          );
+                                                        })
+                                                        .toList(),
+                                                  ),
+                                                ],
                                               ],
                                             ),
                                           ),
@@ -891,7 +1074,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                   ),
                                 ),
                                 Text(
-                                  cartProvider.total.toStringAsFixed(2),
+                                  cartProvider.total.toStringAsFixed(0),
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,

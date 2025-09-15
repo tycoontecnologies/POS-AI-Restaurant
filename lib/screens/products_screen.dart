@@ -1,10 +1,10 @@
-// products_screen.dart (updated)
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pos/components/ui/onboarding_completion.dart';
 import 'package:pos/components/ui/onboarding_tooltip.dart';
 import 'package:pos/providers/category_provider.dart';
 import 'package:pos/routes/app_router.dart';
+import 'package:pos/utils/app_typography.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,6 +18,7 @@ import '../components/ui/custom_dropdown.dart';
 import '../components/ui/status_badge.dart';
 import '../components/ui/data_table_widget.dart';
 import '../components/ui/search_bar_widget.dart';
+import '../components/ui/simple_variant_manager.dart';
 import '../utils/app_spacing.dart';
 import '../utils/app_colors.dart';
 
@@ -37,34 +38,34 @@ class _ProductsScreenState extends State<ProductsScreen> {
   bool _hasData = false;
 
   final List<String> _units = ['piece', 'kg', 'litre', 'pack', 'box'];
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
-    _checkIfHasData();
     _searchController.addListener(_onSearchChanged);
-
-    // Load initial data
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authProvider = context.read<AuthProvider>();
-      final productProvider = context.read<ProductProvider>();
-      if (authProvider.currentUser != null) {
-        productProvider.loadProducts(authProvider.currentUser!.id);
-      }
-    });
-
-    // Setup scroll listener for pagination
     _scrollController.addListener(_onScroll);
     _loadCategories();
+
+    // Load products in a single post-frame callback
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadInitialProducts();
+    });
   }
 
-  
-
-  Future<void> _checkIfHasData() async {
+  Future<void> _loadInitialProducts() async {
     final authProvider = context.read<AuthProvider>();
     final productProvider = context.read<ProductProvider>();
-    if (authProvider.currentUser != null) {
+
+    // ADD THIS CHECK to prevent multiple loads
+    if (productProvider.isLoading) return;
+
+    if (authProvider.currentUser != null && productProvider.products.isEmpty) {
       await productProvider.loadProducts(authProvider.currentUser!.id);
+      setState(() {
+        _hasData = productProvider.products.isNotEmpty;
+      });
+    } else {
       setState(() {
         _hasData = productProvider.products.isNotEmpty;
       });
@@ -122,8 +123,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels ==
-        _scrollController.position.maxScrollExtent) {
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+
+    // Load more when user scrolls near the bottom (within 100 pixels)
+    if (maxScroll - currentScroll <= 100.0 &&
+        !_isLoadingMore &&
+        context.read<ProductProvider>().hasMore) {
       _loadMoreData();
     }
   }
@@ -176,6 +182,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
       text: item?.quantity.toString() ?? '',
     );
     bool isActive = item?.active ?? true;
+    bool hasVariants = item?.hasVariants ?? false;
+    List<ProductVariant> variants = List.from(item?.variants ?? []);
+    // List<ProductAttribute> attributes = List.from(item?.attributes ?? []);
 
     final result = await showDialog<_ProductFormResult>(
       context: context,
@@ -186,105 +195,161 @@ class _ProductsScreenState extends State<ProductsScreen> {
             surfaceTintColor: Colors.transparent,
             title: Text(item == null ? l10n.addProduct : l10n.editProduct),
             content: SizedBox(
-              width: 500,
+              width: 600,
               child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CustomInput(
-                      label: l10n.name,
-                      controller: nameCtrl,
-                      hint: 'Enter product name',
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: CustomDropdown<String>(
-                            label: l10n.category,
-                            value: category,
-                            items: availableCategories
-                                .map(
-                                  (c) => DropdownMenuItem(
-                                    value: c,
-                                    child: Text(c),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (v) =>
-                                setDialogState(() => category = v ?? category),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: CustomDropdown<String>(
-                            label: l10n.unit,
-                            value: unit,
-                            items: _units
-                                .map(
-                                  (u) => DropdownMenuItem(
-                                    value: u,
-                                    child: Text(u),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (v) =>
-                                setDialogState(() => unit = v ?? unit),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: CustomInput(
-                            label: l10n.salePrice,
-                            controller: saleCtrl,
-                            hint: '0.00',
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CustomInput(
+                        label: l10n.name,
+                        controller: nameCtrl,
+                        hint: 'Enter product name',
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Product name is required';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CustomDropdown<String>(
+                              label: l10n.category,
+                              value: category,
+                              items: availableCategories
+                                  .map(
+                                    (c) => DropdownMenuItem(
+                                      value: c,
+                                      child: Text(c),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) => setDialogState(
+                                () => category = v ?? category,
+                              ),
                             ),
-                            prefixIcon: const Icon(Icons.attach_money),
                           ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: CustomInput(
-                            label: l10n.purchasePrice,
-                            controller: purchaseCtrl,
-                            hint: '0.00',
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: CustomDropdown<String>(
+                              label: l10n.unit,
+                              value: unit,
+                              items: _units
+                                  .map(
+                                    (u) => DropdownMenuItem(
+                                      value: u,
+                                      child: Text(u),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) =>
+                                  setDialogState(() => unit = v ?? unit),
                             ),
-                            prefixIcon: const Icon(Icons.shopping_cart),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CustomInput(
+                              label: l10n.salePrice,
+                              controller: saleCtrl,
+                              hint: '0.00',
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              prefixIcon: const Icon(Icons.attach_money),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: CustomInput(
+                              label: l10n.purchasePrice,
+                              controller: purchaseCtrl,
+                              hint: '0.00',
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              prefixIcon: const Icon(Icons.shopping_cart),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      if (!hasVariants)
+                        CustomInput(
+                          label: l10n.quantity,
+                          controller: quantityCtrl,
+                          hint: '0',
+                          keyboardType: TextInputType.number,
+                          prefixIcon: const Icon(Icons.inventory),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    CustomInput(
-                      label: l10n.quantity,
-                      controller: quantityCtrl,
-                      hint: '0',
-                      keyboardType: TextInputType.number,
-                      prefixIcon: const Icon(Icons.inventory),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Row(
-                      children: [
+                      if (!hasVariants) const SizedBox(height: AppSpacing.xs),
+                      Row(
+                        children: [
+                          Text(
+                            l10n.active,
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                          const Spacer(),
+                          Switch(
+                            value: isActive,
+                            onChanged: (v) =>
+                                setDialogState(() => isActive = v),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Row(
+                        children: [
+                          Text(
+                            'Has Variants',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                          const Spacer(),
+                          Switch(
+                            value: hasVariants,
+                            onChanged: (v) => setDialogState(() {
+                              hasVariants = v;
+                              if (!v) {
+                                variants.clear();
+                              }
+                            }),
+                          ),
+                        ],
+                      ),
+                      if (hasVariants) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        const Divider(),
+                        const SizedBox(height: AppSpacing.xs),
                         Text(
-                          l10n.active,
-                          style: Theme.of(context).textTheme.labelLarge,
+                          'Variant Prices will be calculated as: Base Price + Modifier',
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.grey600,
+                            fontStyle: FontStyle.italic,
+                          ),
                         ),
-                        const Spacer(),
-                        Switch(
-                          value: isActive,
-                          onChanged: (v) => setDialogState(() => isActive = v),
+                        const SizedBox(height: AppSpacing.sm),
+                        SimpleVariantManager(
+                          variants: variants,
+                          basePrice:
+                              double.tryParse(saleCtrl.text.trim()) ?? 0.0,
+                          onVariantsChanged: (newVariants) {
+                            setDialogState(() {
+                              variants = newVariants;
+                            });
+                          },
                         ),
                       ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -297,7 +362,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               CustomButton(
                 text: l10n.save,
                 onPressed: () {
-                  if (nameCtrl.text.trim().isNotEmpty) {
+                  if (_formKey.currentState?.validate() ?? false) {
                     final sale = double.tryParse(saleCtrl.text.trim()) ?? 0;
                     final purchase =
                         double.tryParse(purchaseCtrl.text.trim()) ?? 0;
@@ -312,6 +377,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         purchasePrice: purchase,
                         quantity: qty,
                         active: isActive,
+                        hasVariants: hasVariants,
+                        variants: variants,
                       ),
                     );
                   }
@@ -337,6 +404,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
         purchasePrice: result.purchasePrice,
         quantity: result.quantity,
         active: result.active,
+        hasVariants: result.hasVariants,
+        variants: result.variants,
+        attributes: [],
       );
 
       if (item == null) {
@@ -354,7 +424,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            duration: Duration(seconds: 1),
+            duration: const Duration(seconds: 1),
             content: Text(
               item == null
                   ? 'Product added successfully'
@@ -370,7 +440,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
           final hasSeenStaff = prefs.getBool('onboarding_staff_seen') ?? false;
 
           if (!hasSeenStaff) {
-            // Navigate to staff screen after a short delay
             Future.delayed(const Duration(milliseconds: 500), () {
               if (mounted) {
                 context.go(AppRouter.staff);
@@ -383,6 +452,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text('Error: $e'),
             backgroundColor: AppColors.error,
           ),
@@ -430,6 +500,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 1),
               content: Text('Product deleted successfully'),
               backgroundColor: AppColors.success,
             ),
@@ -439,6 +510,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 1),
               content: Text('Error deleting product: $e'),
               backgroundColor: AppColors.error,
             ),
@@ -465,10 +537,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               description:
                   'From here, you can add your products to build your inventory. Products are the items you sell to your customers.',
             ),
-
-          // Completion message (if needed)
           if (_showCompletion) const OnboardingCompletion(),
-
           Row(
             children: [
               Expanded(
@@ -500,9 +569,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: AppSpacing.md),
-
           SearchBarWidget(
             controller: _searchController,
             hint: 'Search products...',
@@ -513,7 +580,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
             },
           ),
           const SizedBox(height: AppSpacing.sm),
-
           Expanded(child: _buildContent(productProvider, l10n)),
         ],
       ),
@@ -564,7 +630,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
       onNotification: (scrollNotification) {
         if (scrollNotification is ScrollEndNotification &&
             _scrollController.position.pixels ==
-                _scrollController.position.maxScrollExtent) {
+                _scrollController.position.maxScrollExtent &&
+            !_isLoadingMore &&
+            provider.hasMore) {
           _loadMoreData();
         }
         return false;
@@ -580,6 +648,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             DataColumn(label: Text(l10n.salePrice)),
             DataColumn(label: Text(l10n.purchasePrice)),
             DataColumn(label: Text(l10n.quantity)),
+            DataColumn(label: Text('Variants')),
             DataColumn(label: Text(l10n.status)),
             DataColumn(label: Text(l10n.actions)),
           ],
@@ -593,16 +662,23 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     DataCell(Text(entry.value.name)),
                     DataCell(Text(entry.value.category)),
                     DataCell(Text(entry.value.unit)),
-                    DataCell(Text(entry.value.salePrice.toStringAsFixed(2))),
+                    DataCell(Text(entry.value.salePrice.toStringAsFixed(0))),
                     DataCell(
-                      Text(entry.value.purchasePrice.toStringAsFixed(2)),
+                      Text(entry.value.purchasePrice.toStringAsFixed(0)),
                     ),
                     DataCell(
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('${entry.value.quantity}'),
-                          if (entry.value.quantity < 20) ...[
+                          Text(
+                            entry.value.hasVariants
+                                ? '${entry.value.totalVariantQuantity}'
+                                : '${entry.value.quantity}',
+                          ),
+                          if ((entry.value.hasVariants
+                                  ? entry.value.totalVariantQuantity
+                                  : entry.value.quantity) <
+                              20) ...[
                             const SizedBox(width: AppSpacing.xs),
                             const Icon(
                               Icons.warning,
@@ -612,6 +688,30 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           ],
                         ],
                       ),
+                    ),
+                    DataCell(
+                      entry.value.hasVariants
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.sm,
+                                vertical: AppSpacing.xs,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.secondary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(
+                                  AppSpacing.radiusXs,
+                                ),
+                              ),
+                              child: Text(
+                                '${entry.value.variants.length} variants',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.secondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            )
+                          : Text('-'),
                     ),
                     DataCell(
                       StatusBadge(
@@ -651,7 +751,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    'ID: ${item.id} • ${item.category} • ${item.unit} • SP: ${item.salePrice.toStringAsFixed(2)} • PP: ${item.purchasePrice.toStringAsFixed(2)} • Qty: ${item.quantity}',
+                    'ID: ${item.id} • ${item.category} • ${item.unit} • ${item.hasVariants ? 'Price: ${item.minPrice.toStringAsFixed(0)}-${item.maxPrice.toStringAsFixed(0)}' : 'SP: ${item.salePrice.toStringAsFixed(0)}'} • PP: ${item.purchasePrice.toStringAsFixed(0)} • Qty: ${item.hasVariants ? item.totalVariantQuantity : item.quantity}${item.hasVariants ? ' • ${item.variants.length} variants' : ''}',
                     style: Theme.of(
                       context,
                     ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
@@ -708,6 +808,9 @@ class _ProductFormResult {
     required this.purchasePrice,
     required this.quantity,
     required this.active,
+    required this.hasVariants,
+    required this.variants,
+    // required this.attributes,
   });
   final String name;
   final String category;
@@ -716,4 +819,7 @@ class _ProductFormResult {
   final double purchasePrice;
   final int quantity;
   final bool active;
+  final bool hasVariants;
+  final List<ProductVariant> variants;
+  // final List<ProductAttribute> attributes;
 }

@@ -181,6 +181,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         if (success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 1),
               content: Text('Category added successfully'),
               backgroundColor: AppColors.success,
             ),
@@ -213,6 +214,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         if (success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 1),
               content: Text('Category updated successfully'),
               backgroundColor: AppColors.success,
             ),
@@ -223,6 +225,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            duration: Duration(seconds: 1),
             content: Text('Error: $e'),
             backgroundColor: AppColors.error,
           ),
@@ -272,6 +275,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              duration: Duration(seconds: 1),
               content: Text('Error deleting category: $e'),
               backgroundColor: AppColors.error,
             ),
