@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 import 'package:pos/l10n/app_localizations.dart';
@@ -29,7 +30,6 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
   @override
   void initState() {
     super.initState();
-
     _searchController.addListener(_onSearchChanged);
     _scrollController.addListener(_onScroll);
 
@@ -324,7 +324,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
   ) {
     if (saleReturnProvider.isLoading &&
         saleReturnProvider.saleReturns.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildShimmerTable();
     }
 
     if (_error != null) {
@@ -514,6 +514,68 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildShimmerTable() {
+    return DataTableWidget(
+      columns: List.generate(
+        8,
+        (index) => DataColumn(label: ShimmerEffect(width: 80, height: 20)),
+      ),
+      rows: List.generate(
+        5,
+        (index) => DataRow(
+          cells: List.generate(
+            8,
+            (index) => DataCell(
+              index == 7
+                  ? ShimmerEffect(
+                      width: 40,
+                      height: 40,
+                      borderRadius: BorderRadius.circular(20),
+                    )
+                  : ShimmerEffect(width: 80, height: 20),
+            ),
+          ),
+        ),
+      ),
+      mobileItemBuilder: (context, index) {
+        return CustomCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: ShimmerEffect(width: 120, height: 20)),
+                  ShimmerEffect(width: 60, height: 20),
+                ],
+              ),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 180, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 150, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 200, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 120, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 100, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ShimmerEffect(
+                    width: 36,
+                    height: 36,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

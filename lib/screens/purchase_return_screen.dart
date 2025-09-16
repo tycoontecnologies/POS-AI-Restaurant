@@ -1,5 +1,6 @@
 // purchase_return_screen.dart
 import 'package:flutter/material.dart';
+import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 import 'package:pos/l10n/app_localizations.dart';
@@ -31,8 +32,12 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
-    _loadPurchaseReturns();
     _scrollController.addListener(_onScroll);
+
+    // Load data after the first frame is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPurchaseReturns();
+    });
   }
 
   @override
@@ -61,6 +66,11 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
 
     if (authProvider.currentUser != null) {
       try {
+        // Show shimmer immediately
+        setState(() {
+          _error = null;
+        });
+
         await purchaseReturnProvider.fetchPurchaseReturns(
           authProvider.currentUser!.id,
         );
@@ -333,7 +343,7 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
   ) {
     if (purchaseReturnProvider.isLoading &&
         purchaseReturnProvider.purchaseReturns.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildShimmerTable();
     }
 
     if (_error != null) {
@@ -475,7 +485,6 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
               ],
             );
           }).toList(),
-
           mobileItemBuilder: (context, index) {
             final purchaseReturn = filteredPurchaseReturns[index];
             return CustomCard(
@@ -542,6 +551,68 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildShimmerTable() {
+    return DataTableWidget(
+      columns: List.generate(
+        8,
+        (index) => DataColumn(label: ShimmerEffect(width: 80, height: 20)),
+      ),
+      rows: List.generate(
+        5,
+        (index) => DataRow(
+          cells: List.generate(
+            8,
+            (index) => DataCell(
+              index == 7
+                  ? ShimmerEffect(
+                      width: 40,
+                      height: 40,
+                      borderRadius: BorderRadius.circular(20),
+                    )
+                  : ShimmerEffect(width: 80, height: 20),
+            ),
+          ),
+        ),
+      ),
+      mobileItemBuilder: (context, index) {
+        return CustomCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: ShimmerEffect(width: 120, height: 20)),
+                  ShimmerEffect(width: 60, height: 20),
+                ],
+              ),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 180, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 150, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 200, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 120, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 100, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ShimmerEffect(
+                    width: 36,
+                    height: 36,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

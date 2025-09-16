@@ -35,7 +35,7 @@ class VariantSelectionDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              
+
               Expanded(
                 child: variants.isEmpty
                     ? Center(
@@ -52,7 +52,7 @@ class VariantSelectionDialog extends StatelessWidget {
                         },
                       ),
               ),
-              
+
               const SizedBox(height: AppSpacing.md),
               OutlinedButton(
                 onPressed: () => Navigator.of(context).pop(),
@@ -89,7 +89,7 @@ class VariantSelectionDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Price: \$${variant.getPrice(product.purchasePrice).toStringAsFixed(2)}',
+                    'Price: ${variant.getPrice(product.purchasePrice).toStringAsFixed(2)}',
                     style: TextStyle(
                       color: theme.colorScheme.onSurface.withOpacity(0.7),
                     ),
@@ -105,7 +105,7 @@ class VariantSelectionDialog extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             SizedBox(
               width: 100,
               child: TextFormField(
@@ -118,17 +118,17 @@ class VariantSelectionDialog extends StatelessWidget {
                   ),
                   constraints: const BoxConstraints(maxWidth: 80),
                 ),
-                onChanged: (value) {
-                },
+                onChanged: (value) {},
               ),
             ),
-            
+
             const SizedBox(width: AppSpacing.sm),
             IconButton(
               icon: Icon(Icons.add_circle, color: theme.colorScheme.primary),
               onPressed: variant.quantity > 0
                   ? () {
-                      final quantity = int.tryParse(quantityController.text) ?? 1;
+                      final quantity =
+                          int.tryParse(quantityController.text) ?? 1;
                       if (quantity > 0 && quantity <= variant.quantity) {
                         onVariantSelected(variant, quantity);
                         Navigator.of(context).pop();

@@ -1,5 +1,5 @@
-
 import 'package:flutter/material.dart';
+import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/providers/staff_provider.dart';
 import 'package:pos/screens/monthly_attendance_screen.dart';
 import 'package:provider/provider.dart';
@@ -11,7 +11,6 @@ import '../components/ui/custom_card.dart';
 import '../components/ui/status_badge.dart';
 import '../components/ui/data_table_widget.dart';
 import '../components/ui/search_bar_widget.dart';
-import '../components/ui/loading_widget.dart';
 import '../utils/app_spacing.dart';
 import '../providers/attendance_provider.dart';
 import '../providers/auth_provider.dart';
@@ -51,7 +50,18 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     // Load staff data when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+      final attendanceProvider = Provider.of<AttendanceProvider>(
+        context,
+        listen: false,
+      );
+
+      // Load staff data
       staffProvider.loadStaff(refresh: true);
+
+      // Pre-load today's attendance
+      attendanceProvider.getAttendanceByDate(_selectedDate).first.then((_) {
+        // Data loaded, no need to do anything else
+      });
     });
   }
 
@@ -264,9 +274,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   ) {
     // Handle loading state
     if (staffProvider.isLoading && staffProvider.staff.isEmpty) {
-      return const Center(
-        child: LoadingWidget(message: 'Loading staff data...'),
-      );
+      return _buildShimmerTable();
     }
 
     // Handle error state
@@ -364,9 +372,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       builder: (context, attendanceSnapshot) {
         // Handle loading state for attendance
         if (attendanceSnapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: LoadingWidget(message: 'Loading attendance...'),
-          );
+          return _buildShimmerTable();
         }
 
         if (attendanceSnapshot.hasError) {
@@ -528,6 +534,97 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                 ),
               );
             },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildShimmerTable() {
+    return DataTableWidget(
+      columns: List.generate(
+        5,
+        (index) => DataColumn(label: ShimmerEffect(width: 80, height: 20)),
+      ),
+      rows: List.generate(
+        5,
+        (index) => DataRow(
+          cells: List.generate(
+            5,
+            (index) => DataCell(
+              index == 4
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ShimmerEffect(
+                          width: 20,
+                          height: 20,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        SizedBox(width: AppSpacing.xs),
+                        ShimmerEffect(width: 40, height: 20),
+                        SizedBox(width: AppSpacing.sm),
+                        ShimmerEffect(
+                          width: 20,
+                          height: 20,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        SizedBox(width: AppSpacing.xs),
+                        ShimmerEffect(width: 40, height: 20),
+                      ],
+                    )
+                  : ShimmerEffect(width: 80, height: 20),
+            ),
+          ),
+        ),
+      ),
+      mobileItemBuilder: (context, index) {
+        return CustomCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ShimmerEffect(width: 120, height: 20),
+                        SizedBox(height: AppSpacing.xs),
+                        ShimmerEffect(width: 80, height: 16),
+                      ],
+                    ),
+                  ),
+                  ShimmerEffect(
+                    width: 60,
+                    height: 24,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ],
+              ),
+              SizedBox(height: AppSpacing.md),
+              ShimmerEffect(width: 100, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  ShimmerEffect(
+                    width: 20,
+                    height: 20,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  SizedBox(width: AppSpacing.xs),
+                  ShimmerEffect(width: 40, height: 16),
+                  SizedBox(width: AppSpacing.sm),
+                  ShimmerEffect(
+                    width: 20,
+                    height: 20,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  SizedBox(width: AppSpacing.xs),
+                  ShimmerEffect(width: 40, height: 16),
+                ],
+              ),
+            ],
           ),
         );
       },

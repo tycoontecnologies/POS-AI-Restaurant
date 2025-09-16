@@ -32,19 +32,6 @@ class _SimpleVariantManagerState extends State<SimpleVariantManager> {
     _variants = List.from(widget.variants);
   }
 
-  void _addQuickVariant(String name, double priceModifier) {
-    final variant = ProductVariant(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: name,
-      priceModifier: priceModifier,
-      quantity: 100, // Default stock
-    );
-
-    setState(() {
-      _variants.add(variant);
-    });
-    widget.onVariantsChanged(_variants);
-  }
 
   void _showCustomVariantDialog() {
     showDialog(
@@ -188,7 +175,7 @@ class _SimpleVariantManagerState extends State<SimpleVariantManager> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '\$${(widget.basePrice + variant.priceModifier).toStringAsFixed(0)}',
+                                (widget.basePrice + variant.priceModifier).toStringAsFixed(0),
                                 style: AppTypography.labelSmall.copyWith(
                                   color: AppColors.grey800,
                                   fontWeight: FontWeight.w600,
@@ -228,58 +215,6 @@ class _SimpleVariantManagerState extends State<SimpleVariantManager> {
   }
 }
 
-class _QuickVariantChip extends StatelessWidget {
-  final String label;
-  final double priceModifier;
-  final VoidCallback onTap;
-
-  const _QuickVariantChip({
-    required this.label,
-    required this.priceModifier,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.primary.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-          border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: AppTypography.labelMedium.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Text(
-              '${priceModifier >= 0 ? '+' : ''}${priceModifier.toStringAsFixed(0)}',
-              style: AppTypography.labelSmall.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            const Icon(Icons.add, size: 16, color: AppColors.primary),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _CustomVariantDialog extends StatefulWidget {
   final Function(ProductVariant) onSave;
   final double basePrice; // Add this
@@ -315,7 +250,7 @@ class _CustomVariantDialogState extends State<_CustomVariantDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Base Price: \$${widget.basePrice.toStringAsFixed(0)}',
+              'Base Price: ${widget.basePrice.toStringAsFixed(0)}',
               style: AppTypography.bodySmall.copyWith(color: AppColors.grey600),
             ),
 

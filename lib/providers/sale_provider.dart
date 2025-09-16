@@ -16,10 +16,10 @@ class SaleProvider with ChangeNotifier {
       notifyListeners();
 
       await _saleService.createSale(vendorId, sale);
-      
+
       // Add to local list
       _sales.insert(0, sale);
-      
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -32,10 +32,9 @@ class SaleProvider with ChangeNotifier {
   Future<void> fetchSales(String vendorId) async {
     try {
       _isLoading = true;
-      notifyListeners();
 
       _sales = await _saleService.getSales(vendorId);
-      
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -51,13 +50,13 @@ class SaleProvider with ChangeNotifier {
       notifyListeners();
 
       await _saleService.updateSale(vendorId, sale);
-      
+
       // Update local list
       final index = _sales.indexWhere((s) => s.id == sale.id);
       if (index != -1) {
         _sales[index] = sale;
       }
-      
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -73,10 +72,10 @@ class SaleProvider with ChangeNotifier {
       notifyListeners();
 
       await _saleService.deleteSale(vendorId, saleId);
-      
+
       // Remove from local list
       _sales.removeWhere((s) => s.id == saleId);
-      
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {

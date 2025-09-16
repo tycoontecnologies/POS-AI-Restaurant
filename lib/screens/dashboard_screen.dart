@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:pos/models/category.dart';
 import 'package:pos/providers/category_provider.dart';
@@ -77,7 +78,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     builder: (context, categoryProvider, child) {
                       if (categoryProvider.isLoading &&
                           categoryProvider.allCategories.isEmpty) {
-                        return const Center(child: CircularProgressIndicator());
+                        return Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: ShimmerCategoryGrid(
+                            crossAxisCount: Responsive.isDesktop(context)
+                                ? 4
+                                : Responsive.isTablet(context)
+                                ? 4
+                                : 2,
+                            itemCount: 8,
+                          ),
+                        );
                       }
 
                       if (categoryProvider.error != null) {
@@ -136,7 +147,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                               const SizedBox(height: AppSpacing.md),
                               Text(
-                                'No categories with products found',
+                                l10n.noCategoriesWithProductsFound,
                                 style: TextStyle(
                                   fontSize: 18,
                                   color: Colors.grey.shade600,
@@ -177,22 +188,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ],
                 ),
-                child: Responsive.isDesktop(context)
-                    ? Row(
+                child: Consumer<StatisticsProvider>(
+                  builder: (context, statisticsProvider, child) {
+                    if (statisticsProvider.isLoading) {
+                      return Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: _buildStatistics(
-                          l10n,
-                          _statisticsProvider.statistics,
+                        children: List.generate(
+                          8,
+                          (index) => ShimmerEffect(
+                            width: 80,
+                            height: 20,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                         ),
-                      )
-                    : Wrap(
-                        spacing: AppSpacing.md,
-                        runSpacing: AppSpacing.sm,
-                        children: _buildStatistics(
-                          l10n,
-                          _statisticsProvider.statistics,
-                        ),
-                      ),
+                      );
+                    }
+
+                    return Responsive.isDesktop(context)
+                        ? Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: _buildStatistics(
+                              l10n,
+                              _statisticsProvider.statistics,
+                            ),
+                          )
+                        : Wrap(
+                            spacing: AppSpacing.md,
+                            runSpacing: AppSpacing.sm,
+                            children: _buildStatistics(
+                              l10n,
+                              _statisticsProvider.statistics,
+                            ),
+                          );
+                  },
+                ),
               ),
             ],
           ),
@@ -231,7 +260,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             child: Image.asset('assets/logo.jpeg'),
                           ),
                           const SizedBox(width: AppSpacing.md),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -243,7 +272,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                 ),
                                 Text(
-                                  'Point of Sales',
+                                  l10n.pointOfSales,
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey,
@@ -266,8 +295,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Quick Actions',
+                        Text(
+                          l10n.quickActions,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -459,6 +488,7 @@ class _PagedCategoryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+        final l10n = AppLocalizations.of(context)!;
     final isDesktop = Responsive.isDesktop(context);
     final isTablet = Responsive.isTablet(context);
     final crossAxisCount = isDesktop ? 4 : (isTablet ? 4 : 2);
@@ -480,7 +510,7 @@ class _PagedCategoryGrid extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              "No categories available",
+              l10n.noCategoriesWithProductsFound,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,

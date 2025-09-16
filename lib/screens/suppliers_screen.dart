@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:pos/components/ui/onboarding_completion.dart';
 import 'package:pos/components/ui/onboarding_tooltip.dart';
+import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/models/supplier.dart';
 import 'package:pos/routes/app_router.dart';
 import 'package:provider/provider.dart';
@@ -497,7 +498,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     final suppliers = provider.filteredSuppliers;
 
     if (provider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildShimmerTable();
     }
 
     if (provider.suppliers.isEmpty) {
@@ -704,6 +705,69 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildShimmerTable() {
+    return DataTableWidget(
+      columns: List.generate(
+        8,
+        (index) => DataColumn(label: ShimmerEffect(width: 70, height: 20)),
+      ),
+      rows: List.generate(
+        5,
+        (index) => DataRow(
+          cells: List.generate(
+            8,
+            (index) => DataCell(ShimmerEffect(width: 70, height: 20)),
+          ),
+        ),
+      ),
+      mobileItemBuilder: (context, index) {
+        return CustomCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: ShimmerEffect(width: double.infinity, height: 20),
+                  ),
+                  SizedBox(width: AppSpacing.sm),
+                  ShimmerEffect(
+                    width: 60,
+                    height: 24,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ],
+              ),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 120, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 100, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 150, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ShimmerEffect(
+                    width: 36,
+                    height: 36,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  SizedBox(width: AppSpacing.xs),
+                  ShimmerEffect(
+                    width: 36,
+                    height: 36,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

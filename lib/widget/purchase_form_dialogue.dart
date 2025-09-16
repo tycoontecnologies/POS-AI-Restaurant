@@ -548,7 +548,7 @@ class _PurchaseFormDialogState extends State<PurchaseFormDialog> {
                                               ),
                                         ),
                                         Text(
-                                          '\$${_totalAmount.toStringAsFixed(0)}',
+                                          _totalAmount.toStringAsFixed(0),
                                           style: theme.textTheme.headlineSmall
                                               ?.copyWith(
                                                 fontWeight: FontWeight.bold,
@@ -877,7 +877,7 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
                           return ListTile(
                             title: Text(variant.name),
                             subtitle: Text(
-                              'Stock: ${variant.quantity} | Price: \$${(product.purchasePrice + variant.priceModifier).toStringAsFixed(0)}',
+                              'Stock: ${variant.quantity} | Price: ${(product.purchasePrice + variant.priceModifier).toStringAsFixed(0)}',
                             ),
                             trailing:
                                 _selectedVariants[product.id]?.id == variant.id
@@ -1260,8 +1260,8 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
                                   Expanded(
                                     child: Text(
                                       selectedVariant != null
-                                          ? '\$${(product.purchasePrice + selectedVariant.priceModifier).toStringAsFixed(0)}'
-                                          : '\$${product.purchasePrice.toStringAsFixed(0)}',
+                                          ? (product.purchasePrice + selectedVariant.priceModifier).toStringAsFixed(0)
+                                          : product.purchasePrice.toStringAsFixed(0),
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontWeight: FontWeight.w600,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/screens/add_edit_store_out_screen.dart';
 import 'package:pos/utils/app_colors.dart';
 import 'package:provider/provider.dart';
@@ -9,7 +10,6 @@ import '../components/ui/custom_button.dart';
 import '../components/ui/custom_card.dart';
 import '../components/ui/search_bar_widget.dart';
 import '../components/ui/data_table_widget.dart';
-import '../components/ui/loading_widget.dart';
 import '../utils/app_spacing.dart';
 
 class StoreOutScreen extends StatefulWidget {
@@ -28,13 +28,11 @@ class _StoreOutScreenState extends State<StoreOutScreen> {
     super.initState();
     _searchController.addListener(_onSearchChanged);
 
-    // Load initial data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<StoreOutProvider>();
       provider.loadStoreOuts();
     });
 
-    // Setup scroll listener for pagination
     _scrollController.addListener(_onScroll);
   }
 
@@ -244,7 +242,7 @@ class _StoreOutScreenState extends State<StoreOutScreen> {
 
   Widget _buildContent(StoreOutProvider provider, AppLocalizations l10n) {
     if (provider.isLoading && provider.storeOuts.isEmpty) {
-      return const Center(child: LoadingWidget());
+      return _buildShimmerTable();
     }
 
     if (provider.error != null && provider.storeOuts.isEmpty) {
@@ -416,6 +414,68 @@ class _StoreOutScreenState extends State<StoreOutScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildShimmerTable() {
+    return DataTableWidget(
+      columns: List.generate(
+        8,
+        (index) => DataColumn(label: ShimmerEffect(width: 80, height: 20)),
+      ),
+      rows: List.generate(
+        5,
+        (index) => DataRow(
+          cells: List.generate(
+            8,
+            (index) => DataCell(
+              index == 7
+                  ? ShimmerEffect(
+                      width: 40,
+                      height: 40,
+                      borderRadius: BorderRadius.circular(20),
+                    )
+                  : ShimmerEffect(width: 80, height: 20),
+            ),
+          ),
+        ),
+      ),
+      mobileItemBuilder: (context, index) {
+        return CustomCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: ShimmerEffect(width: 120, height: 20)),
+                  ShimmerEffect(width: 60, height: 20),
+                ],
+              ),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 180, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 150, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 200, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 120, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 100, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ShimmerEffect(
+                    width: 36,
+                    height: 36,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

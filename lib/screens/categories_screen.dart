@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pos/components/ui/onboarding_completion.dart';
 import 'package:pos/components/ui/onboarding_tooltip.dart';
+import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/routes/app_router.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
@@ -104,7 +105,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               content: SizedBox(
                 width: 400,
                 child: Form(
-                  key: formKey, // 🟡 Important: Use GlobalKey here
+                  key: formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -359,7 +360,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   Widget _buildContent(CategoryProvider provider, AppLocalizations l10n) {
     if (provider.isLoading && provider.categories.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildShimmerTable();
     }
 
     if (provider.error != null) {
@@ -545,6 +546,88 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildShimmerTable() {
+    return DataTableWidget(
+      columns: const [
+        DataColumn(label: ShimmerEffect(width: 20, height: 20)),
+        DataColumn(label: ShimmerEffect(width: 80, height: 20)),
+        DataColumn(label: ShimmerEffect(width: 60, height: 20)),
+        DataColumn(label: ShimmerEffect(width: 80, height: 20)),
+        DataColumn(label: ShimmerEffect(width: 60, height: 20)),
+      ],
+      rows: List.generate(
+        5,
+        (index) => DataRow(
+          cells: [
+            DataCell(ShimmerEffect(width: 20, height: 20)),
+            DataCell(ShimmerEffect(width: 120, height: 20)),
+            DataCell(ShimmerEffect(width: 60, height: 20)),
+            DataCell(ShimmerEffect(width: 80, height: 20)),
+            DataCell(
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ShimmerEffect(
+                    width: 36,
+                    height: 36,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  SizedBox(width: AppSpacing.xs),
+                  ShimmerEffect(
+                    width: 36,
+                    height: 36,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      mobileItemBuilder: (context, index) {
+        return CustomCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: ShimmerEffect(width: double.infinity, height: 20),
+                  ),
+                  SizedBox(width: AppSpacing.sm),
+                  ShimmerEffect(
+                    width: 60,
+                    height: 24,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ],
+              ),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 200, height: 14),
+              SizedBox(height: AppSpacing.sm),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ShimmerEffect(
+                    width: 36,
+                    height: 36,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  SizedBox(width: AppSpacing.xs),
+                  ShimmerEffect(
+                    width: 36,
+                    height: 36,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

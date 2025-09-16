@@ -8,6 +8,7 @@ import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:pos/components/ui/custom_input.dart';
 import 'package:pos/components/ui/onboarding_completion.dart';
 import 'package:pos/components/ui/onboarding_tooltip.dart';
+import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/routes/app_router.dart';
 import 'package:pos/utils/app_colors.dart';
 import 'package:provider/provider.dart';
@@ -17,7 +18,6 @@ import '../components/ui/custom_button.dart';
 import '../components/ui/custom_card.dart';
 import '../components/ui/search_bar_widget.dart';
 import '../components/ui/data_table_widget.dart';
-import '../components/ui/loading_widget.dart';
 import '../models/staff.dart';
 import '../providers/staff_provider.dart';
 import '../utils/app_spacing.dart';
@@ -489,7 +489,7 @@ class _StaffScreenState extends State<StaffScreen> {
           ),
         );
       }
-      return const Center(child: CircularProgressIndicator());
+      return _buildShimmerTable();
     }
 
     return Padding(
@@ -556,11 +556,7 @@ class _StaffScreenState extends State<StaffScreen> {
           const SizedBox(height: AppSpacing.sm),
           Expanded(
             child: provider.isLoading && provider.staff.isEmpty
-                ? const CustomCard(
-                    child: Center(
-                      child: LoadingWidget(message: 'Loading staff data...'),
-                    ),
-                  )
+                ? _buildShimmerTable()
                 : provider.errorMessage != null
                 ? CustomCard(
                     child: Center(
@@ -742,6 +738,55 @@ class _StaffScreenState extends State<StaffScreen> {
           );
         }).toList(),
       ),
+    );
+  }
+
+  Widget _buildShimmerTable() {
+    return DataTableWidget(
+      columns: List.generate(
+        7,
+        (index) => DataColumn(label: ShimmerEffect(width: 80, height: 20)),
+      ),
+      rows: List.generate(
+        5,
+        (index) => DataRow(
+          cells: List.generate(
+            7,
+            (index) => DataCell(ShimmerEffect(width: 80, height: 20)),
+          ),
+        ),
+      ),
+      mobileItemBuilder: (context, index) {
+        return CustomCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ShimmerEffect(width: double.infinity, height: 20),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 120, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              ShimmerEffect(width: 100, height: 16),
+              SizedBox(height: AppSpacing.sm),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ShimmerEffect(
+                    width: 36,
+                    height: 36,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  SizedBox(width: AppSpacing.xs),
+                  ShimmerEffect(
+                    width: 36,
+                    height: 36,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

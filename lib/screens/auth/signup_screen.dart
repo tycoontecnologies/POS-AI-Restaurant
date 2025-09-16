@@ -73,191 +73,202 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(isMobile ? AppSpacing.xs : AppSpacing.xl),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: isMobile ? double.infinity : 450,
-            ),
-            child: CustomCard(
-              color: Colors.white,
-              child: Padding(
-                padding: EdgeInsets.all(
-                  isMobile ? AppSpacing.xs : AppSpacing.xl,
-                ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.point_of_sale,
-                        size: isMobile ? 48 : 64,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      SizedBox(
-                        height: isMobile ? AppSpacing.md : AppSpacing.lg,
-                      ),
-                      Text(
-                        'Create Account',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              fontSize: isMobile ? 22 : 24,
-                            ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        'Create a new POS account',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      SizedBox(
-                        height: isMobile ? AppSpacing.lg : AppSpacing.xl,
-                      ),
-                      TextFormField(
-                        controller: _nameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Full Name',
-                          prefixIcon: Icon(Icons.person),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your name';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      TextFormField(
-                        controller: _emailController,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          prefixIcon: Icon(Icons.email),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your email';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Please enter a valid email';
-                          }
-                          return null;
-                        },
-                      ),
-                      // const SizedBox(height: AppSpacing.md),
-                      // DropdownButtonFormField<UserRole>(
-                      //   value: _selectedRole,
-                      //   decoration: const InputDecoration(
-                      //     labelText: 'Role',
-                      //     prefixIcon: Icon(Icons.people),
-                      //   ),
-                      //   items: UserRole.values.map((role) {
-                      //     return DropdownMenuItem<UserRole>(
-                      //       value: role,
-                      //       child: Text(
-                      //         role.toString().split('.').last.toUpperCase(),
-                      //       ),
-                      //     );
-                      //   }).toList(),
-                      //   onChanged: (value) {
-                      //     if (value != null) {
-                      //       setState(() {
-                      //         _selectedRole = value;
-                      //       });
-                      //     }
-                      //   },
-                      // ),
-                      const SizedBox(height: AppSpacing.md),
-                      TextFormField(
-                        controller: _passwordController,
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color.fromARGB(255, 245, 246, 247),
+              Color.fromARGB(255, 221, 224, 225),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(isMobile ? AppSpacing.xs : AppSpacing.xl),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: isMobile ? double.infinity : 450,
+              ),
+              child: CustomCard(
+                color: Colors.white,
+                child: Padding(
+                  padding: EdgeInsets.all(
+                    isMobile ? AppSpacing.xs : AppSpacing.xl,
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(60),
+                          child: Image.asset(
+                            'assets/logo.jpeg',
+                            width: 90,
+                            height: 90,
+                            fit: BoxFit.cover,
                           ),
                         ),
-                        obscureText: _obscurePassword,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your password';
-                          }
-                          if (value.length < 6) {
-                            return 'Password must be at least 6 characters';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      TextFormField(
-                        controller: _confirmPasswordController,
-                        decoration: InputDecoration(
-                          labelText: 'Confirm Password',
-                          prefixIcon: const Icon(Icons.lock),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscureConfirmPassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscureConfirmPassword =
-                                    !_obscureConfirmPassword;
-                              });
-                            },
-                          ),
+                        SizedBox(
+                          height: isMobile ? AppSpacing.md : AppSpacing.lg,
                         ),
-                        obscureText: _obscureConfirmPassword,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please confirm your password';
-                          }
-                          if (value != _passwordController.text) {
-                            return 'Passwords do not match';
-                          }
-                          return null;
-                        },
-                      ),
-                      SizedBox(
-                        height: isMobile ? AppSpacing.lg : AppSpacing.xl,
-                      ),
-                      Consumer<AuthProvider>(
-                        builder: (context, authProvider, child) {
-                          return CustomButton(
-                            text: 'Create Account',
-                            textColor: Colors.white,
-                            onPressed: authProvider.isLoading ? null : _submit,
-                            isLoading: authProvider.isLoading,
-                          );
-                        },
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('Already have an account?'),
-                          TextButton(
-                            onPressed: widget.onLoginPressed,
-                            child: const Text('Sign In'),
+                        Text(
+                          'Create Account',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: isMobile ? 22 : 24,
+                              ),
+                        ),
+
+                        SizedBox(
+                          height: isMobile ? AppSpacing.lg : AppSpacing.xl,
+                        ),
+                        TextFormField(
+                          controller: _nameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Full Name',
+                            prefixIcon: Icon(Icons.person),
                           ),
-                        ],
-                      ),
-                    ],
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your name';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        TextFormField(
+                          controller: _emailController,
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                            prefixIcon: Icon(Icons.email),
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your email';
+                            }
+                            if (!value.contains('@')) {
+                              return 'Please enter a valid email';
+                            }
+                            return null;
+                          },
+                        ),
+                        // const SizedBox(height: AppSpacing.md),
+                        // DropdownButtonFormField<UserRole>(
+                        //   value: _selectedRole,
+                        //   decoration: const InputDecoration(
+                        //     labelText: 'Role',
+                        //     prefixIcon: Icon(Icons.people),
+                        //   ),
+                        //   items: UserRole.values.map((role) {
+                        //     return DropdownMenuItem<UserRole>(
+                        //       value: role,
+                        //       child: Text(
+                        //         role.toString().split('.').last.toUpperCase(),
+                        //       ),
+                        //     );
+                        //   }).toList(),
+                        //   onChanged: (value) {
+                        //     if (value != null) {
+                        //       setState(() {
+                        //         _selectedRole = value;
+                        //       });
+                        //     }
+                        //   },
+                        // ),
+                        const SizedBox(height: AppSpacing.md),
+                        TextFormField(
+                          controller: _passwordController,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: const Icon(Icons.lock),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                          ),
+                          obscureText: _obscurePassword,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your password';
+                            }
+                            if (value.length < 6) {
+                              return 'Password must be at least 6 characters';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        TextFormField(
+                          controller: _confirmPasswordController,
+                          decoration: InputDecoration(
+                            labelText: 'Confirm Password',
+                            prefixIcon: const Icon(Icons.lock),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscureConfirmPassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscureConfirmPassword =
+                                      !_obscureConfirmPassword;
+                                });
+                              },
+                            ),
+                          ),
+                          obscureText: _obscureConfirmPassword,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please confirm your password';
+                            }
+                            if (value != _passwordController.text) {
+                              return 'Passwords do not match';
+                            }
+                            return null;
+                          },
+                        ),
+                        SizedBox(
+                          height: isMobile ? AppSpacing.lg : AppSpacing.xl,
+                        ),
+                        Consumer<AuthProvider>(
+                          builder: (context, authProvider, child) {
+                            return CustomButton(
+                              text: 'Create Account',
+                              textColor: Colors.white,
+                              onPressed: authProvider.isLoading
+                                  ? null
+                                  : _submit,
+                              isLoading: authProvider.isLoading,
+                            );
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('Already have an account?'),
+                            TextButton(
+                              onPressed: widget.onLoginPressed,
+                              child: const Text('Sign In'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

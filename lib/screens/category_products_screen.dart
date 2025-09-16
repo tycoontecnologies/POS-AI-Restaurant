@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/models/product.dart';
 import 'package:pos/models/category.dart';
 import 'package:pos/providers/category_provider.dart';
@@ -534,7 +535,10 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               builder: (context, productProvider, child) {
                 if (productProvider.isLoading &&
                     productProvider.products.isEmpty) {
-                  return const Center(child: CircularProgressIndicator());
+                  return Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: ShimmerGrid(crossAxisCount: 3, itemCount: 6),
+                  );
                 }
 
                 if (productProvider.products.isEmpty) {

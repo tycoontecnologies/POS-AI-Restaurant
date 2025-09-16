@@ -144,7 +144,7 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                                   ),
                                   const Spacer(),
                                   Text(
-                                    '\$${price.toStringAsFixed(0)}',
+                                    price.toStringAsFixed(0),
                                     style: AppTypography.h6.copyWith(
                                       fontWeight: FontWeight.w700,
                                       color: isSelected
@@ -270,7 +270,7 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                             ),
                           ),
                           Text(
-                            '\$${_selectedVariant!.getPrice(widget.product.salePrice).toStringAsFixed(0)} each',
+                            '${_selectedVariant!.getPrice(widget.product.salePrice).toStringAsFixed(0)} each',
                             style: AppTypography.bodyMedium.copyWith(
                               color: AppColors.grey700,
                             ),
@@ -288,7 +288,7 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                             ),
                           ),
                           Text(
-                            '\$${(_selectedVariant!.getPrice(widget.product.salePrice) * _quantity).toStringAsFixed(0)}',
+                            (_selectedVariant!.getPrice(widget.product.salePrice) * _quantity).toStringAsFixed(0),
                             style: AppTypography.h6.copyWith(
                               fontWeight: FontWeight.w700,
                               color: AppColors.primary,

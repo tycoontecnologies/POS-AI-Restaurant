@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:pos/models/staff.dart';
@@ -8,7 +9,6 @@ import 'package:pos/providers/staff_provider.dart';
 import 'package:pos/utils/app_spacing.dart';
 import 'package:pos/components/ui/custom_card.dart';
 import 'package:pos/components/ui/custom_button.dart';
-import 'package:pos/components/ui/loading_widget.dart';
 import 'package:pos/components/ui/data_table_widget.dart';
 import 'package:intl/intl.dart';
 
@@ -75,13 +75,7 @@ class _MonthlyAttendanceScreenState extends State<MonthlyAttendanceScreen> {
             stream: attendanceProvider.getAttendanceByMonth(_selectedMonth),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const CustomCard(
-                  child: Center(
-                    child: LoadingWidget(
-                      message: 'Loading monthly attendance...',
-                    ),
-                  ),
-                );
+                return _buildShimmerTable();
               }
 
               if (snapshot.hasError) {
@@ -169,6 +163,32 @@ class _MonthlyAttendanceScreenState extends State<MonthlyAttendanceScreen> {
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildShimmerTable() {
+    return DataTableWidget(
+      columns: List.generate(
+        5,
+        (index) => DataColumn(label: ShimmerEffect(width: 80, height: 20)),
+      ),
+      rows: List.generate(
+        5,
+        (index) => DataRow(
+          cells: List.generate(
+            5,
+            (index) => DataCell(
+              index == 4
+                  ? ShimmerEffect(
+                      width: 40,
+                      height: 40,
+                      borderRadius: BorderRadius.circular(20),
+                    )
+                  : ShimmerEffect(width: 80, height: 20),
+            ),
+          ),
+        ),
       ),
     );
   }
