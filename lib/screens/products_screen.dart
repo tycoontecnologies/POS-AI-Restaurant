@@ -9,6 +9,7 @@ import 'package:pos/utils/app_typography.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import '../models/product.dart';
 import '../providers/product_provider.dart';
 import '../providers/auth_provider.dart';
@@ -41,17 +42,165 @@ class _ProductsScreenState extends State<ProductsScreen> {
   final List<String> _units = ['piece', 'kg', 'litre', 'pack', 'box'];
   final _formKey = GlobalKey<FormState>();
 
+  // Tutorial coach mark controller and targets
+  TutorialCoachMark? tutorialCoachMark;
+  final GlobalKey _addButtonKey = GlobalKey();
+  final GlobalKey _searchBarKey = GlobalKey();
+  final GlobalKey _productsTableKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
     _scrollController.addListener(_onScroll);
     _loadCategories();
+    _checkAndShowTutorial();
 
     // Load products in a single post-frame callback
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialProducts();
     });
+  }
+
+  Future<void> _checkAndShowTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenTutorial = prefs.getBool('products_tutorial_seen') ?? false;
+
+    if (!hasSeenTutorial) {
+      // Wait for the UI to build before showing the tutorial
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _showTutorial(context);
+          prefs.setBool('products_tutorial_seen', true);
+        });
+      });
+    }
+  }
+
+  void _showTutorial(BuildContext context) {
+    tutorialCoachMark = TutorialCoachMark(
+      targets: _createTargets(),
+      colorShadow: Colors.black26,
+      textSkip: "SKIP",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+      onFinish: () {
+        print("Products tutorial completed");
+      },
+      onClickTarget: (target) {
+        print(target);
+      },
+      onSkip: () {
+        print("Products tutorial skipped");
+        return true;
+      },
+    );
+
+    tutorialCoachMark!.show(context: context);
+  }
+
+  List<TargetFocus> _createTargets() {
+    return [
+      TargetFocus(
+        identify: "add_button",
+        keyTarget: _addButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    "Add Product",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Tap here to create new products for your inventory.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+      TargetFocus(
+        identify: "search_bar",
+        keyTarget: _searchBarKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Search Products",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Use this search bar to quickly find products by name, category, or other attributes.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+      TargetFocus(
+        identify: "products_table",
+        keyTarget: _productsTableKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Products List",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Here you'll see all your products. You can edit, manage variants, or delete them using the action buttons.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+    ];
   }
 
   Future<void> _loadInitialProducts() async {
@@ -531,14 +680,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!_hasData)
-            OnboardingTooltip(
-              screenKey: 'products',
-              title: 'Add Product',
-              description:
-                  'From here, you can add your products to build your inventory. Products are the items you sell to your customers.',
-            ),
-          if (_showCompletion) const OnboardingCompletion(),
           Row(
             children: [
               Expanded(
@@ -564,6 +705,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 ),
               ),
               CustomButton(
+                key: _addButtonKey, // Added key for tutorial
+
                 text: l10n.addProduct,
                 icon: Icons.add,
                 onPressed: () => _createOrEdit(),
@@ -572,6 +715,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           SearchBarWidget(
+            key: _searchBarKey,
+
             controller: _searchController,
             hint: 'Search products...',
             onChanged: (_) => _onSearchChanged(),
@@ -581,7 +726,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
             },
           ),
           const SizedBox(height: AppSpacing.sm),
-          Expanded(child: _buildContent(productProvider, l10n)),
+          Expanded(
+            key: _productsTableKey,
+            child: _buildContent(productProvider, l10n),
+          ),
         ],
       ),
     );

@@ -52,6 +52,7 @@ dependencies:
   stripe_sdk: ^5.0.0
   universal_html: ^2.2.4
   intl_phone_field: ^3.2.0
+  tutorial_coach_mark: ^1.3.1
 
 dev_dependencies:
   flutter_test:

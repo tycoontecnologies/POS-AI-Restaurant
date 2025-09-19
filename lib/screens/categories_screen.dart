@@ -2,12 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pos/components/ui/onboarding_completion.dart';
-import 'package:pos/components/ui/onboarding_tooltip.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/routes/app_router.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import '../models/category.dart';
 import '../providers/category_provider.dart';
 import '../components/ui/custom_button.dart';
@@ -32,10 +32,17 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   final bool _showCompletion = false;
   bool _hasData = false;
 
+  // Tutorial coach mark controller and targets
+  TutorialCoachMark? tutorialCoachMark;
+  final GlobalKey _addButtonKey = GlobalKey();
+  final GlobalKey _searchBarKey = GlobalKey();
+  final GlobalKey _categoriesTableKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
     _checkIfHasData();
+    _checkAndShowTutorial();
 
     _searchController.addListener(_onSearchChanged);
 
@@ -47,6 +54,147 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
     // Setup scroll listener for pagination
     _scrollController.addListener(_onScroll);
+  }
+
+  Future<void> _checkAndShowTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenTutorial = prefs.getBool('categories_tutorial_seen') ?? false;
+
+    if (!hasSeenTutorial) {
+      // Wait for the UI to build before showing the tutorial
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _showTutorial(context);
+          prefs.setBool('categories_tutorial_seen', true);
+        });
+      });
+    }
+  }
+
+  void _showTutorial(BuildContext context) {
+    tutorialCoachMark = TutorialCoachMark(
+      targets: _createTargets(),
+      colorShadow: Colors.black12,
+      textSkip: "SKIP",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+      onFinish: () {
+        print("Tutorial completed");
+      },
+      onClickTarget: (target) {
+        print(target);
+      },
+      onSkip: () {
+        print("Tutorial skipped");
+        return true;
+      },
+    );
+
+    tutorialCoachMark!.show(context: context); // ✅ context required here
+  }
+
+  List<TargetFocus> _createTargets() {
+    return [
+      TargetFocus(
+        identify: "add_button",
+        keyTarget: _addButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    "Add Category",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Tap here to create your first category. Categories help organize your products.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+      TargetFocus(
+        identify: "search_bar",
+        keyTarget: _searchBarKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Search Categories",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Use this search bar to quickly find categories by name.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+      TargetFocus(
+        identify: "categories_table",
+        keyTarget: _categoriesTableKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    "Categories List",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Here you'll see all your categories. You can edit or delete them using the action buttons.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+    ];
   }
 
   Future<void> _checkIfHasData() async {
@@ -63,6 +211,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     _scrollController.dispose();
     _searchController.removeListener(_onSearchChanged);
     _scrollController.removeListener(_onScroll);
+    tutorialCoachMark?.finish();
     super.dispose();
   }
 
@@ -296,13 +445,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!_hasData)
-            OnboardingTooltip(
-              screenKey: 'categories',
-              title: 'Add Category',
-              description:
-                  'From here, you can add your categories to organize your products. Categories help you manage your inventory efficiently.',
-            ),
+          // Removed OnboardingTooltip widget
 
           // Completion message (if needed)
           if (_showCompletion) const OnboardingCompletion(),
@@ -332,6 +475,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 ),
               ),
               CustomButton(
+                key: _addButtonKey, // Added key for tutorial
                 text: l10n.addCategory,
                 icon: Icons.add,
                 onPressed: () => _createOrEdit(),
@@ -342,6 +486,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           const SizedBox(height: AppSpacing.md),
 
           SearchBarWidget(
+            key: _searchBarKey, // Added key for tutorial
             controller: _searchController,
             hint: 'Search categories...',
             onChanged: (_) => _onSearchChanged(),
@@ -352,7 +497,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ),
           const SizedBox(height: AppSpacing.sm),
 
-          Expanded(child: _buildContent(categoryProvider, l10n)),
+          Expanded(
+            key: _categoriesTableKey, // Added key for tutorial
+            child: _buildContent(categoryProvider, l10n),
+          ),
         ],
       ),
     );
@@ -397,14 +545,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   : 'No categories found for "${_searchController.text}"',
               style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
             ),
-            if (_searchController.text.isEmpty) ...[
-              const SizedBox(height: AppSpacing.md),
-              CustomButton(
-                text: 'Create First Category',
-                onPressed: () => _createOrEdit(),
-                variant: ButtonVariant.filled,
-              ),
-            ],
           ],
         ),
       );

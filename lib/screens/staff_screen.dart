@@ -14,6 +14,7 @@ import 'package:pos/utils/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import '../components/ui/custom_button.dart';
 import '../components/ui/custom_card.dart';
 import '../components/ui/search_bar_widget.dart';
@@ -36,18 +37,166 @@ class _StaffScreenState extends State<StaffScreen> {
   final bool _showCompletion = false;
   bool _hasData = false;
   bool _initialLoadComplete = false;
-  bool _isProcessing = false; // ADD THIS FLAG
+  bool _isProcessing = false;
+
+  // Tutorial coach mark controller and targets
+  TutorialCoachMark? tutorialCoachMark;
+  final GlobalKey _addButtonKey = GlobalKey();
+  final GlobalKey _searchBarKey = GlobalKey();
+  final GlobalKey _staffTableKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
     _scrollController.addListener(_onScroll);
+    _checkAndShowTutorial();
 
     // Load initial data after the first frame is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkIfHasData();
     });
+  }
+
+  Future<void> _checkAndShowTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenTutorial = prefs.getBool('staff_tutorial_seen') ?? false;
+
+    if (!hasSeenTutorial) {
+      // Wait for the UI to build before showing the tutorial
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _showTutorial(context);
+          prefs.setBool('staff_tutorial_seen', true);
+        });
+      });
+    }
+  }
+
+  void _showTutorial(BuildContext context) {
+    tutorialCoachMark = TutorialCoachMark(
+      targets: _createTargets(),
+      colorShadow: Colors.black38,
+      textSkip: "SKIP",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+      onFinish: () {
+        print("Staff tutorial completed");
+      },
+      onClickTarget: (target) {
+        print(target);
+      },
+      onSkip: () {
+        print("Staff tutorial skipped");
+        return true;
+      },
+    );
+
+    tutorialCoachMark!.show(context: context);
+  }
+
+  List<TargetFocus> _createTargets() {
+    return [
+      TargetFocus(
+        identify: "add_button",
+        keyTarget: _addButtonKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    "Add Employee",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Tap here to add new employees to your team.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+      TargetFocus(
+        identify: "search_bar",
+        keyTarget: _searchBarKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Search Employees",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Search for employees by name, role, or other details.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+      TargetFocus(
+        identify: "staff_table",
+        keyTarget: _staffTableKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Employee List",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "View all your employees here. Use the action buttons to edit or delete employee records.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+    ];
   }
 
   Future<void> _checkIfHasData() async {
@@ -63,6 +212,7 @@ class _StaffScreenState extends State<StaffScreen> {
   void dispose() {
     _searchController.dispose();
     _scrollController.dispose();
+    tutorialCoachMark?.finish();
     super.dispose();
   }
 
@@ -497,17 +647,6 @@ class _StaffScreenState extends State<StaffScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!_hasData)
-            OnboardingTooltip(
-              screenKey: 'staff',
-              title: 'Add Staff',
-              description:
-                  'From here, you can add your staff members to manage your team. Staff members can have different roles.',
-            ),
-
-          // Completion message (if needed)
-          if (_showCompletion) const OnboardingCompletion(),
-
           Row(
             children: [
               Expanded(
@@ -535,6 +674,7 @@ class _StaffScreenState extends State<StaffScreen> {
                 ),
               ),
               CustomButton(
+                key: _addButtonKey,
                 text: 'Add Employee',
                 icon: Icons.person_add,
                 onPressed: (provider.isLoading || _isProcessing)
@@ -545,6 +685,8 @@ class _StaffScreenState extends State<StaffScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           SearchBarWidget(
+            key: _searchBarKey,
+
             controller: _searchController,
             hint: 'Search employees...',
             onChanged: (_) => _onSearchChanged(),
@@ -555,6 +697,7 @@ class _StaffScreenState extends State<StaffScreen> {
           ),
           const SizedBox(height: AppSpacing.sm),
           Expanded(
+            key: _staffTableKey,
             child: provider.isLoading && provider.staff.isEmpty
                 ? _buildShimmerTable()
                 : provider.errorMessage != null

@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:pos/models/staff.dart';
 import 'package:pos/models/attendance.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import '../components/ui/custom_button.dart';
 import '../components/ui/custom_card.dart';
 import '../components/ui/status_badge.dart';
@@ -32,6 +34,13 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   List<Staff> _filteredStaff = [];
   String _searchQuery = '';
 
+  // Tutorial coach mark controller and targets
+  TutorialCoachMark? tutorialCoachMark;
+  final GlobalKey _datePickerKey = GlobalKey();
+  final GlobalKey _searchBarKey = GlobalKey();
+  final GlobalKey _attendanceTableKey = GlobalKey();
+  final GlobalKey _monthlyReportTabKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +52,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     );
 
     _searchController.addListener(_onSearchChanged);
+    _checkAndShowTutorial();
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     _vendorId = authProvider.currentUser?.id;
@@ -65,11 +75,186 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     });
   }
 
+  Future<void> _checkAndShowTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenTutorial = prefs.getBool('attendance_tutorial_seen') ?? false;
+
+    if (!hasSeenTutorial) {
+      // Wait for the UI to build before showing the tutorial
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _showTutorial(context);
+          prefs.setBool('attendance_tutorial_seen', true);
+        });
+      });
+    }
+  }
+
+  void _showTutorial(BuildContext context) {
+    tutorialCoachMark = TutorialCoachMark(
+      targets: _createTargets(),
+      colorShadow: Colors.black45,
+      textSkip: "SKIP",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+      onFinish: () {
+        print("Attendance tutorial completed");
+      },
+      onClickTarget: (target) {
+        print(target);
+      },
+      onSkip: () {
+        print("Attendance tutorial skipped");
+        return true;
+      },
+    );
+
+    tutorialCoachMark!.show(context: context);
+  }
+
+  List<TargetFocus> _createTargets() {
+    return [
+      TargetFocus(
+        identify: "date_picker",
+        keyTarget: _datePickerKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    "Select Date",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Choose the date for which you want to mark attendance.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.black),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+      TargetFocus(
+        identify: "search_bar",
+        keyTarget: _searchBarKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Search Employees",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Quickly find employees by name or role.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.black),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+      TargetFocus(
+        identify: "attendance_table",
+        keyTarget: _attendanceTableKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Attendance Records",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Mark employees as present or absent using the radio buttons.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.black),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+      TargetFocus(
+        identify: "monthly_report_tab",
+        keyTarget: _monthlyReportTabKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Monthly Reports",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Switch to the monthly view to see attendance summaries and reports.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.black),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+    ];
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
     _scrollController.dispose();
     _tabController.dispose();
+    tutorialCoachMark?.finish();
     super.dispose();
   }
 
@@ -188,7 +373,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
             controller: _tabController,
             tabs: const [
               Tab(text: 'Daily View'),
-              Tab(text: 'Monthly Report'),
+              Tab(
+                key: Key('monthly_report_tab'), // Added key for tutorial
+                text: 'Monthly Report',
+              ),
             ],
           ),
         ),
@@ -234,6 +422,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                     ),
                     const SizedBox(width: AppSpacing.md),
                     CustomButton(
+                      key: _datePickerKey,
                       text: 'Select Date',
                       icon: Icons.calendar_today,
                       variant: ButtonVariant.outlined,
@@ -244,6 +433,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                 const SizedBox(height: AppSpacing.md),
 
                 SearchBarWidget(
+                  key: _searchBarKey,
                   controller: _searchController,
                   hint: 'Search employees...',
                   onChanged: (_) => _onSearchChanged(),
@@ -256,6 +446,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                 const SizedBox(height: AppSpacing.sm),
 
                 Expanded(
+                  key: _attendanceTableKey,
                   child: _buildContent(staffProvider, attendanceProvider, l10n),
                 ),
               ],

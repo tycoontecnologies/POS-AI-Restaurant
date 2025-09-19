@@ -7,6 +7,8 @@ import 'package:pos/providers/category_provider.dart';
 import 'package:pos/providers/product_provider.dart';
 import 'package:pos/providers/statistics_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import '../utils/responsive.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
@@ -25,9 +27,158 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late ProductProvider _productProvider;
   late StatisticsProvider _statisticsProvider;
 
+  // Tutorial coach mark controller and targets
+  TutorialCoachMark? tutorialCoachMark;
+  final GlobalKey _categoriesGridKey = GlobalKey();
+  final GlobalKey _statisticsBarKey = GlobalKey();
+  final GlobalKey _quickActionsKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
+    _checkAndShowTutorial();
+  }
+
+  Future<void> _checkAndShowTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenTutorial = prefs.getBool('dashboard_tutorial_seen') ?? false;
+
+    if (!hasSeenTutorial) {
+      // Wait for the UI to build before showing the tutorial
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _showTutorial(context);
+          prefs.setBool('dashboard_tutorial_seen', true);
+        });
+      });
+    }
+  }
+
+  void _showTutorial(BuildContext context) {
+    tutorialCoachMark = TutorialCoachMark(
+      targets: _createTargets(),
+      colorShadow: AppColors.white,
+      textSkip: "SKIP",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+      onFinish: () {
+        print("Dashboard tutorial completed");
+      },
+      onClickTarget: (target) {
+        print(target);
+      },
+      onSkip: () {
+        print("Dashboard tutorial skipped");
+        return true;
+      },
+    );
+
+    tutorialCoachMark!.show(context: context);
+  }
+
+  List<TargetFocus> _createTargets() {
+    return [
+      TargetFocus(
+        identify: "categories_grid",
+        keyTarget: _categoriesGridKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Product Categories",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Browse your product categories here. Tap any category to view its products.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.black),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+      TargetFocus(
+        identify: "statistics_bar",
+        keyTarget: _statisticsBarKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Business Statistics",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "View key metrics about your business at a glance.",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.black),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+      ),
+      if (Responsive.isDesktop(context))
+        TargetFocus(
+          identify: "quick_actions",
+          keyTarget: _quickActionsKey,
+          contents: [
+            TargetContent(
+              align: ContentAlign.left,
+              builder: (context, controller) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Quick Actions",
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Quickly access different parts of your POS system from here.",
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: Colors.black),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+          shape: ShapeLightFocus.RRect,
+          radius: 8,
+        ),
+    ];
   }
 
   @override
@@ -61,17 +212,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   @override
+  void dispose() {
+    tutorialCoachMark?.finish();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
     return Row(
       children: [
-        // Main Content Area
         Expanded(
           flex: Responsive.isDesktop(context) ? 3 : 1,
           child: Column(
             children: [
               Expanded(
+                key: _categoriesGridKey,
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.md),
                   child: Consumer<CategoryProvider>(
@@ -177,6 +334,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ), // Statistics Bar
               Container(
+                key: _statisticsBarKey, // Added key for tutorial
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -229,6 +387,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // Right Sidebar (Desktop only)
         if (Responsive.isDesktop(context))
           Container(
+            key: _quickActionsKey,
             width: 300,
             decoration: BoxDecoration(
               color: Colors.white,
@@ -488,7 +647,7 @@ class _PagedCategoryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-        final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context)!;
     final isDesktop = Responsive.isDesktop(context);
     final isTablet = Responsive.isTablet(context);
     final crossAxisCount = isDesktop ? 4 : (isTablet ? 4 : 2);
