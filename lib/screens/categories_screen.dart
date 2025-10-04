@@ -1,9 +1,6 @@
 // categories_screen.dart
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:pos/components/ui/onboarding_completion.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
-import 'package:pos/routes/app_router.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,8 +26,6 @@ class CategoriesScreen extends StatefulWidget {
 class _CategoriesScreenState extends State<CategoriesScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final bool _showCompletion = false;
-  bool _hasData = false;
 
   // Tutorial coach mark controller and targets
   TutorialCoachMark? tutorialCoachMark;
@@ -201,7 +196,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     final categoryProvider = context.read<CategoryProvider>();
     await categoryProvider.loadInitialCategories();
     setState(() {
-      _hasData = categoryProvider.categories.isNotEmpty;
     });
   }
 
@@ -338,20 +332,20 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           );
 
           // Check if this was the first category added
-          if (item == null) {
-            final prefs = await SharedPreferences.getInstance();
-            final hasSeenProducts =
-                prefs.getBool('onboarding_products_seen') ?? false;
+          // if (item == null) {
+          //   final prefs = await SharedPreferences.getInstance();
+          //   final hasSeenProducts =
+          //       prefs.getBool('onboarding_products_seen') ?? false;
 
-            if (!hasSeenProducts) {
-              // Navigate to products screen after a short delay
-              Future.delayed(const Duration(milliseconds: 500), () {
-                if (mounted) {
-                  context.go(AppRouter.products);
-                }
-              });
-            }
-          }
+          //   if (!hasSeenProducts) {
+          //     // Navigate to products screen after a short delay
+          //     Future.delayed(const Duration(milliseconds: 500), () {
+          //       if (mounted) {
+          //         context.go(AppRouter.products);
+          //       }
+          //     });
+          //   }
+          // }
         }
       } else {
         // Update existing category
@@ -445,10 +439,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Removed OnboardingTooltip widget
-
-          // Completion message (if needed)
-          if (_showCompletion) const OnboardingCompletion(),
 
           Row(
             children: [

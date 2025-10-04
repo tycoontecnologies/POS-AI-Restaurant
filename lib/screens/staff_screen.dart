@@ -3,13 +3,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:pos/components/ui/custom_input.dart';
-import 'package:pos/components/ui/onboarding_completion.dart';
-import 'package:pos/components/ui/onboarding_tooltip.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
-import 'package:pos/routes/app_router.dart';
 import 'package:pos/utils/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
@@ -34,8 +30,6 @@ class _StaffScreenState extends State<StaffScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingMore = false;
-  final bool _showCompletion = false;
-  bool _hasData = false;
   bool _initialLoadComplete = false;
   bool _isProcessing = false;
 
@@ -203,7 +197,6 @@ class _StaffScreenState extends State<StaffScreen> {
     final provider = Provider.of<StaffProvider>(context, listen: false);
     await provider.loadStaff();
     setState(() {
-      _hasData = provider.staff.isNotEmpty;
       _initialLoadComplete = true;
     });
   }
@@ -531,21 +524,21 @@ class _StaffScreenState extends State<StaffScreen> {
         );
 
         // Check if this was the first staff added
-        if (item == null) {
-          final prefs = await SharedPreferences.getInstance();
-          final hasSeenSuppliers =
-              prefs.getBool('onboarding_suppliers_seen') ?? false;
+        // if (item == null) {
+        //   final prefs = await SharedPreferences.getInstance();
+        //   final hasSeenSuppliers =
+        //       prefs.getBool('onboarding_suppliers_seen') ?? false;
 
-          if (!hasSeenSuppliers) {
-            // ADD DELAY AND SAFETY CHECK
-            await Future.delayed(const Duration(milliseconds: 1000));
-            if (mounted && context.mounted) {
-              // MARK AS SEEN BEFORE NAVIGATING
-              await prefs.setBool('onboarding_suppliers_seen', true);
-              context.go(AppRouter.suppliers);
-            }
-          }
-        }
+        //   if (!hasSeenSuppliers) {
+        //     // ADD DELAY AND SAFETY CHECK
+        //     await Future.delayed(const Duration(milliseconds: 1000));
+        //     if (mounted && context.mounted) {
+        //       // MARK AS SEEN BEFORE NAVIGATING
+        //       await prefs.setBool('onboarding_suppliers_seen', true);
+        //       context.go(AppRouter.suppliers);
+        //     }
+        //   }
+        // }
       }
     } catch (e) {
       if (mounted) {

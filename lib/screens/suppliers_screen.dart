@@ -2,16 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
-import 'package:pos/components/ui/onboarding_completion.dart';
-import 'package:pos/components/ui/onboarding_tooltip.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/models/supplier.dart';
-import 'package:pos/routes/app_router.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../components/ui/custom_button.dart';
 import '../components/ui/custom_card.dart';
 import '../components/ui/status_badge.dart';
@@ -34,8 +29,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
   late SupplierProvider _supplierProvider;
   String _searchQuery = '';
   StreamSubscription<List<Supplier>>? _subscription;
-  bool _showCompletion = false;
-  bool _hasData = false;
   final formKey = GlobalKey<FormState>();
 
   @override
@@ -64,7 +57,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
 
   Future<void> _checkIfHasData() async {
     setState(() {
-      _hasData = _supplierProvider.suppliers.isNotEmpty;
     });
   }
 
@@ -317,28 +309,28 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           );
 
           // Check if this was the first supplier added
-          if (item == null) {
-            final prefs = await SharedPreferences.getInstance();
-            final hasCompletedOnboarding =
-                prefs.getBool('onboarding_completed') ?? false;
+          // if (item == null) {
+          //   final prefs = await SharedPreferences.getInstance();
+          //   final hasCompletedOnboarding =
+          //       prefs.getBool('onboarding_completed') ?? false;
 
-            if (!hasCompletedOnboarding) {
-              // Mark onboarding as completed
-              await prefs.setBool('onboarding_completed', true);
+          //   if (!hasCompletedOnboarding) {
+          //     // Mark onboarding as completed
+          //     await prefs.setBool('onboarding_completed', true);
 
-              // Show completion message and navigate to dashboard
-              setState(() {
-                _showCompletion = true;
-              });
+          //     // Show completion message and navigate to dashboard
+          //     setState(() {
+          //       _showCompletion = true;
+          //     });
 
-              // Navigate to dashboard after 3 seconds
-              Future.delayed(const Duration(seconds: 3), () {
-                if (mounted) {
-                  context.go(AppRouter.dashboard);
-                }
-              });
-            }
-          }
+          //     // Navigate to dashboard after 3 seconds
+          //     Future.delayed(const Duration(seconds: 3), () {
+          //       if (mounted) {
+          //         context.go(AppRouter.dashboard);
+          //       }
+          //     });
+          //   }
+          // }
         }
       } else {
         await _supplierProvider.updateSupplier(result);
@@ -431,16 +423,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (!_hasData && !_showCompletion)
-                OnboardingTooltip(
-                  screenKey: 'suppliers',
-                  title: 'Add Supplier',
-                  description:
-                      'From here, you can add your suppliers to manage your vendor relationships. Suppliers provide the products you sell.',
-                ),
-
-              // Completion message
-              if (_showCompletion) const OnboardingCompletion(),
 
               Row(
                 children: [

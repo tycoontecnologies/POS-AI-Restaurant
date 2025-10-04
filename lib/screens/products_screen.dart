@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:pos/components/ui/onboarding_completion.dart';
-import 'package:pos/components/ui/onboarding_tooltip.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/providers/category_provider.dart';
 import 'package:pos/routes/app_router.dart';
@@ -36,8 +34,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingMore = false;
   List<String> _categories = [];
-  final bool _showCompletion = false;
-  bool _hasData = false;
 
   final List<String> _units = ['piece', 'kg', 'litre', 'pack', 'box'];
   final _formKey = GlobalKey<FormState>();
@@ -213,11 +209,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (authProvider.currentUser != null && productProvider.products.isEmpty) {
       await productProvider.loadProducts(authProvider.currentUser!.id);
       setState(() {
-        _hasData = productProvider.products.isNotEmpty;
       });
     } else {
       setState(() {
-        _hasData = productProvider.products.isNotEmpty;
       });
     }
   }
@@ -585,18 +579,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
         );
 
         // Check if this was the first product added
-        if (item == null) {
-          final prefs = await SharedPreferences.getInstance();
-          final hasSeenStaff = prefs.getBool('onboarding_staff_seen') ?? false;
+        // if (item == null) {
+        //   final prefs = await SharedPreferences.getInstance();
+        //   final hasSeenStaff = prefs.getBool('onboarding_staff_seen') ?? false;
 
-          if (!hasSeenStaff) {
-            Future.delayed(const Duration(milliseconds: 500), () {
-              if (mounted) {
-                context.go(AppRouter.staff);
-              }
-            });
-          }
-        }
+        //   if (!hasSeenStaff) {
+        //     Future.delayed(const Duration(milliseconds: 500), () {
+        //       if (mounted) {
+        //         context.go(AppRouter.staff);
+        //       }
+        //     });
+        //   }
+        // }
       }
     } catch (e) {
       if (mounted) {
