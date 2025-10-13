@@ -27,13 +27,13 @@ class ProductProvider with ChangeNotifier {
       _products.clear();
       _lastDocument = null;
       _hasMore = true;
-      notifyListeners();
+      // notifyListeners();
     }
 
     try {
       final stream = ProductService.getProducts(
         vendorId,
-        limit: 20,
+        // limit: 20,
         lastDocument: _lastDocument,
       ).first;
 
@@ -58,7 +58,7 @@ class ProductProvider with ChangeNotifier {
       log('Error loading products: $e');
     } finally {
       _isLoading = false;
-      if (_products.isNotEmpty) {
+      if (_products.isNotEmpty || !loadMore) {
         notifyListeners();
       }
     }

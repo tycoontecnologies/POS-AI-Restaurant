@@ -11,13 +11,13 @@ class ProductService {
 
   static Stream<List<Product>> getProducts(
     String vendorId, {
-    int limit = 20,
+    // int limit = 20,
     DocumentSnapshot? lastDocument,
   }) {
     Query query = _firestore
         .collection(getVendorProductsPath(vendorId))
-        .orderBy('createdOn', descending: true)
-        .limit(limit);
+        .orderBy('createdOn', descending: true);
+    // .limit(limit);
 
     if (lastDocument != null) {
       query = query.startAfterDocument(lastDocument);

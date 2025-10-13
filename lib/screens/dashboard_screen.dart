@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
@@ -281,16 +283,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       );
 
                       // Filter categories to only show those with products > 0
-                      final categoriesWithProducts = categories.where((
-                        category,
-                      ) {
-                        final productsInCategory = productProvider.products
-                            .where(
-                              (product) => product.category == category.name,
-                            )
-                            .length;
-                        return productsInCategory > 0;
-                      }).toList();
+                      // final categoriesWithProducts = categories.where((
+                      //   category,
+                      // ) {
+                      //   final productsInCategory = productProvider.products
+                      //       .where(
+                      //         (product) => product.category == category.name,
+                      //       )
+                      //       .length;
+                      //   return productsInCategory > 0;
+                      // }).toList();
+                      // Remove this filtering section entirely
+                      final categoriesWithProducts = categories;
 
                       if (categoriesWithProducts.isEmpty) {
                         return Center(
@@ -388,7 +392,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (Responsive.isDesktop(context))
           Container(
             key: _quickActionsKey,
-            width: 300,
+            width: 325,
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
@@ -737,7 +741,7 @@ class _HoverableCategoryCardState extends State<HoverableCategoryCard> {
       case 'barbecue':
         return Icons.outdoor_grill;
       case 'seafood':
-        return Icons.set_meal; // closest match for fish/dish
+        return Icons.set_meal;
       case 'pizza':
         return Icons.local_pizza;
       case 'soups':
@@ -775,6 +779,15 @@ class _HoverableCategoryCardState extends State<HoverableCategoryCard> {
       case 'specials':
       case 'chef special':
         return Icons.star;
+      case 'extra toppings':
+        return Icons.add_circle_outline; // Represents add-ons
+      case 'paratha roll':
+        return Icons.flatware; // Represents desi/street food
+      case 'karahi':
+        return Icons.dinner_dining; // Reusing for main curry dish
+      case 'tawa special':
+        return Icons.local_dining; // Represents cooked/grilled items
+
       default:
         return Icons.category; // fallback icon
     }
@@ -838,9 +851,16 @@ class _HoverableCategoryCardState extends State<HoverableCategoryCard> {
                 builder: (context, productProvider, child) {
                   final productsInCategory = productProvider.products
                       .where(
-                        (product) => product.category == widget.category.name,
+                        (product) =>
+                            product.category.trim().toLowerCase() ==
+                            widget.category.name.trim().toLowerCase(),
                       )
                       .length;
+
+                  log(
+                    'Category: ${widget.category.name}, Products: ${productProvider.products.length}',
+                  );
+
                   return Text(
                     '$productsInCategory ${productsInCategory == 1 ? 'product' : 'products'}',
                     style: TextStyle(fontSize: 13, color: Colors.grey.shade600),

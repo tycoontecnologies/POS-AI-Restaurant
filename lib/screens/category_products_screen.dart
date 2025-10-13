@@ -51,7 +51,9 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     if (vendorId != null &&
         _productProvider.products.isEmpty &&
         !_productProvider.isLoading) {
-      _productProvider.loadProducts(vendorId);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _productProvider.loadProducts(vendorId);
+      });
     }
   }
 
@@ -164,10 +166,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                   _buildDetailRow("Category:", product.category),
                   _buildDetailRow("Unit:", product.unit),
                   if (product.hasVariants) ...[
-                    _buildDetailRow(
-                      "Base Price",
-                      product.salePrice.toStringAsFixed(0),
-                    ),
                     _buildDetailRow(
                       "Total Stock:",
                       '${product.totalVariantQuantity} ${product.unit}',
@@ -801,14 +799,15 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                               ),
                                             ],
                                           ),
-                                          Text(
-                                            'Rs ${product.salePrice.toStringAsFixed(0)}',
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.primary,
+                                          if (product.variants.isEmpty)
+                                            Text(
+                                              'Rs ${product.salePrice.toStringAsFixed(0)}',
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.primary,
+                                              ),
                                             ),
-                                          ),
                                         ],
                                       ),
                                       const SizedBox(height: 12),

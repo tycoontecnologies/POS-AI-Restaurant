@@ -319,7 +319,6 @@ class _StaffScreenState extends State<StaffScreen> {
                       CustomInput(
                         label: 'Daily Wage',
                         controller: wageCtrl,
-                        prefixIcon: const Icon(Icons.attach_money),
                         validator: validateWage,
                       ),
                       const SizedBox(height: AppSpacing.sm),

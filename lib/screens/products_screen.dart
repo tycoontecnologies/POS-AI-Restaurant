@@ -208,11 +208,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
     if (authProvider.currentUser != null && productProvider.products.isEmpty) {
       await productProvider.loadProducts(authProvider.currentUser!.id);
-      setState(() {
-      });
+      setState(() {});
     } else {
-      setState(() {
-      });
+      setState(() {});
     }
   }
 
@@ -408,7 +406,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   const TextInputType.numberWithOptions(
                                     decimal: true,
                                   ),
-                              prefixIcon: const Icon(Icons.attach_money),
                             ),
                           ),
                           const SizedBox(width: AppSpacing.md),
@@ -789,7 +786,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             DataColumn(label: Text(l10n.category)),
             DataColumn(label: Text(l10n.unit)),
             DataColumn(label: Text(l10n.salePrice)),
-            DataColumn(label: Text(l10n.purchasePrice)),
+            // DataColumn(label: Text(l10n.purchasePrice)),
             DataColumn(label: Text(l10n.quantity)),
             DataColumn(label: Text('Variants')),
             DataColumn(label: Text(l10n.status)),
@@ -806,9 +803,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     DataCell(Text(entry.value.category)),
                     DataCell(Text(entry.value.unit)),
                     DataCell(Text(entry.value.salePrice.toStringAsFixed(0))),
-                    DataCell(
-                      Text(entry.value.purchasePrice.toStringAsFixed(0)),
-                    ),
+                    // DataCell(
+                    //   Text(entry.value.purchasePrice.toStringAsFixed(0)),
+                    // ),
                     DataCell(
                       Row(
                         mainAxisSize: MainAxisSize.min,

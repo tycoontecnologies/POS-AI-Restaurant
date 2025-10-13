@@ -32,7 +32,6 @@ class _SimpleVariantManagerState extends State<SimpleVariantManager> {
     _variants = List.from(widget.variants);
   }
 
-
   void _showCustomVariantDialog() {
     showDialog(
       context: context,
@@ -175,7 +174,8 @@ class _SimpleVariantManagerState extends State<SimpleVariantManager> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                (widget.basePrice + variant.priceModifier).toStringAsFixed(0),
+                                (widget.basePrice + variant.priceModifier)
+                                    .toStringAsFixed(0),
                                 style: AppTypography.labelSmall.copyWith(
                                   color: AppColors.grey800,
                                   fontWeight: FontWeight.w600,
@@ -271,7 +271,6 @@ class _CustomVariantDialogState extends State<_CustomVariantDialog> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    prefixIcon: const Icon(Icons.attach_money, size: 20),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
