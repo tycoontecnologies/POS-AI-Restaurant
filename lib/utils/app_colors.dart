@@ -7,8 +7,6 @@ class AppColors {
   static const Color primaryLight = Color(0xFF818CF8);
   static const Color primaryDark = Color(0xFF4F46E5);
 
-  
-
   static const Color secondary = Color(
     0xFF06B6D4,
   ); // Cyan - more modern than emerald

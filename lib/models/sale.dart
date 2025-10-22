@@ -4,6 +4,7 @@ class Sale {
   final List<SaleItem> items;
   final double total;
   final DateTime createdAt;
+  final String? tableNumber;
 
   Sale({
     required this.id,
@@ -11,6 +12,7 @@ class Sale {
     required this.items,
     required this.total,
     required this.createdAt,
+    this.tableNumber,
   });
 
   Map<String, dynamic> toMap() {
@@ -20,6 +22,7 @@ class Sale {
       'items': items.map((item) => item.toMap()).toList(),
       'total': total,
       'createdAt': createdAt.millisecondsSinceEpoch,
+      'tableNumber': tableNumber,
     };
   }
 
@@ -32,6 +35,7 @@ class Sale {
       ),
       total: (map['total'] ?? 0.0).toDouble(),
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt'] ?? 0),
+      tableNumber: map['tableNumber'] as String?,
     );
   }
 }

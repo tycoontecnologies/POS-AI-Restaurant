@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
-import 'package:pos/models/supplier.dart';
+import 'package:pos/models/customer.dart';
+import 'package:pos/models/review.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import '../components/ui/custom_button.dart';
@@ -13,35 +14,41 @@ import '../components/ui/status_badge.dart';
 import '../components/ui/search_bar_widget.dart';
 import '../components/ui/data_table_widget.dart';
 import '../utils/app_spacing.dart';
-import '../providers/supplier_provider.dart';
+import '../providers/customer_provider.dart';
 import '../utils/app_colors.dart';
 
-class SuppliersScreen extends StatefulWidget {
-  const SuppliersScreen({super.key});
+class CustomersScreen extends StatefulWidget {
+  const CustomersScreen({super.key});
 
   @override
-  State<SuppliersScreen> createState() => _SuppliersScreenState();
+  State<CustomersScreen> createState() => _CustomersScreenState();
 }
 
-class _SuppliersScreenState extends State<SuppliersScreen> {
+class _CustomersScreenState extends State<CustomersScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  late SupplierProvider _supplierProvider;
+  late CustomerProvider _customerProvider;
   String _searchQuery = '';
-  StreamSubscription<List<Supplier>>? _subscription;
+  StreamSubscription<List<Customer>>? _subscription;
+  StreamSubscription<List<Review>>? _reviewSubscription;
   final formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
 
-    _supplierProvider = Provider.of<SupplierProvider>(context, listen: false);
+    _customerProvider = Provider.of<CustomerProvider>(context, listen: false);
 
-    _subscription = _supplierProvider.getSuppliersStream().listen((suppliers) {
-      _supplierProvider.setSuppliers(suppliers);
-      // Check if has data after suppliers are loaded
-      _checkIfHasData();
-      setState(() {}); // To trigger rebuild
+    _subscription = _customerProvider.getCustomersStream().listen((customers) {
+      _customerProvider.setCustomers(customers);
+      setState(() {});
+    });
+
+    _reviewSubscription = _customerProvider.getReviewsStream().listen((
+      reviews,
+    ) {
+      _customerProvider.setReviews(reviews);
+      setState(() {});
     });
 
     _searchController.addListener(_applyFilter);
@@ -49,47 +56,39 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
 
   @override
   void dispose() {
-    _subscription?.cancel(); // Clean up the stream
+    _subscription?.cancel();
+    _reviewSubscription?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  Future<void> _checkIfHasData() async {
-    setState(() {});
   }
 
   void _applyFilter() {
     setState(() {
       _searchQuery = _searchController.text.toLowerCase();
     });
-    _supplierProvider.filterSuppliers(_searchQuery);
+    _customerProvider.filterCustomers(_searchQuery);
   }
 
-  void _createOrEdit({Supplier? item}) async {
-    final l10n = AppLocalizations.of(context)!;
+  void _createOrEdit({Customer? item}) async {
     final nameCtrl = TextEditingController(text: item?.name ?? '');
+    final emailCtrl = TextEditingController(text: item?.email ?? '');
     final phoneCtrl = TextEditingController(text: item?.phone ?? '');
     final addressCtrl = TextEditingController(text: item?.address ?? '');
-    final toReceiveCtrl = TextEditingController(
-      text: item?.amountToReceive.toStringAsFixed(0) ?? '0.00',
-    );
-    final toPayCtrl = TextEditingController(
-      text: item?.amountToPay.toStringAsFixed(0) ?? '0.00',
-    );
+    final cityCtrl = TextEditingController(text: item?.city ?? '');
     bool active = item?.active ?? true;
     DateTime createdOn = item?.createdOn ?? DateTime.now();
 
-    final result = await showDialog<Supplier>(
+    final result = await showDialog<Customer>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
             backgroundColor: const Color(0xFFFDFDFE),
             surfaceTintColor: Colors.transparent,
-            title: Text(item == null ? l10n.addSupplier : l10n.editSupplier),
+            title: Text(item == null ? 'Add Customer' : 'Edit Customer'),
             content: Form(
-              key: formKey, // <-- GlobalKey<FormState>
+              key: formKey,
               child: SizedBox(
                 width: 520,
                 child: SingleChildScrollView(
@@ -110,7 +109,25 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                         },
                       ),
                       const SizedBox(height: AppSpacing.md),
-
+                      TextFormField(
+                        controller: emailCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Email (Optional)',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (value) {
+                          if (value != null && value.trim().isNotEmpty) {
+                            if (!RegExp(
+                              r'^[^@]+@[^@]+\.[^@]+',
+                            ).hasMatch(value)) {
+                              return 'Enter a valid email';
+                            }
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.md),
                       Theme(
                         data: Theme.of(context).copyWith(
                           inputDecorationTheme: InputDecorationTheme(
@@ -135,19 +152,13 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                             if (value == null || value.isEmpty) {
                               return 'Phone number is required';
                             }
-
-                            // Extract just the digits for validation
                             final digitsOnly = value.replaceAll(
                               RegExp(r'[^0-9]'),
                               '',
                             );
-
-                            // Check if we have a reasonable number of digits
-                            // (country code + phone number, typically at least 8 digits)
                             if (digitsOnly.length < 8) {
                               return 'Please enter a valid phone number';
                             }
-
                             return null;
                           },
                           builder: (field) => IntlPhoneField(
@@ -157,93 +168,50 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                               labelText: 'Phone Number',
                             ),
                             initialCountryCode: 'PK',
-                            // disableLengthCheck: true,
-                            keyboardType:
-                                TextInputType.phone, // Numeric keyboard
+                            keyboardType: TextInputType.phone,
                             inputFormatters: [
-                              FilteringTextInputFormatter
-                                  .digitsOnly, // Only allow digits
+                              FilteringTextInputFormatter.digitsOnly,
                             ],
                             onChanged: (phone) {
-                              // Set full number for backend use
                               phoneCtrl.text = phone.completeNumber;
-
-                              // Notify FormField about the change
                               field.didChange(phone.completeNumber);
                             },
                           ),
                         ),
                       ),
                       const SizedBox(height: AppSpacing.md),
-
                       TextFormField(
                         controller: addressCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Address',
+                          border: OutlineInputBorder(),
+                        ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
                             return 'Address is required';
                           }
                           return null;
                         },
-                        decoration: const InputDecoration(
-                          labelText: 'Address',
-                          border: OutlineInputBorder(),
-                        ),
                       ),
                       const SizedBox(height: AppSpacing.md),
-
                       Row(
                         children: [
                           Expanded(
                             child: TextFormField(
-                              controller: toReceiveCtrl,
+                              controller: cityCtrl,
                               decoration: const InputDecoration(
-                                labelText: 'Receiveable',
+                                labelText: 'City',
                                 border: OutlineInputBorder(),
                               ),
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              validator: (value) {
-                                if (value != null && value.isNotEmpty) {
-                                  if (double.tryParse(value) == null) {
-                                    return 'Enter valid amount';
-                                  }
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: TextFormField(
-                              controller: toPayCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Payable',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              validator: (value) {
-                                if (value != null && value.isNotEmpty) {
-                                  if (double.tryParse(value) == null) {
-                                    return 'Enter valid amount';
-                                  }
-                                }
-                                return null;
-                              },
                             ),
                           ),
                         ],
                       ),
-
                       const SizedBox(height: AppSpacing.md),
                       Row(
                         children: [
                           Text(
-                            l10n.active,
+                            'Active',
                             style: Theme.of(context).textTheme.labelLarge,
                           ),
                           const Spacer(),
@@ -260,26 +228,30 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
             ),
             actions: [
               CustomButton(
-                text: l10n.cancel,
+                text: 'Cancel',
                 variant: ButtonVariant.text,
                 onPressed: () => Navigator.pop(context),
               ),
               CustomButton(
-                text: l10n.save,
+                text: 'Save',
                 onPressed: () {
                   if (formKey.currentState!.validate()) {
                     Navigator.pop(
                       context,
-                      Supplier(
+                      Customer(
                         id: item?.id ?? '',
                         name: nameCtrl.text.trim(),
+                        email: emailCtrl.text.trim().isEmpty
+                            ? null
+                            : emailCtrl.text.trim(),
                         phone: phoneCtrl.text.trim(),
                         address: addressCtrl.text.trim(),
+                        city: cityCtrl.text.trim().isEmpty
+                            ? null
+                            : cityCtrl.text.trim(),
                         active: active,
                         createdOn: createdOn,
-                        amountToReceive:
-                            double.tryParse(toReceiveCtrl.text) ?? 0.0,
-                        amountToPay: double.tryParse(toPayCtrl.text) ?? 0.0,
+                        totalSpent: item?.totalSpent ?? 0.0,
                       ),
                     );
                   }
@@ -295,49 +267,23 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
 
     try {
       if (item == null) {
-        await _supplierProvider.addSupplier(result);
+        await _customerProvider.addCustomer(result);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               duration: Duration(seconds: 1),
-              content: Text(
-                '${l10n.supplier} ${item == null ? l10n.addedSuccessfully : l10n.updatedSuccessfully}',
-              ),
+              content: Text('Customer added successfully'),
               backgroundColor: AppColors.success,
             ),
           );
-
-          // Check if this was the first supplier added
-          // if (item == null) {
-          //   final prefs = await SharedPreferences.getInstance();
-          //   final hasCompletedOnboarding =
-          //       prefs.getBool('onboarding_completed') ?? false;
-
-          //   if (!hasCompletedOnboarding) {
-          //     // Mark onboarding as completed
-          //     await prefs.setBool('onboarding_completed', true);
-
-          //     // Show completion message and navigate to dashboard
-          //     setState(() {
-          //       _showCompletion = true;
-          //     });
-
-          //     // Navigate to dashboard after 3 seconds
-          //     Future.delayed(const Duration(seconds: 3), () {
-          //       if (mounted) {
-          //         context.go(AppRouter.dashboard);
-          //       }
-          //     });
-          //   }
-          // }
         }
       } else {
-        await _supplierProvider.updateSupplier(result);
+        await _customerProvider.updateCustomer(result);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               duration: Duration(seconds: 1),
-              content: Text('${l10n.supplier} ${l10n.updatedSuccessfully}'),
+              content: Text('Customer updated successfully'),
               backgroundColor: AppColors.success,
             ),
           );
@@ -347,8 +293,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            duration: Duration(seconds: 1),
-            content: Text('${l10n.error}: $e'),
+            duration: const Duration(seconds: 1),
+            content: Text('Error: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -356,23 +302,22 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     }
   }
 
-  void _delete(Supplier s) async {
-    final l10n = AppLocalizations.of(context)!;
+  void _delete(Customer c) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFFFDFDFE),
         surfaceTintColor: Colors.transparent,
-        title: Text(l10n.deleteConfirmTitle(l10n.supplier)),
-        content: Text(l10n.deleteConfirmMessage(s.name)),
+        title: const Text('Delete Customer'),
+        content: Text('Are you sure you want to delete ${c.name}?'),
         actions: [
           CustomButton(
-            text: l10n.cancel,
+            text: 'Cancel',
             variant: ButtonVariant.text,
             onPressed: () => Navigator.pop(context, false),
           ),
           CustomButton(
-            text: l10n.delete,
+            text: 'Delete',
             color: AppColors.error,
             onPressed: () => Navigator.pop(context, true),
           ),
@@ -381,12 +326,12 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     );
     if (ok == true) {
       try {
-        await _supplierProvider.deleteSupplier(s.id);
+        await _customerProvider.deleteCustomer(c.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               duration: Duration(seconds: 1),
-              content: Text('${l10n.supplier} ${l10n.deletedSuccessfully}'),
+              content: Text('Customer deleted successfully'),
               backgroundColor: AppColors.success,
             ),
           );
@@ -395,8 +340,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              duration: Duration(seconds: 1),
-              content: Text('${l10n.errorDeleting} ${l10n.supplier}: $e'),
+              duration: const Duration(seconds: 1),
+              content: Text('Error deleting customer: $e'),
               backgroundColor: AppColors.error,
             ),
           );
@@ -405,20 +350,124 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     }
   }
 
+  void _viewReviews(Customer customer) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFFFDFDFE),
+        surfaceTintColor: Colors.transparent,
+        title: Text('Reviews for ${customer.name}'),
+        content: SizedBox(
+          width: 500,
+          child: StreamBuilder<List<Review>>(
+            stream: _customerProvider.getCustomerReviewsStream(customer.id),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final reviews = snapshot.data ?? [];
+
+              if (reviews.isEmpty) {
+                return const Center(child: Text('No reviews yet'));
+              }
+
+              return ListView.builder(
+                itemCount: reviews.length,
+                itemBuilder: (context, index) {
+                  final review = reviews[index];
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  review.customerName,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              Row(
+                                children: List.generate(
+                                  5,
+                                  (i) => Icon(
+                                    i < review.rating
+                                        ? Icons.star
+                                        : Icons.star_outline,
+                                    color: Colors.amber,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            review.feedback,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            'Posted: ${review.createdOn.toLocal()}',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: AppColors.grey600),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.delete, size: 18),
+                                onPressed: () {
+                                  _customerProvider.deleteReview(review.id);
+                                  Navigator.pop(context);
+                                },
+                                style: IconButton.styleFrom(
+                                  backgroundColor: AppColors.error.withOpacity(
+                                    0.1,
+                                  ),
+                                  foregroundColor: AppColors.error,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          CustomButton(
+            text: 'Close',
+            variant: ButtonVariant.text,
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return Consumer<SupplierProvider>(
+    return Consumer<CustomerProvider>(
       builder: (context, provider, child) {
-        List<Supplier> suppliers = provider.filteredSuppliers;
-        // Update filtered suppliers when data changes
-        if (suppliers.isEmpty && provider.suppliers.isNotEmpty) {
-          suppliers = List.from(provider.suppliers);
+        List<Customer> customers = provider.filteredCustomers;
+        if (customers.isEmpty && provider.customers.isNotEmpty) {
+          customers = List.from(provider.customers);
         }
 
         return Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -429,7 +478,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          l10n.suppliers,
+                          'Customers',
                           style: Theme.of(context).textTheme.headlineMedium
                               ?.copyWith(
                                 fontWeight: FontWeight.w700,
@@ -438,7 +487,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                         ),
                         const SizedBox(height: AppSpacing.xs),
                         Text(
-                          'Manage your suppliers and vendors',
+                          'Manage your customers and their feedback',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppColors.grey600),
                         ),
@@ -446,26 +495,23 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                     ),
                   ),
                   CustomButton(
-                    text: l10n.addSupplier,
-                    icon: Icons.add_business,
+                    text: 'Add Customer',
+                    icon: Icons.person_add,
                     onPressed: () => _createOrEdit(),
                   ),
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-
               SearchBarWidget(
                 controller: _searchController,
-                hint: '${l10n.search} ${l10n.suppliers}...',
+                hint: 'Search customers...',
                 onChanged: (_) => _applyFilter(),
                 onClear: () {
                   _searchController.clear();
                   _applyFilter();
                 },
               ),
-
               const SizedBox(height: AppSpacing.sm),
-
               Expanded(child: _buildContent(provider, l10n)),
             ],
           ),
@@ -474,27 +520,27 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     );
   }
 
-  Widget _buildContent(SupplierProvider provider, AppLocalizations l10n) {
-    final suppliers = provider.filteredSuppliers;
+  Widget _buildContent(CustomerProvider provider, AppLocalizations l10n) {
+    final customers = provider.filteredCustomers;
 
     if (provider.isLoading) {
       return _buildShimmerTable();
     }
 
-    if (provider.suppliers.isEmpty) {
+    if (provider.customers.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.business, size: 64, color: Colors.grey),
+            Icon(Icons.person, size: 64, color: Colors.grey),
             const SizedBox(height: AppSpacing.md),
-            Text(
-              'No suppliers found',
-              style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+            const Text(
+              'No customers found',
+              style: TextStyle(fontSize: 18, color: Colors.grey),
             ),
             const SizedBox(height: AppSpacing.md),
             CustomButton(
-              text: 'Create First Supplier',
+              text: 'Create First Customer',
               onPressed: () => _createOrEdit(),
               variant: ButtonVariant.filled,
             ),
@@ -503,17 +549,16 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
       );
     }
 
-    // Handle search with no results
-    if (suppliers.isEmpty && _searchQuery.isNotEmpty) {
+    if (customers.isEmpty && _searchQuery.isNotEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.search_off, size: 64, color: Colors.grey),
             const SizedBox(height: AppSpacing.md),
-            Text(
-              'No suppliers found',
-              style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+            const Text(
+              'No customers found',
+              style: TextStyle(fontSize: 18, color: Colors.grey),
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
@@ -538,60 +583,40 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
       controller: _scrollController,
       child: DataTableWidget(
         columns: [
-          DataColumn(label: Text('#')),
-          DataColumn(label: Text(l10n.name)),
-          DataColumn(label: Text(l10n.contact)),
-          DataColumn(label: Text(l10n.receivable)),
-          DataColumn(label: Text(l10n.payable)),
-          DataColumn(label: Text(l10n.address)),
-          DataColumn(label: Text(l10n.createdOn)),
-          DataColumn(label: Text(l10n.actions)),
+          const DataColumn(label: Text('#')),
+          const DataColumn(label: Text('Name')),
+          const DataColumn(label: Text('Email')),
+          const DataColumn(label: Text('Phone')),
+          const DataColumn(label: Text('Address')),
+          const DataColumn(label: Text('Created')),
+          const DataColumn(label: Text('Actions')),
         ],
-        rows: suppliers.asMap().entries.map((entry) {
-          int index = entry.key + 1; // +1 to start from 1 instead of 0
-          var e = entry.value;
+        rows: customers.asMap().entries.map((entry) {
+          int index = entry.key + 1;
+          var c = entry.value;
           return DataRow(
             cells: [
-              DataCell(Text(index.toString())), // <-- Your numbered entry here
-              DataCell(Text(e.name)),
-              DataCell(Text(e.phone)),
-              DataCell(
-                Text(
-                  e.amountToReceive.toStringAsFixed(0),
-                  style: TextStyle(
-                    color: e.amountToReceive > 0
-                        ? Colors.green
-                        : AppColors.grey600,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              DataCell(
-                Text(
-                  e.amountToPay.toStringAsFixed(0),
-                  style: TextStyle(
-                    color: e.amountToPay > 0 ? Colors.red : AppColors.grey600,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+              DataCell(Text(index.toString())),
+              DataCell(Text(c.name)),
+              DataCell(Text(c.email ?? 'No email')),
+              DataCell(Text(c.phone)),
               DataCell(
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 200),
+                  constraints: const BoxConstraints(maxWidth: 150),
                   child: Text(
-                    e.address.trim().isNotEmpty ? e.address : "N/A",
+                    c.address,
                     overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
+                    maxLines: 1,
                   ),
                 ),
               ),
-              DataCell(Text('${e.createdOn.toLocal()}'.split(' ').first)),
-              DataCell(_rowActions(e)),
+              DataCell(Text('${c.createdOn.toLocal()}'.split(' ').first)),
+              DataCell(_rowActions(c)),
             ],
           );
         }).toList(),
         mobileItemBuilder: (context, index) {
-          final s = suppliers[index];
+          final c = customers[index];
           return CustomCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -600,57 +625,31 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        s.name,
+                        c.name,
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.w600),
                       ),
                     ),
                     StatusBadge(
-                      text: s.active ? l10n.active : l10n.inactive,
-                      variant: s.active
+                      text: c.active ? 'Active' : 'Inactive',
+                      variant: c.active
                           ? BadgeVariant.success
                           : BadgeVariant.neutral,
                     ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                Text('${l10n.contact}: ${s.phone}'),
+                Text('Email: ${c.email}'),
                 const SizedBox(height: AppSpacing.xs),
-                Row(
-                  children: [
-                    Text('${l10n.receivable}: '),
-                    Text(
-                      s.amountToReceive.toStringAsFixed(0),
-                      style: TextStyle(
-                        color: s.amountToReceive > 0 ? Colors.green : null,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+                Text('Phone: ${c.phone}'),
                 const SizedBox(height: AppSpacing.xs),
-                Row(
-                  children: [
-                    Text('${l10n.payable}: '),
-                    Text(
-                      s.amountToPay.toStringAsFixed(0),
-                      style: TextStyle(
-                        color: s.amountToPay > 0 ? Colors.red : null,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+                Text('Address: ${c.address}'),
                 const SizedBox(height: AppSpacing.xs),
-                Text('${l10n.address}: ${s.address}'),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '${l10n.createdOn}: ${'${s.createdOn.toLocal()}'.split(' ').first}',
-                ),
+                Text('Total Spent: ${c.totalSpent.toStringAsFixed(2)}'),
                 const SizedBox(height: AppSpacing.sm),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
-                  children: [_rowActions(s)],
+                  children: [_rowActions(c)],
                 ),
               ],
             ),
@@ -660,15 +659,24 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     );
   }
 
-  Widget _rowActions(Supplier s) {
-    final l10n = AppLocalizations.of(context)!;
+  Widget _rowActions(Customer c) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: l10n.edit,
+          tooltip: 'View Reviews',
+          icon: const Icon(Icons.rate_review, size: 18),
+          onPressed: () => _viewReviews(c),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.blue.withOpacity(0.1),
+            foregroundColor: Colors.blue,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        IconButton(
+          tooltip: 'Edit',
           icon: const Icon(Icons.edit, size: 18),
-          onPressed: () => _createOrEdit(item: s),
+          onPressed: () => _createOrEdit(item: c),
           style: IconButton.styleFrom(
             backgroundColor: AppColors.primary.withOpacity(0.1),
             foregroundColor: AppColors.primary,
@@ -676,9 +684,9 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         ),
         const SizedBox(width: AppSpacing.xs),
         IconButton(
-          tooltip: l10n.delete,
+          tooltip: 'Delete',
           icon: const Icon(Icons.delete, size: 18),
-          onPressed: () => _delete(s),
+          onPressed: () => _delete(c),
           style: IconButton.styleFrom(
             backgroundColor: AppColors.error.withOpacity(0.1),
             foregroundColor: AppColors.error,
@@ -713,7 +721,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   Expanded(
                     child: ShimmerEffect(width: double.infinity, height: 20),
                   ),
-                  SizedBox(width: AppSpacing.sm),
+                  const SizedBox(width: AppSpacing.sm),
                   ShimmerEffect(
                     width: 60,
                     height: 24,
@@ -721,13 +729,13 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   ),
                 ],
               ),
-              SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.sm),
               ShimmerEffect(width: 120, height: 16),
-              SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.sm),
               ShimmerEffect(width: 100, height: 16),
-              SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.sm),
               ShimmerEffect(width: 150, height: 16),
-              SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.sm),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -736,7 +744,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                     height: 36,
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  SizedBox(width: AppSpacing.xs),
+                  const SizedBox(width: AppSpacing.xs),
                   ShimmerEffect(
                     width: 36,
                     height: 36,

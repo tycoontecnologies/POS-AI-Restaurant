@@ -1,13 +1,14 @@
+import 'dart:typed_data';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/providers/category_provider.dart';
-import 'package:pos/routes/app_router.dart';
+import 'package:pos/services/image_upload_service.dart';
 import 'package:pos/utils/app_typography.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+// import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import '../models/product.dart';
 import '../providers/product_provider.dart';
 import '../providers/auth_provider.dart';
@@ -21,6 +22,10 @@ import '../components/ui/search_bar_widget.dart';
 import '../components/ui/simple_variant_manager.dart';
 import '../utils/app_spacing.dart';
 import '../utils/app_colors.dart';
+import 'package:pos/providers/ingredient_provider.dart';
+import 'package:pos/providers/recipe_provider.dart';
+import 'package:pos/models/ingredient.dart';
+import 'package:pos/models/recipe.dart';
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -39,7 +44,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   final _formKey = GlobalKey<FormState>();
 
   // Tutorial coach mark controller and targets
-  TutorialCoachMark? tutorialCoachMark;
+  // TutorialCoachMark? tutorialCoachMark;
   final GlobalKey _addButtonKey = GlobalKey();
   final GlobalKey _searchBarKey = GlobalKey();
   final GlobalKey _productsTableKey = GlobalKey();
@@ -50,154 +55,158 @@ class _ProductsScreenState extends State<ProductsScreen> {
     _searchController.addListener(_onSearchChanged);
     _scrollController.addListener(_onScroll);
     _loadCategories();
-    _checkAndShowTutorial();
+    // _checkAndShowTutorial();
 
     // Load products in a single post-frame callback
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialProducts();
+      final auth = context.read<AuthProvider>();
+      if (auth.currentUser != null) {
+        context.read<IngredientProvider>().bindStream(auth.currentUser!.id);
+      }
     });
   }
 
-  Future<void> _checkAndShowTutorial() async {
-    final prefs = await SharedPreferences.getInstance();
-    final hasSeenTutorial = prefs.getBool('products_tutorial_seen') ?? false;
+  // Future<void> _checkAndShowTutorial() async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //   final hasSeenTutorial = prefs.getBool('products_tutorial_seen') ?? false;
 
-    if (!hasSeenTutorial) {
-      // Wait for the UI to build before showing the tutorial
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          _showTutorial(context);
-          prefs.setBool('products_tutorial_seen', true);
-        });
-      });
-    }
-  }
+  //   if (!hasSeenTutorial) {
+  //     // Wait for the UI to build before showing the tutorial
+  //     WidgetsBinding.instance.addPostFrameCallback((_) {
+  //       Future.delayed(const Duration(milliseconds: 500), () {
+  //         _showTutorial(context);
+  //         prefs.setBool('products_tutorial_seen', true);
+  //       });
+  //     });
+  //   }
+  // }
 
-  void _showTutorial(BuildContext context) {
-    tutorialCoachMark = TutorialCoachMark(
-      targets: _createTargets(),
-      colorShadow: Colors.black26,
-      textSkip: "SKIP",
-      paddingFocus: 10,
-      opacityShadow: 0.8,
-      onFinish: () {
-        print("Products tutorial completed");
-      },
-      onClickTarget: (target) {
-        print(target);
-      },
-      onSkip: () {
-        print("Products tutorial skipped");
-        return true;
-      },
-    );
+  // void _showTutorial(BuildContext context) {
+  //   tutorialCoachMark = TutorialCoachMark(
+  //     targets: _createTargets(),
+  //     colorShadow: Colors.black26,
+  //     textSkip: "SKIP",
+  //     paddingFocus: 10,
+  //     opacityShadow: 0.8,
+  //     onFinish: () {
+  //       print("Products tutorial completed");
+  //     },
+  //     onClickTarget: (target) {
+  //       print(target);
+  //     },
+  //     onSkip: () {
+  //       print("Products tutorial skipped");
+  //       return true;
+  //     },
+  //   );
 
-    tutorialCoachMark!.show(context: context);
-  }
+  //   tutorialCoachMark!.show(context: context);
+  // }
 
-  List<TargetFocus> _createTargets() {
-    return [
-      TargetFocus(
-        identify: "add_button",
-        keyTarget: _addButtonKey,
-        contents: [
-          TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    "Add Product",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Tap here to create new products for your inventory.",
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-        shape: ShapeLightFocus.RRect,
-        radius: 8,
-      ),
-      TargetFocus(
-        identify: "search_bar",
-        keyTarget: _searchBarKey,
-        contents: [
-          TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Search Products",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Use this search bar to quickly find products by name, category, or other attributes.",
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-        shape: ShapeLightFocus.RRect,
-        radius: 8,
-      ),
-      TargetFocus(
-        identify: "products_table",
-        keyTarget: _productsTableKey,
-        contents: [
-          TargetContent(
-            align: ContentAlign.top,
-            builder: (context, controller) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Products List",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Here you'll see all your products. You can edit, manage variants, or delete them using the action buttons.",
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-        shape: ShapeLightFocus.RRect,
-        radius: 8,
-      ),
-    ];
-  }
+  // List<TargetFocus> _createTargets() {
+  //   return [
+  //     TargetFocus(
+  //       identify: "add_button",
+  //       keyTarget: _addButtonKey,
+  //       contents: [
+  //         TargetContent(
+  //           align: ContentAlign.bottom,
+  //           builder: (context, controller) {
+  //             return Column(
+  //               mainAxisSize: MainAxisSize.min,
+  //               crossAxisAlignment: CrossAxisAlignment.end,
+  //               children: [
+  //                 Text(
+  //                   "Add Product",
+  //                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
+  //                     color: Colors.white,
+  //                     fontWeight: FontWeight.bold,
+  //                   ),
+  //                 ),
+  //                 const SizedBox(height: 8),
+  //                 Text(
+  //                   "Tap here to create new products for your inventory.",
+  //                   style: Theme.of(
+  //                     context,
+  //                   ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+  //                 ),
+  //               ],
+  //             );
+  //           },
+  //         ),
+  //       ],
+  //       shape: ShapeLightFocus.RRect,
+  //       radius: 8,
+  //     ),
+  //     TargetFocus(
+  //       identify: "search_bar",
+  //       keyTarget: _searchBarKey,
+  //       contents: [
+  //         TargetContent(
+  //           align: ContentAlign.bottom,
+  //           builder: (context, controller) {
+  //             return Column(
+  //               mainAxisSize: MainAxisSize.min,
+  //               crossAxisAlignment: CrossAxisAlignment.start,
+  //               children: [
+  //                 Text(
+  //                   "Search Products",
+  //                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
+  //                     color: Colors.white,
+  //                     fontWeight: FontWeight.bold,
+  //                   ),
+  //                 ),
+  //                 const SizedBox(height: 8),
+  //                 Text(
+  //                   "Use this search bar to quickly find products by name, category, or other attributes.",
+  //                   style: Theme.of(
+  //                     context,
+  //                   ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+  //                 ),
+  //               ],
+  //             );
+  //           },
+  //         ),
+  //       ],
+  //       shape: ShapeLightFocus.RRect,
+  //       radius: 8,
+  //     ),
+  //     TargetFocus(
+  //       identify: "products_table",
+  //       keyTarget: _productsTableKey,
+  //       contents: [
+  //         TargetContent(
+  //           align: ContentAlign.top,
+  //           builder: (context, controller) {
+  //             return Column(
+  //               mainAxisSize: MainAxisSize.min,
+  //               crossAxisAlignment: CrossAxisAlignment.start,
+  //               children: [
+  //                 Text(
+  //                   "Products List",
+  //                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
+  //                     color: Colors.white,
+  //                     fontWeight: FontWeight.bold,
+  //                   ),
+  //                 ),
+  //                 const SizedBox(height: 8),
+  //                 Text(
+  //                   "Here you'll see all your products. You can edit, manage variants, or delete them using the action buttons.",
+  //                   style: Theme.of(
+  //                     context,
+  //                   ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+  //                 ),
+  //               ],
+  //             );
+  //           },
+  //         ),
+  //       ],
+  //       shape: ShapeLightFocus.RRect,
+  //       radius: 8,
+  //     ),
+  //   ];
+  // }
 
   Future<void> _loadInitialProducts() async {
     final authProvider = context.read<AuthProvider>();
@@ -298,6 +307,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final authProvider = context.read<AuthProvider>();
     final productProvider = context.read<ProductProvider>();
     final categoryProvider = context.read<CategoryProvider>();
+    final ImageUploadService _imageUploadService = ImageUploadService();
 
     if (authProvider.currentUser == null) return;
 
@@ -326,7 +336,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
     bool isActive = item?.active ?? true;
     bool hasVariants = item?.hasVariants ?? false;
     List<ProductVariant> variants = List.from(item?.variants ?? []);
-    // List<ProductAttribute> attributes = List.from(item?.attributes ?? []);
+
+    // Add image variables
+    dynamic selectedImage;
+    String? imageError;
+    Uint8List? imageBytes;
+    String? existingImageUrl = item?.imageUrl;
 
     final result = await showDialog<_ProductFormResult>(
       context: context,
@@ -344,6 +359,23 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Image Upload Section
+                      _buildImageUploadSection(
+                        context,
+                        existingImageUrl,
+                        selectedImage,
+                        imageBytes,
+                        imageError,
+                        (file, bytes, error) {
+                          setDialogState(() {
+                            selectedImage = file;
+                            imageBytes = bytes;
+                            imageError = error;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+
                       CustomInput(
                         label: l10n.name,
                         controller: nameCtrl,
@@ -520,6 +552,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         active: isActive,
                         hasVariants: hasVariants,
                         variants: variants,
+                        imageFile: selectedImage,
+                        existingImageUrl: existingImageUrl,
                       ),
                     );
                   }
@@ -534,10 +568,23 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (result == null) return;
 
     try {
+      // Upload image if selected
+      String? imageUrl = result.existingImageUrl;
+      if (result.imageFile != null) {
+        // Delete old image if exists and new image is selected
+        if (result.existingImageUrl?.isNotEmpty == true) {
+          await _imageUploadService.deleteImage(result.existingImageUrl!);
+        }
+
+        imageUrl = await _imageUploadService.uploadProductImage(
+          imageFile: result.imageFile!,
+          vendorId: authProvider.currentUser!.id,
+          productId: item?.id ?? '', // For new products, ID will be generated
+        );
+      }
+
       final newProduct = Product(
-        id:
-            item?.id ??
-            '', // Will be replaced with auto-generated ID for new items
+        id: item?.id ?? '',
         name: result.name,
         category: result.category,
         unit: result.unit,
@@ -548,6 +595,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         hasVariants: result.hasVariants,
         variants: result.variants,
         attributes: [],
+        imageUrl: imageUrl ?? '', // Set the image URL
       );
 
       if (item == null) {
@@ -782,6 +830,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         child: DataTableWidget(
           columns: [
             DataColumn(label: Text('#')),
+            DataColumn(label: Text('Image')), // Add image column
             DataColumn(label: Text(l10n.name)),
             DataColumn(label: Text(l10n.category)),
             DataColumn(label: Text(l10n.unit)),
@@ -799,6 +848,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 (entry) => DataRow(
                   cells: [
                     DataCell(Text('${entry.key + 1}')),
+                    DataCell(
+                      _buildProductImage(entry.value.imageUrl),
+                    ), // Add image cell
                     DataCell(Text(entry.value.name)),
                     DataCell(Text(entry.value.category)),
                     DataCell(Text(entry.value.unit)),
@@ -866,41 +918,41 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 ),
               )
               .toList(),
+          // In mobileItemBuilder, add image at the top
           mobileItemBuilder: (context, index) {
             final item = products[index];
             return CustomCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${index + 1}. ${item.name}', // Serial number in mobile view
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
+                  // Product Image for mobile
+                  if (item.imageUrl.isNotEmpty)
+                    Container(
+                      width: double.infinity,
+                      height: 120,
+                      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: CachedNetworkImage(
+                          imageUrl: item.imageUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => ShimmerEffect(
+                            width: double.infinity,
+                            height: double.infinity,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: AppColors.grey100,
+                            child: const Icon(
+                              Icons.broken_image,
+                              size: 48,
+                              color: AppColors.grey400,
+                            ),
+                          ),
                         ),
                       ),
-                      StatusBadge(
-                        text: item.active ? l10n.active : l10n.inactive,
-                        variant: item.active
-                            ? BadgeVariant.success
-                            : BadgeVariant.neutral,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'ID: ${item.id} • ${item.category} • ${item.unit} • ${item.hasVariants ? 'Price: ${item.minPrice.toStringAsFixed(0)}-${item.maxPrice.toStringAsFixed(0)}' : 'SP: ${item.salePrice.toStringAsFixed(0)}'} • PP: ${item.purchasePrice.toStringAsFixed(0)} • Qty: ${item.hasVariants ? item.totalVariantQuantity : item.quantity}${item.hasVariants ? ' • ${item.variants.length} variants' : ''}',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [_rowActions(item)],
-                  ),
+                    ),
+                  // ... rest of mobile content ...
                 ],
               ),
             );
@@ -916,6 +968,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
+          tooltip: 'Manage Recipe',
+          icon: const Icon(Icons.restaurant_menu, size: 18),
+          onPressed: () => _openRecipeDialog(item),
+          style: IconButton.styleFrom(
+            backgroundColor: AppColors.secondary.withOpacity(0.1),
+            foregroundColor: AppColors.secondary,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        // Edit button
+        IconButton(
           tooltip: l10n.edit,
           icon: const Icon(Icons.edit, size: 18),
           onPressed: () => _createOrEdit(item: item),
@@ -925,6 +988,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
         ),
         const SizedBox(width: AppSpacing.xs),
+        // Delete button
         IconButton(
           tooltip: l10n.delete,
           icon: const Icon(Icons.delete, size: 18),
@@ -996,8 +1060,470 @@ class _ProductsScreenState extends State<ProductsScreen> {
       },
     );
   }
+
+  Future<void> _openRecipeDialog(Product product) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.currentUser == null) return;
+
+    final recipeProvider = context.read<RecipeProvider>();
+    final ingredientProvider = context.read<IngredientProvider>();
+    // Ensure latest recipe is loaded
+    final existing = await recipeProvider.loadRecipe(
+      auth.currentUser!.id,
+      product.id,
+    );
+
+    // Prepare local rows
+    final List<_RecipeRowItem> rows = (existing?.items ?? [])
+        .map(
+          (it) => _RecipeRowItem(
+            ingredientId: it.ingredientId,
+            quantity: it.quantityPerUnit,
+          ),
+        )
+        .toList();
+
+    final formKey = GlobalKey<FormState>();
+    int? producible() {
+      final r = recipeProvider.getRecipeCached(product.id);
+      if (r == null) return null;
+      return recipeProvider.computeUnitsProducible(
+        ingredientProvider.ingredients,
+        r,
+      );
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void addRow() => setDialogState(() => rows.add(_RecipeRowItem()));
+            void removeRow(int i) => setDialogState(() => rows.removeAt(i));
+
+            Future<void> save() async {
+              if (!(formKey.currentState?.validate() ?? false)) return;
+              // Build Recipe from rows
+              final items = <RecipeItem>[];
+              for (final r in rows) {
+                final ing = ingredientProvider.ingredients.firstWhere(
+                  (i) => i.id == r.ingredientId,
+                  orElse: () => Ingredient(
+                    id: '',
+                    name: '',
+                    unit: 'g',
+                    quantityInStock: 0,
+                  ),
+                );
+                if (ing.id.isEmpty) continue;
+                items.add(
+                  RecipeItem(
+                    ingredientId: ing.id,
+                    ingredientName: ing.name,
+                    unit: ing.unit,
+                    quantityPerUnit: r.quantity ?? 0,
+                  ),
+                );
+              }
+              final recipe = ProductRecipe(
+                productId: product.id,
+                productName: product.name,
+                items: items,
+              );
+              await recipeProvider.saveRecipe(auth.currentUser!.id, recipe);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    duration: Duration(seconds: 1),
+                    content: Text('Recipe saved'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+                Navigator.pop(context);
+              }
+            }
+
+            final currentUnits = producible();
+
+            return AlertDialog(
+              backgroundColor: const Color(0xFFFDFDFE),
+              surfaceTintColor: Colors.transparent,
+              title: Text('Manage Recipe • ${product.name}'),
+              content: SizedBox(
+                width: 720,
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Rows
+                        if (rows.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.sm,
+                            ),
+                            child: Text(
+                              'No ingredients yet. Click "Add Ingredient" to start.',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                        for (int i = 0; i < rows.length; i++)
+                          _RecipeInlineRow(
+                            key: ValueKey('recipe_row_$i'),
+                            row: rows[i],
+                            ingredients: ingredientProvider.ingredients,
+                            onRemove: () => removeRow(i),
+                          ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            if (currentUnits != null)
+                              Container(
+                                padding: const EdgeInsets.all(AppSpacing.sm),
+                                decoration: BoxDecoration(
+                                  color: AppColors.secondary.withOpacity(0.06),
+                                  borderRadius: BorderRadius.circular(
+                                    AppSpacing.radiusSm,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.factory,
+                                      color: AppColors.secondary,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            CustomButton(
+                              text: 'Add Ingredient',
+                              icon: Icons.add,
+                              onPressed: addRow,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                CustomButton(
+                  text: 'Close',
+                  variant: ButtonVariant.text,
+                  onPressed: () => Navigator.pop(context),
+                ),
+                CustomButton(text: 'Save Recipe', onPressed: save),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildImageUploadSection(
+    BuildContext context,
+    String? existingImageUrl,
+    dynamic selectedImage,
+    Uint8List? imageBytes,
+    String? error,
+    Function(dynamic, Uint8List?, String?) onImageSelected,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Product Image', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: AppSpacing.sm),
+
+        // Image Preview
+        Container(
+          width: double.infinity,
+          height: 150,
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.grey300),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: _buildImagePreview(
+            existingImageUrl,
+            selectedImage,
+            imageBytes,
+            onImageSelected,
+          ),
+        ),
+
+        // Error message
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
+            child: Text(
+              error,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.error),
+            ),
+          ),
+
+        // Upload buttons
+        if (selectedImage == null && (existingImageUrl?.isEmpty ?? true))
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
+            child: CustomButton(
+              text: 'Choose Image',
+              icon: Icons.photo_library,
+              onPressed: () => _pickImage(onImageSelected: onImageSelected),
+              variant: ButtonVariant.outlined,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildImagePreview(
+    String? existingImageUrl,
+    dynamic selectedImage,
+    Uint8List? imageBytes,
+    Function(dynamic, Uint8List?, String?) onImageSelected,
+  ) {
+    // Show selected image preview
+    if (selectedImage != null && imageBytes != null) {
+      return Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.memory(
+              imageBytes,
+              width: double.infinity,
+              height: double.infinity,
+              fit: BoxFit.contain,
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white, size: 20),
+              onPressed: () => onImageSelected(null, null, null),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black54,
+                padding: const EdgeInsets.all(4),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    // Show existing image from URL with CachedNetworkImage
+    else if (existingImageUrl?.isNotEmpty == true) {
+      return Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: CachedNetworkImage(
+              imageUrl: existingImageUrl!,
+              width: double.infinity,
+              height: double.infinity,
+              fit: BoxFit.contain,
+              placeholder: (context, url) => ShimmerEffect(
+                width: double.infinity,
+                height: double.infinity,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              errorWidget: (context, url, error) => const Center(
+                child: Icon(Icons.broken_image, size: 48, color: Colors.grey),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white, size: 20),
+              onPressed: () => onImageSelected(null, null, null),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black54,
+                padding: const EdgeInsets.all(4),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    // Show placeholder when no image is selected
+    else {
+      return const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.image, size: 48, color: Colors.grey),
+          SizedBox(height: AppSpacing.xs),
+          Text('No image selected', style: TextStyle(color: Colors.grey)),
+        ],
+      );
+    }
+  }
+
+  Future<void> _pickImage({
+    required Function(dynamic, Uint8List?, String?) onImageSelected,
+  }) async {
+    final ImageUploadService _imageUploadService = ImageUploadService();
+    try {
+      final imageFile = await _imageUploadService.pickImage();
+      if (imageFile != null) {
+        final validationError = _imageUploadService.validateImage(imageFile);
+
+        // Get image bytes for preview (for web)
+        Uint8List? imageBytes;
+        if (_isWeb()) {
+          imageBytes = await _imageUploadService.getFileBytes(imageFile);
+        }
+
+        onImageSelected(imageFile, imageBytes, validationError);
+      }
+    } catch (e) {
+      onImageSelected(null, null, 'Failed to pick image: $e');
+    }
+  }
+
+  // Check if running on web
+  bool _isWeb() {
+    return identical(0, 0.0);
+  }
+
+  Widget _buildProductImage(String imageUrl, {double size = 40}) {
+    if (imageUrl.isEmpty) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: AppColors.grey100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.inventory_2, color: AppColors.grey400),
+      );
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => ShimmerEffect(
+            width: double.infinity,
+            height: double.infinity,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          errorWidget: (context, url, error) => Container(
+            color: AppColors.grey100,
+            child: const Icon(Icons.broken_image, color: AppColors.grey400),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
+class _RecipeRowItem {
+  String? ingredientId;
+  double? quantity;
+  _RecipeRowItem({this.ingredientId, this.quantity});
+}
+
+class _RecipeInlineRow extends StatelessWidget {
+  const _RecipeInlineRow({
+    super.key,
+    required this.row,
+    required this.ingredients,
+    required this.onRemove,
+  });
+
+  final _RecipeRowItem row;
+  final List<Ingredient> ingredients;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    ingredients.where((i) => i.id == row.ingredientId).toList();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 4,
+            child: DropdownButtonFormField<String>(
+              value: row.ingredientId,
+              decoration: InputDecoration(
+                labelText: 'Ingredient',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+              ),
+              items: ingredients
+                  .map(
+                    (i) => DropdownMenuItem(
+                      value: i.id,
+                      child: Row(
+                        children: [
+                          if (i.isLowStock) ...[
+                            const Icon(
+                              Icons.warning,
+                              size: 16,
+                              color: AppColors.warning,
+                            ),
+                            const SizedBox(width: AppSpacing.xs),
+                          ],
+                          Text(i.name),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) => row.ingredientId = v,
+              validator: (v) =>
+                  (v == null || v.isEmpty) ? 'Select ingredient' : null,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            flex: 3,
+            child: TextFormField(
+              initialValue: row.quantity != null ? '${row.quantity}' : '',
+              decoration: InputDecoration(
+                labelText: 'Qty per Product',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              onChanged: (v) => row.quantity = double.tryParse(v),
+              validator: (v) {
+                final x = double.tryParse(v ?? '');
+                if (x == null || x <= 0) return 'Enter valid qty';
+                return null;
+              },
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          IconButton(
+            tooltip: 'Remove',
+            onPressed: onRemove,
+            icon: const Icon(Icons.remove_circle, color: AppColors.error),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Update the _ProductFormResult class
 class _ProductFormResult {
   _ProductFormResult({
     required this.name,
@@ -1009,7 +1535,8 @@ class _ProductFormResult {
     required this.active,
     required this.hasVariants,
     required this.variants,
-    // required this.attributes,
+    this.imageFile,
+    this.existingImageUrl,
   });
   final String name;
   final String category;
@@ -1020,5 +1547,6 @@ class _ProductFormResult {
   final bool active;
   final bool hasVariants;
   final List<ProductVariant> variants;
-  // final List<ProductAttribute> attributes;
+  final dynamic imageFile;
+  final String? existingImageUrl;
 }

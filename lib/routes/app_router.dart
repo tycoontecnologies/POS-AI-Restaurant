@@ -4,6 +4,7 @@ import 'package:pos/models/user.dart';
 import 'package:pos/providers/subscription_provider.dart';
 import 'package:pos/screens/auth/login_screen.dart';
 import 'package:pos/screens/auth/signup_screen.dart';
+import 'package:pos/screens/discounts_screen.dart';
 import 'package:pos/screens/payment_screen.dart';
 import 'package:pos/screens/payment_success_screen.dart';
 import 'package:pos/screens/pricing_screen.dart';
@@ -23,6 +24,8 @@ import '../screens/drafts_screen.dart';
 import '../screens/store_out_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/dashboard_screen.dart';
+import '../screens/ingredients_screen.dart';
+import '../screens/customers_screen.dart';
 import '../components/layout/main_shell.dart';
 
 class AppRouter {
@@ -37,15 +40,19 @@ class AppRouter {
   static const String purchases = '/purchases';
   static const String purchasesReturn = '/purchases-return';
   // static const String sales = '/sales';
-  static const String salesReturn = '/sales-return';
-  static const String drafts = '/drafts';
-  static const String storeOut = '/store-out';
-  static const String settings = '/settings';
   static const String salesRecord = '/sales-record';
   static const String categoryProducts = '/category-products';
   static const String pricing = '/pricing';
   static const String payment = '/payment';
   static const String paymentSuccess = '/payment-success';
+  static const String ingredients = '/ingredients';
+  static const String settings = '/settings';
+  static const String salesReturn = '/salesReturn';
+  static const String storeOut = '/storeOut';
+  static const String drafts = '/drafts';
+  static const String customers = '/customers';
+  static const String discounts = '/discounts';
+
   static final GoRouter router = GoRouter(
     initialLocation: login,
     routes: [
@@ -183,7 +190,24 @@ class AppRouter {
             builder: (context, state) =>
                 PaymentScreen(plan: state.pathParameters['plan']!),
           ),
-
+          GoRoute(
+            path: ingredients,
+            name: 'ingredients',
+            builder: (context, state) => const IngredientsScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
+          ),
+          GoRoute(
+            path: customers,
+            name: 'customers',
+            builder: (context, state) => const CustomersScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
+          ),
+          GoRoute(
+            path: discounts,
+            name: 'discounts',
+            builder: (context, state) => const DiscountsScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
+          ),
           GoRoute(
             path: paymentSuccess,
             name: 'payment-success',
@@ -328,6 +352,24 @@ class AppRouter {
         label: 'Store Out',
         route: storeOut,
         roles: [UserRole.admin, UserRole.staff],
+      ),
+      NavigationItem(
+        icon: Icons.kitchen,
+        label: 'Ingredients',
+        route: ingredients,
+        roles: [UserRole.admin],
+      ),
+      NavigationItem(
+        icon: Icons.person,
+        label: 'Customers',
+        route: customers,
+        roles: [UserRole.admin],
+      ),
+      NavigationItem(
+        icon: Icons.discount,
+        label: 'Discounts',
+        route: discounts,
+        roles: [UserRole.admin],
       ),
       NavigationItem(
         icon: Icons.settings,

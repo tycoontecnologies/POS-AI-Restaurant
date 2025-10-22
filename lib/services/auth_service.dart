@@ -18,6 +18,9 @@ class AuthService {
     required String password,
     required String name,
     required UserRole role,
+    required String location, // New parameter
+    required String phoneNo, // New parameter
+    required String restaurantName, // New parameter
   }) async {
     try {
       // Create user in Firebase Auth
@@ -28,7 +31,6 @@ class AuthService {
 
       final now = DateTime.now();
       final trialEndsAt = now.add(const Duration(days: 7));
-      // final trialEndsAt = now.add(const Duration(days: 7));
 
       // Create user document in Firestore
       final user = UserModel(
@@ -39,6 +41,9 @@ class AuthService {
         createdAt: now,
         trialEndsAt: trialEndsAt,
         subscriptionType: SubscriptionType.trial,
+        location: location, // New field
+        phoneNo: phoneNo, // New field
+        restaurantName: restaurantName, // New field
       );
 
       await _firestore
@@ -131,6 +136,9 @@ class AuthService {
     required String name,
     required UserRole role,
     required bool isActive,
+    required String location, // New parameter
+    required String phoneNo, // New parameter
+    required String restaurantName, // New parameter
   }) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -139,6 +147,9 @@ class AuthService {
       'name': name,
       'role': role.toString().split('.').last,
       'isActive': isActive,
+      'location': location, // New field
+      'phoneNo': phoneNo, // New field
+      'restaurantName': restaurantName, // New field
     });
   }
 }

@@ -1,5 +1,5 @@
 import 'dart:developer';
-
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
@@ -9,7 +9,6 @@ import 'package:pos/providers/category_provider.dart';
 import 'package:pos/providers/product_provider.dart';
 import 'package:pos/providers/statistics_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import '../utils/responsive.dart';
 import '../utils/app_colors.dart';
@@ -38,150 +37,149 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _checkAndShowTutorial();
   }
 
-  Future<void> _checkAndShowTutorial() async {
-    final prefs = await SharedPreferences.getInstance();
-    final hasSeenTutorial = prefs.getBool('dashboard_tutorial_seen') ?? false;
+  // Future<void> _checkAndShowTutorial() async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //   final hasSeenTutorial = prefs.getBool('dashboard_tutorial_seen') ?? false;
 
-    if (!hasSeenTutorial) {
-      // Wait for the UI to build before showing the tutorial
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          _showTutorial(context);
-          prefs.setBool('dashboard_tutorial_seen', true);
-        });
-      });
-    }
-  }
+  //   if (!hasSeenTutorial) {
+  //     // Wait for the UI to build before showing the tutorial
+  //     WidgetsBinding.instance.addPostFrameCallback((_) {
+  //       Future.delayed(const Duration(milliseconds: 500), () {
+  //         _showTutorial(context);
+  //         prefs.setBool('dashboard_tutorial_seen', true);
+  //       });
+  //     });
+  //   }
+  // }
 
-  void _showTutorial(BuildContext context) {
-    tutorialCoachMark = TutorialCoachMark(
-      targets: _createTargets(),
-      colorShadow: AppColors.white,
-      textSkip: "SKIP",
-      paddingFocus: 10,
-      opacityShadow: 0.8,
-      onFinish: () {
-        print("Dashboard tutorial completed");
-      },
-      onClickTarget: (target) {
-        print(target);
-      },
-      onSkip: () {
-        print("Dashboard tutorial skipped");
-        return true;
-      },
-    );
+  // void _showTutorial(BuildContext context) {
+  //   tutorialCoachMark = TutorialCoachMark(
+  //     targets: _createTargets(),
+  //     colorShadow: AppColors.white,
+  //     textSkip: "SKIP",
+  //     paddingFocus: 10,
+  //     opacityShadow: 0.8,
+  //     onFinish: () {
+  //       print("Dashboard tutorial completed");
+  //     },
+  //     onClickTarget: (target) {
+  //       print(target);
+  //     },
+  //     onSkip: () {
+  //       print("Dashboard tutorial skipped");
+  //       return true;
+  //     },
+  //   );
 
-    tutorialCoachMark!.show(context: context);
-  }
+  //   tutorialCoachMark!.show(context: context);
+  // }
 
-  List<TargetFocus> _createTargets() {
-    return [
-      TargetFocus(
-        identify: "categories_grid",
-        keyTarget: _categoriesGridKey,
-        contents: [
-          TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Product Categories",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Browse your product categories here. Tap any category to view its products.",
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.black),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-        shape: ShapeLightFocus.RRect,
-        radius: 8,
-      ),
-      TargetFocus(
-        identify: "statistics_bar",
-        keyTarget: _statisticsBarKey,
-        contents: [
-          TargetContent(
-            align: ContentAlign.top,
-            builder: (context, controller) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Business Statistics",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "View key metrics about your business at a glance.",
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.black),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-        shape: ShapeLightFocus.RRect,
-        radius: 8,
-      ),
-      if (Responsive.isDesktop(context))
-        TargetFocus(
-          identify: "quick_actions",
-          keyTarget: _quickActionsKey,
-          contents: [
-            TargetContent(
-              align: ContentAlign.left,
-              builder: (context, controller) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Quick Actions",
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "Quickly access different parts of your POS system from here.",
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: Colors.black),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
-          shape: ShapeLightFocus.RRect,
-          radius: 8,
-        ),
-    ];
-  }
+  // List<TargetFocus> _createTargets() {
+  //   return [
+  //     TargetFocus(
+  //       identify: "categories_grid",
+  //       keyTarget: _categoriesGridKey,
+  //       contents: [
+  //         TargetContent(
+  //           align: ContentAlign.bottom,
+  //           builder: (context, controller) {
+  //             return Column(
+  //               mainAxisSize: MainAxisSize.min,
+  //               crossAxisAlignment: CrossAxisAlignment.start,
+  //               children: [
+  //                 Text(
+  //                   "Product Categories",
+  //                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
+  //                     color: Colors.black,
+  //                     fontWeight: FontWeight.bold,
+  //                   ),
+  //                 ),
+  //                 const SizedBox(height: 8),
+  //                 Text(
+  //                   "Browse your product categories here. Tap any category to view its products.",
+  //                   style: Theme.of(
+  //                     context,
+  //                   ).textTheme.bodyMedium?.copyWith(color: Colors.black),
+  //                 ),
+  //               ],
+  //             );
+  //           },
+  //         ),
+  //       ],
+  //       shape: ShapeLightFocus.RRect,
+  //       radius: 8,
+  //     ),
+  //     TargetFocus(
+  //       identify: "statistics_bar",
+  //       keyTarget: _statisticsBarKey,
+  //       contents: [
+  //         TargetContent(
+  //           align: ContentAlign.top,
+  //           builder: (context, controller) {
+  //             return Column(
+  //               mainAxisSize: MainAxisSize.min,
+  //               crossAxisAlignment: CrossAxisAlignment.start,
+  //               children: [
+  //                 Text(
+  //                   "Business Statistics",
+  //                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
+  //                     color: Colors.black,
+  //                     fontWeight: FontWeight.bold,
+  //                   ),
+  //                 ),
+  //                 const SizedBox(height: 8),
+  //                 Text(
+  //                   "View key metrics about your business at a glance.",
+  //                   style: Theme.of(
+  //                     context,
+  //                   ).textTheme.bodyMedium?.copyWith(color: Colors.black),
+  //                 ),
+  //               ],
+  //             );
+  //           },
+  //         ),
+  //       ],
+  //       shape: ShapeLightFocus.RRect,
+  //       radius: 8,
+  //     ),
+  //     if (Responsive.isDesktop(context))
+  //       TargetFocus(
+  //         identify: "quick_actions",
+  //         keyTarget: _quickActionsKey,
+  //         contents: [
+  //           TargetContent(
+  //             align: ContentAlign.left,
+  //             builder: (context, controller) {
+  //               return Column(
+  //                 mainAxisSize: MainAxisSize.min,
+  //                 crossAxisAlignment: CrossAxisAlignment.start,
+  //                 children: [
+  //                   Text(
+  //                     "Quick Actions",
+  //                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
+  //                       color: Colors.black,
+  //                       fontWeight: FontWeight.bold,
+  //                     ),
+  //                   ),
+  //                   const SizedBox(height: 8),
+  //                   Text(
+  //                     "Quickly access different parts of your POS system from here.",
+  //                     style: Theme.of(
+  //                       context,
+  //                     ).textTheme.bodyMedium?.copyWith(color: Colors.black),
+  //                   ),
+  //                 ],
+  //               );
+  //             },
+  //           ),
+  //         ],
+  //         shape: ShapeLightFocus.RRect,
+  //         radius: 8,
+  //       ),
+  //   ];
+  // }
 
   @override
   void didChangeDependencies() {
@@ -276,24 +274,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                       final categories = categoryProvider.allCategories;
 
-                      // Get product provider to filter categories
-                      final productProvider = Provider.of<ProductProvider>(
-                        context,
-                        listen: false,
-                      );
-
-                      // Filter categories to only show those with products > 0
-                      // final categoriesWithProducts = categories.where((
-                      //   category,
-                      // ) {
-                      //   final productsInCategory = productProvider.products
-                      //       .where(
-                      //         (product) => product.category == category.name,
-                      //       )
-                      //       .length;
-                      //   return productsInCategory > 0;
-                      // }).toList();
-                      // Remove this filtering section entirely
+                      Provider.of<ProductProvider>(context, listen: false);
                       final categoriesWithProducts = categories;
 
                       if (categoriesWithProducts.isEmpty) {
@@ -706,6 +687,7 @@ class _PagedCategoryGrid extends StatelessWidget {
   }
 }
 
+// Inside dashboard_screen.dart - Update HoverableCategoryCard widget
 class HoverableCategoryCard extends StatefulWidget {
   final Category category;
   final VoidCallback onTap;
@@ -723,6 +705,7 @@ class HoverableCategoryCard extends StatefulWidget {
 class _HoverableCategoryCardState extends State<HoverableCategoryCard> {
   bool _isHovered = false;
 
+  // Fallback icon if no image
   IconData getCategoryIcon(String name) {
     switch (name.toLowerCase()) {
       case 'breakfast':
@@ -737,59 +720,8 @@ class _HoverableCategoryCardState extends State<HoverableCategoryCard> {
         return Icons.icecream;
       case 'snacks':
         return Icons.lunch_dining;
-      case 'bbq':
-      case 'barbecue':
-        return Icons.outdoor_grill;
-      case 'seafood':
-        return Icons.set_meal;
-      case 'pizza':
-        return Icons.local_pizza;
-      case 'soups':
-      case 'soup':
-        return Icons.ramen_dining;
-      case 'bakery':
-        return Icons.cake;
-      case 'vegan':
-      case 'vegetarian':
-        return Icons.eco;
-      case 'coffee':
-      case 'cafe':
-        return Icons.coffee;
-      case 'chinese':
-        return Icons.rice_bowl;
-      case 'indian':
-        return Icons.local_fire_department;
-      case 'salads':
-        return Icons.grass;
-      case 'burgers':
-        return Icons.lunch_dining;
-      case 'noodles':
-        return Icons.ramen_dining;
-      case 'combo meals':
-        return Icons.fastfood;
-      case 'grill':
-        return Icons.outdoor_grill;
-      case 'drinks':
-        return Icons.local_bar;
-      case 'ice cream':
-        return Icons.icecream;
-      case 'wraps':
-      case 'sandwiches':
-        return Icons.restaurant;
-      case 'specials':
-      case 'chef special':
-        return Icons.star;
-      case 'extra toppings':
-        return Icons.add_circle_outline; // Represents add-ons
-      case 'paratha roll':
-        return Icons.flatware; // Represents desi/street food
-      case 'karahi':
-        return Icons.dinner_dining; // Reusing for main curry dish
-      case 'tawa special':
-        return Icons.local_dining; // Represents cooked/grilled items
-
       default:
-        return Icons.category; // fallback icon
+        return Icons.category;
     }
   }
 
@@ -808,9 +740,7 @@ class _HoverableCategoryCardState extends State<HoverableCategoryCard> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: _isHovered
-                  ? primaryColor
-                  : Colors.grey.shade300, // Light border when not hovered
+              color: _isHovered ? primaryColor : Colors.grey.shade300,
               width: 2,
             ),
             boxShadow: [
@@ -832,40 +762,64 @@ class _HoverableCategoryCardState extends State<HoverableCategoryCard> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                getCategoryIcon(widget.category.name),
-                size: 40,
-                color: primaryColor,
-              ),
+              // Use category image if available, otherwise fallback to icon
+              // Inside HoverableCategoryCard widget - replace the image section
+              if (widget.category.imageUrl.isNotEmpty)
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: CachedNetworkImage(
+                      imageUrl: widget.category.imageUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => ShimmerEffect(
+                        width: double.infinity,
+                        height: double.infinity,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          getCategoryIcon(widget.category.name),
+                          size: 30,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    getCategoryIcon(widget.category.name),
+                    size: 30,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
               const SizedBox(height: 12),
               Text(
                 widget.category.name,
-                textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
-              ),
-              const SizedBox(height: 8),
-              Consumer<ProductProvider>(
-                builder: (context, productProvider, child) {
-                  final productsInCategory = productProvider.products
-                      .where(
-                        (product) =>
-                            product.category.trim().toLowerCase() ==
-                            widget.category.name.trim().toLowerCase(),
-                      )
-                      .length;
-
-                  log(
-                    'Category: ${widget.category.name}, Products: ${productProvider.products.length}',
-                  );
-
-                  return Text(
-                    '$productsInCategory ${productsInCategory == 1 ? 'product' : 'products'}',
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                  );
-                },
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

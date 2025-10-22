@@ -1,12 +1,16 @@
 // categories_screen.dart
+import 'dart:io';
+import 'dart:html' as html;
+import 'dart:typed_data';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:pos/components/ui/shimmer_effect.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/l10n/app_localizations.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import '../models/category.dart';
 import '../providers/category_provider.dart';
+import '../services/image_upload_service.dart';
 import '../components/ui/custom_button.dart';
 import '../components/ui/custom_card.dart';
 import '../components/ui/custom_input.dart';
@@ -26,9 +30,9 @@ class CategoriesScreen extends StatefulWidget {
 class _CategoriesScreenState extends State<CategoriesScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final ImageUploadService _imageUploadService = ImageUploadService();
 
   // Tutorial coach mark controller and targets
-  TutorialCoachMark? tutorialCoachMark;
   final GlobalKey _addButtonKey = GlobalKey();
   final GlobalKey _searchBarKey = GlobalKey();
   final GlobalKey _categoriesTableKey = GlobalKey();
@@ -37,7 +41,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   void initState() {
     super.initState();
     _checkIfHasData();
-    _checkAndShowTutorial();
 
     _searchController.addListener(_onSearchChanged);
 
@@ -51,152 +54,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     _scrollController.addListener(_onScroll);
   }
 
-  Future<void> _checkAndShowTutorial() async {
-    final prefs = await SharedPreferences.getInstance();
-    final hasSeenTutorial = prefs.getBool('categories_tutorial_seen') ?? false;
-
-    if (!hasSeenTutorial) {
-      // Wait for the UI to build before showing the tutorial
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          _showTutorial(context);
-          prefs.setBool('categories_tutorial_seen', true);
-        });
-      });
-    }
-  }
-
-  void _showTutorial(BuildContext context) {
-    tutorialCoachMark = TutorialCoachMark(
-      targets: _createTargets(),
-      colorShadow: Colors.black12,
-      textSkip: "SKIP",
-      paddingFocus: 10,
-      opacityShadow: 0.8,
-      onFinish: () {
-        print("Tutorial completed");
-      },
-      onClickTarget: (target) {
-        print(target);
-      },
-      onSkip: () {
-        print("Tutorial skipped");
-        return true;
-      },
-    );
-
-    tutorialCoachMark!.show(context: context); // ✅ context required here
-  }
-
-  List<TargetFocus> _createTargets() {
-    return [
-      TargetFocus(
-        identify: "add_button",
-        keyTarget: _addButtonKey,
-        contents: [
-          TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    "Add Category",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Tap here to create your first category. Categories help organize your products.",
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-        shape: ShapeLightFocus.RRect,
-        radius: 8,
-      ),
-      TargetFocus(
-        identify: "search_bar",
-        keyTarget: _searchBarKey,
-        contents: [
-          TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Search Categories",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Use this search bar to quickly find categories by name.",
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-        shape: ShapeLightFocus.RRect,
-        radius: 8,
-      ),
-      TargetFocus(
-        identify: "categories_table",
-        keyTarget: _categoriesTableKey,
-        contents: [
-          TargetContent(
-            align: ContentAlign.top,
-            builder: (context, controller) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    "Categories List",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Here you'll see all your categories. You can edit or delete them using the action buttons.",
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-        shape: ShapeLightFocus.RRect,
-        radius: 8,
-      ),
-    ];
-  }
-
   Future<void> _checkIfHasData() async {
     final categoryProvider = context.read<CategoryProvider>();
     await categoryProvider.loadInitialCategories();
-    setState(() {
-    });
+    setState(() {});
   }
 
   @override
@@ -205,7 +66,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     _scrollController.dispose();
     _searchController.removeListener(_onSearchChanged);
     _scrollController.removeListener(_onScroll);
-    tutorialCoachMark?.finish();
     super.dispose();
   }
 
@@ -233,8 +93,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     final categoryProvider = context.read<CategoryProvider>();
 
     final formKey = GlobalKey<FormState>();
-    final controller = TextEditingController(text: item?.name ?? '');
+    final nameController = TextEditingController(text: item?.name ?? '');
     bool isActive = item?.active ?? true;
+    dynamic selectedImage;
+    String? imageError;
+    Uint8List? imageBytes;
 
     final result = await showDialog<_CategoryFormResult>(
       context: context,
@@ -246,15 +109,33 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               surfaceTintColor: Colors.transparent,
               title: Text(item == null ? l10n.addCategory : l10n.editCategory),
               content: SizedBox(
-                width: 400,
+                width: 450,
                 child: Form(
                   key: formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Image Upload Section
+                      _buildImageUploadSection(
+                        context,
+                        item?.imageUrl,
+                        selectedImage,
+                        imageBytes,
+                        imageError,
+                        (file, bytes, error) {
+                          setDialogState(() {
+                            selectedImage = file;
+                            imageBytes = bytes;
+                            imageError = error;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+
+                      // Name Input
                       CustomInput(
                         label: l10n.name,
-                        controller: controller,
+                        controller: nameController,
                         hint: 'Enter category name',
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
@@ -264,6 +145,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         },
                       ),
                       const SizedBox(height: AppSpacing.md),
+
+                      // Active Switch
                       Row(
                         children: [
                           Text(
@@ -291,13 +174,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 CustomButton(
                   text: l10n.save,
                   onPressed: () {
-                    // ✅ Validate before proceeding
                     if (formKey.currentState?.validate() ?? false) {
+                      if (imageError != null) return;
+
                       Navigator.pop(
                         context,
                         _CategoryFormResult(
-                          name: controller.text.trim(),
+                          name: nameController.text.trim(),
                           active: isActive,
+                          imageFile: selectedImage,
+                          existingImageUrl:
+                              selectedImage == null && imageBytes == null
+                              ? null
+                              : item?.imageUrl,
                         ),
                       );
                     }
@@ -314,52 +203,69 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
     try {
       if (item == null) {
-        // Create new category with auto-generated ID (will be set in service)
+        // Create new category
         final newCategory = Category(
           id: '', // Will be auto-generated
           name: result.name,
           active: result.active,
+          imageUrl: '', // Will be set after upload
         );
 
-        final success = await categoryProvider.addCategory(newCategory);
+        // Upload image if selected
+        String? imageUrl;
+        if (result.imageFile != null) {
+          imageUrl = await _uploadCategoryImage(
+            result.imageFile!,
+            categoryProvider,
+            newCategory.id,
+          );
+        }
+
+        final categoryWithImage = newCategory.copyWith(
+          imageUrl: imageUrl ?? '',
+        );
+        final success = await categoryProvider.addCategory(categoryWithImage);
+
         if (success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              duration: Duration(seconds: 1),
-              content: Text('Category added successfully'),
+              duration: const Duration(seconds: 1),
+              content: const Text('Category added successfully'),
               backgroundColor: AppColors.success,
             ),
           );
-
-          // Check if this was the first category added
-          // if (item == null) {
-          //   final prefs = await SharedPreferences.getInstance();
-          //   final hasSeenProducts =
-          //       prefs.getBool('onboarding_products_seen') ?? false;
-
-          //   if (!hasSeenProducts) {
-          //     // Navigate to products screen after a short delay
-          //     Future.delayed(const Duration(milliseconds: 500), () {
-          //       if (mounted) {
-          //         context.go(AppRouter.products);
-          //       }
-          //     });
-          //   }
-          // }
         }
       } else {
-        // Update existing category
+        String? imageUrl = result.existingImageUrl;
+
+        if (result.imageFile == null &&
+            result.existingImageUrl?.isNotEmpty == true) {
+          await _imageUploadService.deleteImage(result.existingImageUrl!);
+          imageUrl = '';
+        } else if (result.imageFile != null) {
+          if (result.existingImageUrl?.isNotEmpty == true) {
+            await _imageUploadService.deleteImage(result.existingImageUrl!);
+          }
+
+          imageUrl = await _uploadCategoryImage(
+            result.imageFile!,
+            categoryProvider,
+            item.id,
+          );
+        }
+
         final updatedCategory = item.copyWith(
           name: result.name,
           active: result.active,
+          imageUrl: imageUrl ?? item.imageUrl,
         );
 
         final success = await categoryProvider.updateCategory(updatedCategory);
         if (success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              duration: Duration(seconds: 1),
-              content: Text('Category updated successfully'),
+              duration: const Duration(seconds: 1),
+              content: const Text('Category updated successfully'),
               backgroundColor: AppColors.success,
             ),
           );
@@ -369,13 +275,213 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            duration: Duration(seconds: 1),
+            duration: const Duration(seconds: 1),
             content: Text('Error: $e'),
             backgroundColor: AppColors.error,
           ),
         );
       }
     }
+  }
+
+  Widget _buildImageUploadSection(
+    BuildContext context,
+    String? existingImageUrl,
+    dynamic selectedImage,
+    Uint8List? imageBytes,
+    String? error,
+    Function(dynamic, Uint8List?, String?) onImageSelected,
+  ) {
+    final hasImage =
+        selectedImage != null || (existingImageUrl?.isNotEmpty == true);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Category Image', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: AppSpacing.sm),
+
+        // Image Preview
+        Container(
+          width: double.infinity,
+          height: 150,
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.grey300),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: _buildImagePreview(
+            existingImageUrl,
+            selectedImage,
+            imageBytes,
+            onImageSelected,
+          ),
+        ),
+
+        // Error message
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
+            child: Text(
+              error,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.error),
+            ),
+          ),
+
+        // Upload buttons - show only when no image is selected
+        if (!hasImage)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
+            child: CustomButton(
+              text: 'Choose Image',
+              icon: Icons.photo_library,
+              onPressed: () => _pickImage(onImageSelected: onImageSelected),
+              variant: ButtonVariant.outlined,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildImagePreview(
+    String? existingImageUrl,
+    dynamic selectedImage,
+    Uint8List? imageBytes,
+    Function(dynamic, Uint8List?, String?) onImageSelected,
+  ) {
+    // Show selected image preview
+    if (selectedImage != null && imageBytes != null) {
+      return Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.memory(
+              imageBytes,
+              width: double.infinity,
+              height: double.infinity,
+              fit: BoxFit.contain,
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 16),
+                onPressed: () {
+                  // Clear the selected image
+                  onImageSelected(null, null, null);
+                },
+                padding: const EdgeInsets.all(4),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    // Show existing image from URL with CachedNetworkImage
+    else if (existingImageUrl?.isNotEmpty == true) {
+      return Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: CachedNetworkImage(
+              imageUrl: existingImageUrl!,
+              width: double.infinity,
+              height: double.infinity,
+              fit: BoxFit.contain,
+              placeholder: (context, url) => ShimmerEffect(
+                width: double.infinity,
+                height: double.infinity,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              errorWidget: (context, url, error) => const Center(
+                child: Icon(Icons.broken_image, size: 48, color: Colors.grey),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 16),
+                onPressed: () {
+                  // Clear the existing image URL
+                  onImageSelected(null, null, null);
+                },
+                padding: const EdgeInsets.all(4),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    // Show placeholder when no image is selected
+    else {
+      return const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.image, size: 48, color: Colors.grey),
+          SizedBox(height: AppSpacing.xs),
+          Text('No image selected', style: TextStyle(color: Colors.grey)),
+        ],
+      );
+    }
+  }
+
+  Future<void> _pickImage({
+    required Function(dynamic, Uint8List?, String?) onImageSelected,
+  }) async {
+    try {
+      final imageFile = await _imageUploadService.pickImage();
+      if (imageFile != null) {
+        final validationError = _imageUploadService.validateImage(imageFile);
+
+        // Get image bytes for preview (for web)
+        Uint8List? imageBytes;
+        if (_isWeb()) {
+          imageBytes = await _imageUploadService.getFileBytes(imageFile);
+        }
+
+        onImageSelected(imageFile, imageBytes, validationError);
+      }
+    } catch (e) {
+      onImageSelected(null, null, 'Failed to pick image: $e');
+    }
+  }
+
+  Future<String> _uploadCategoryImage(
+    dynamic imageFile,
+    CategoryProvider categoryProvider,
+    String categoryId,
+  ) async {
+    final vendorId = categoryProvider.authProvider?.currentUser?.id;
+    if (vendorId == null) {
+      throw Exception('Vendor ID not found');
+    }
+
+    return await _imageUploadService.uploadCategoryImage(
+      imageFile: imageFile,
+      vendorId: vendorId,
+      categoryId: categoryId,
+    );
+  }
+
+  // Check if running on web
+  bool _isWeb() {
+    return identical(0, 0.0);
   }
 
   void _delete(Category item) async {
@@ -406,11 +512,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
     if (ok == true) {
       try {
+        // Delete image from storage if exists
+        if (item.imageUrl.isNotEmpty) {
+          await _imageUploadService.deleteImage(item.imageUrl);
+        }
+
         final success = await categoryProvider.deleteCategory(item.id);
         if (success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Category deleted successfully'),
+              content: const Text('Category deleted successfully'),
               backgroundColor: AppColors.success,
             ),
           );
@@ -419,7 +530,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              duration: Duration(seconds: 1),
+              duration: const Duration(seconds: 1),
               content: Text('Error deleting category: $e'),
               backgroundColor: AppColors.error,
             ),
@@ -435,11 +546,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     final categoryProvider = context.watch<CategoryProvider>();
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-
           Row(
             children: [
               Expanded(
@@ -465,7 +575,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 ),
               ),
               CustomButton(
-                key: _addButtonKey, // Added key for tutorial
+                key: _addButtonKey,
                 text: l10n.addCategory,
                 icon: Icons.add,
                 onPressed: () => _createOrEdit(),
@@ -476,7 +586,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           const SizedBox(height: AppSpacing.md),
 
           SearchBarWidget(
-            key: _searchBarKey, // Added key for tutorial
+            key: _searchBarKey,
             controller: _searchController,
             hint: 'Search categories...',
             onChanged: (_) => _onSearchChanged(),
@@ -488,7 +598,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           const SizedBox(height: AppSpacing.sm),
 
           Expanded(
-            key: _categoriesTableKey, // Added key for tutorial
+            key: _categoriesTableKey,
             child: _buildContent(categoryProvider, l10n),
           ),
         ],
@@ -533,7 +643,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               _searchController.text.isEmpty
                   ? 'No categories found'
                   : 'No categories found for "${_searchController.text}"',
-              style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+              style: const TextStyle(fontSize: 18, color: Colors.grey),
             ),
           ],
         ),
@@ -555,6 +665,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           columns: const [
             DataColumn(
               label: Text('#', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+            DataColumn(
+              label: Text(
+                'Image',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
             DataColumn(
               label: Text(
@@ -588,6 +704,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 (e) => DataRow(
                   cells: [
                     DataCell(Text('${e.key + 1}')),
+                    DataCell(_buildCategoryImage(e.value.imageUrl)),
                     DataCell(Text(e.value.name)),
                     DataCell(
                       StatusBadge(
@@ -613,6 +730,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Image for mobile
+                  _buildCategoryImage(item.imageUrl, height: 120),
+                  const SizedBox(height: AppSpacing.sm),
                   Row(
                     children: [
                       Expanded(
@@ -651,6 +771,42 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
+  Widget _buildCategoryImage(String imageUrl, {double height = 40}) {
+    if (imageUrl.isEmpty) {
+      return Container(
+        width: height,
+        height: height,
+        decoration: BoxDecoration(
+          color: AppColors.grey100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.category, color: AppColors.grey400),
+      );
+    }
+
+    return Container(
+      width: height,
+      height: height,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.contain,
+          placeholder: (context, url) => ShimmerEffect(
+            width: double.infinity,
+            height: double.infinity,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          errorWidget: (context, url, error) => Container(
+            color: AppColors.grey100,
+            child: const Icon(Icons.broken_image, color: AppColors.grey400),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _rowActions(Category item) {
     final l10n = AppLocalizations.of(context)!;
     return Row(
@@ -683,6 +839,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     return DataTableWidget(
       columns: const [
         DataColumn(label: ShimmerEffect(width: 20, height: 20)),
+        DataColumn(label: ShimmerEffect(width: 40, height: 40)),
         DataColumn(label: ShimmerEffect(width: 80, height: 20)),
         DataColumn(label: ShimmerEffect(width: 60, height: 20)),
         DataColumn(label: ShimmerEffect(width: 80, height: 20)),
@@ -693,6 +850,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         (index) => DataRow(
           cells: [
             DataCell(ShimmerEffect(width: 20, height: 20)),
+            DataCell(
+              ShimmerEffect(
+                width: 40,
+                height: 40,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
             DataCell(ShimmerEffect(width: 120, height: 20)),
             DataCell(ShimmerEffect(width: 60, height: 20)),
             DataCell(ShimmerEffect(width: 80, height: 20)),
@@ -705,7 +869,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     height: 36,
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  SizedBox(width: AppSpacing.xs),
+                  const SizedBox(width: AppSpacing.xs),
                   ShimmerEffect(
                     width: 36,
                     height: 36,
@@ -722,12 +886,18 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              ShimmerEffect(
+                width: double.infinity,
+                height: 120,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              const SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
                   Expanded(
                     child: ShimmerEffect(width: double.infinity, height: 20),
                   ),
-                  SizedBox(width: AppSpacing.sm),
+                  const SizedBox(width: AppSpacing.sm),
                   ShimmerEffect(
                     width: 60,
                     height: 24,
@@ -735,9 +905,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   ),
                 ],
               ),
-              SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.sm),
               ShimmerEffect(width: 200, height: 14),
-              SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.sm),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -746,7 +916,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     height: 36,
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  SizedBox(width: AppSpacing.xs),
+                  const SizedBox(width: AppSpacing.xs),
                   ShimmerEffect(
                     width: 36,
                     height: 36,
@@ -763,7 +933,15 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 }
 
 class _CategoryFormResult {
-  _CategoryFormResult({required this.name, required this.active});
+  _CategoryFormResult({
+    required this.name,
+    required this.active,
+    this.imageFile,
+    this.existingImageUrl,
+  });
+
   final String name;
   final bool active;
+  final dynamic imageFile;
+  final String? existingImageUrl;
 }

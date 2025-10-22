@@ -37,6 +37,9 @@ class AuthProvider with ChangeNotifier {
     required String password,
     required String name,
     required UserRole role,
+    required String location, // New parameter
+    required String phoneNo, // New parameter
+    required String restaurantName, // New parameter
   }) async {
     _isLoading = true;
     _error = null;
@@ -48,6 +51,9 @@ class AuthProvider with ChangeNotifier {
         password: password,
         name: name,
         role: role,
+        location: location, // New parameter
+        phoneNo: phoneNo, // New parameter
+        restaurantName: restaurantName, // New parameter
       );
       return true;
     } catch (e) {

@@ -225,6 +225,10 @@ class _ModernHeaderButtonState extends State<_ModernHeaderButton>
           return l10n.drafts;
         case 'storeOut':
           return l10n.storeOut;
+        case 'Customers':
+          return 'Customers';
+        case 'Discounts':
+          return 'Discounts';
         case 'settings':
           return l10n.settings;
         default:
