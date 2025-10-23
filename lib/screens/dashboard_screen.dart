@@ -1,10 +1,10 @@
-import 'dart:developer';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:pos/models/category.dart';
+import 'package:pos/models/user.dart';
 import 'package:pos/providers/category_provider.dart';
 import 'package:pos/providers/product_provider.dart';
 import 'package:pos/providers/statistics_provider.dart';
@@ -15,6 +15,7 @@ import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
 import '../components/ui/custom_button.dart';
 import '../routes/app_router.dart';
+import 'package:pos/providers/auth_provider.dart'; // Add this import
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -39,148 +40,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
   }
 
-  // Future<void> _checkAndShowTutorial() async {
-  //   final prefs = await SharedPreferences.getInstance();
-  //   final hasSeenTutorial = prefs.getBool('dashboard_tutorial_seen') ?? false;
-
-  //   if (!hasSeenTutorial) {
-  //     // Wait for the UI to build before showing the tutorial
-  //     WidgetsBinding.instance.addPostFrameCallback((_) {
-  //       Future.delayed(const Duration(milliseconds: 500), () {
-  //         _showTutorial(context);
-  //         prefs.setBool('dashboard_tutorial_seen', true);
-  //       });
-  //     });
-  //   }
-  // }
-
-  // void _showTutorial(BuildContext context) {
-  //   tutorialCoachMark = TutorialCoachMark(
-  //     targets: _createTargets(),
-  //     colorShadow: AppColors.white,
-  //     textSkip: "SKIP",
-  //     paddingFocus: 10,
-  //     opacityShadow: 0.8,
-  //     onFinish: () {
-  //       print("Dashboard tutorial completed");
-  //     },
-  //     onClickTarget: (target) {
-  //       print(target);
-  //     },
-  //     onSkip: () {
-  //       print("Dashboard tutorial skipped");
-  //       return true;
-  //     },
-  //   );
-
-  //   tutorialCoachMark!.show(context: context);
-  // }
-
-  // List<TargetFocus> _createTargets() {
-  //   return [
-  //     TargetFocus(
-  //       identify: "categories_grid",
-  //       keyTarget: _categoriesGridKey,
-  //       contents: [
-  //         TargetContent(
-  //           align: ContentAlign.bottom,
-  //           builder: (context, controller) {
-  //             return Column(
-  //               mainAxisSize: MainAxisSize.min,
-  //               crossAxisAlignment: CrossAxisAlignment.start,
-  //               children: [
-  //                 Text(
-  //                   "Product Categories",
-  //                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-  //                     color: Colors.black,
-  //                     fontWeight: FontWeight.bold,
-  //                   ),
-  //                 ),
-  //                 const SizedBox(height: 8),
-  //                 Text(
-  //                   "Browse your product categories here. Tap any category to view its products.",
-  //                   style: Theme.of(
-  //                     context,
-  //                   ).textTheme.bodyMedium?.copyWith(color: Colors.black),
-  //                 ),
-  //               ],
-  //             );
-  //           },
-  //         ),
-  //       ],
-  //       shape: ShapeLightFocus.RRect,
-  //       radius: 8,
-  //     ),
-  //     TargetFocus(
-  //       identify: "statistics_bar",
-  //       keyTarget: _statisticsBarKey,
-  //       contents: [
-  //         TargetContent(
-  //           align: ContentAlign.top,
-  //           builder: (context, controller) {
-  //             return Column(
-  //               mainAxisSize: MainAxisSize.min,
-  //               crossAxisAlignment: CrossAxisAlignment.start,
-  //               children: [
-  //                 Text(
-  //                   "Business Statistics",
-  //                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-  //                     color: Colors.black,
-  //                     fontWeight: FontWeight.bold,
-  //                   ),
-  //                 ),
-  //                 const SizedBox(height: 8),
-  //                 Text(
-  //                   "View key metrics about your business at a glance.",
-  //                   style: Theme.of(
-  //                     context,
-  //                   ).textTheme.bodyMedium?.copyWith(color: Colors.black),
-  //                 ),
-  //               ],
-  //             );
-  //           },
-  //         ),
-  //       ],
-  //       shape: ShapeLightFocus.RRect,
-  //       radius: 8,
-  //     ),
-  //     if (Responsive.isDesktop(context))
-  //       TargetFocus(
-  //         identify: "quick_actions",
-  //         keyTarget: _quickActionsKey,
-  //         contents: [
-  //           TargetContent(
-  //             align: ContentAlign.left,
-  //             builder: (context, controller) {
-  //               return Column(
-  //                 mainAxisSize: MainAxisSize.min,
-  //                 crossAxisAlignment: CrossAxisAlignment.start,
-  //                 children: [
-  //                   Text(
-  //                     "Quick Actions",
-  //                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-  //                       color: Colors.black,
-  //                       fontWeight: FontWeight.bold,
-  //                     ),
-  //                   ),
-  //                   const SizedBox(height: 8),
-  //                   Text(
-  //                     "Quickly access different parts of your POS system from here.",
-  //                     style: Theme.of(
-  //                       context,
-  //                     ).textTheme.bodyMedium?.copyWith(color: Colors.black),
-  //                   ),
-  //                 ],
-  //               );
-  //             },
-  //           ),
-  //         ],
-  //         shape: ShapeLightFocus.RRect,
-  //         radius: 8,
-  //       ),
-  //   ];
-  // }
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -188,6 +47,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _categoryProvider = Provider.of<CategoryProvider>(context);
     _productProvider = Provider.of<ProductProvider>(context);
     _statisticsProvider = Provider.of<StatisticsProvider>(context);
+    // Get auth provider
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Load initial categories
@@ -317,9 +177,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                   ),
                 ),
-              ), // Statistics Bar
+              ),
+              // Statistics Bar
               Container(
-                key: _statisticsBarKey, // Added key for tutorial
+                key: _statisticsBarKey,
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -386,49 +247,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             child: Column(
               children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  color: Colors.blue.shade50,
-                  child: Column(
-                    children: [
-                      Row(
+                // Updated Header with Restaurant Info
+                Consumer<AuthProvider>(
+                  builder: (context, authProvider, child) {
+                    final user = authProvider.currentUser;
+
+                    return Container(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      color: Colors.blue.shade50,
+                      child: Column(
                         children: [
-                          Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(25),
-                            ),
-                            child: Image.asset('assets/logo.jpeg'),
-                          ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Tycoon POS',
-                                  style: TextStyle(
-                                    fontSize: 18,
+                          Row(
+                            children: [
+                              // Restaurant Logo
+                              Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(25),
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(25),
+                                  child: _buildRestaurantLogo(user),
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: Text(
+                                  user?.restaurantName.isNotEmpty == true
+                                      ? user!.restaurantName
+                                      : 'My Restaurant',
+                                  style: const TextStyle(
+                                    fontSize: 16,
                                     fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                Text(
-                                  l10n.pointOfSales,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 // Quick Actions
                 Expanded(
@@ -439,9 +306,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const SizedBox(height: AppSpacing.md),
                         Text(
                           l10n.quickActions,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
@@ -524,6 +392,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  // Build restaurant logo widget
+  Widget _buildRestaurantLogo(UserModel? user) {
+    if (user?.restaurantLogoUrl != null &&
+        user!.restaurantLogoUrl!.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: user.restaurantLogoUrl!,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => ShimmerEffect(
+          width: double.infinity,
+          height: double.infinity,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        errorWidget: (context, url, error) => _buildDefaultLogo(),
+      );
+    }
+
+    return _buildDefaultLogo();
+  }
+
+  // Default logo when no restaurant logo is available
+  Widget _buildDefaultLogo() {
+    return Container(
+      color: Colors.grey.shade200,
+      child: const Center(
+        child: Icon(Icons.restaurant, size: 24, color: Colors.grey),
+      ),
     );
   }
 
@@ -619,6 +516,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
+// Rest of the code remains the same (_PagedCategoryGrid, HoverableCategoryCard, etc.)
 class _PagedCategoryGrid extends StatelessWidget {
   final List<Category> categories;
   final int currentPage;
@@ -687,7 +585,7 @@ class _PagedCategoryGrid extends StatelessWidget {
   }
 }
 
-// Inside dashboard_screen.dart - Update HoverableCategoryCard widget
+// HoverableCategoryCard remains the same
 class HoverableCategoryCard extends StatefulWidget {
   final Category category;
   final VoidCallback onTap;
@@ -762,8 +660,6 @@ class _HoverableCategoryCardState extends State<HoverableCategoryCard> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Use category image if available, otherwise fallback to icon
-              // Inside HoverableCategoryCard widget - replace the image section
               if (widget.category.imageUrl.isNotEmpty)
                 Container(
                   width: 60,

@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pos/models/user.dart';
@@ -8,6 +11,7 @@ import 'package:pos/utils/app_spacing.dart';
 import 'package:pos/components/ui/custom_button.dart';
 import 'package:pos/components/ui/custom_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pos/services/image_upload_service.dart';
 
 class SignUpScreen extends StatefulWidget {
   final VoidCallback? onLoginPressed;
@@ -29,6 +33,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _restaurantController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  
+  // New variables for logo upload
+  dynamic _restaurantLogo;
+  String? _restaurantLogoUrl;
+  bool _isUploadingLogo = false;
+  final ImageUploadService _imageUploadService = ImageUploadService();
 
   @override
   void dispose() {
@@ -42,10 +52,72 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
+  // New method to pick and upload restaurant logo
+  Future<void> _pickRestaurantLogo() async {
+    try {
+      final pickedImage = await _imageUploadService.pickImage(fromGallery: true);
+      if (pickedImage != null) {
+        // Validate image
+        final validationError = _imageUploadService.validateImage(pickedImage);
+        if (validationError != null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(validationError),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
+        setState(() {
+          _isUploadingLogo = true;
+          _restaurantLogo = pickedImage;
+        });
+
+        // For web, we'll upload during signup process
+        // For mobile, we can preview the file
+        if (!_isWeb()) {
+          // Preview logic for mobile
+        }
+
+        setState(() {
+          _isUploadingLogo = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isUploadingLogo = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Helper method to check if web
+  bool _isWeb() {
+    return identical(0, 0.0);
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    // Show loading for logo upload if applicable
+    if (_restaurantLogo != null) {
+      setState(() {
+        _isUploadingLogo = true;
+      });
+    }
+
     final success = await authProvider.signUp(
       email: _emailController.text.trim(),
       password: _passwordController.text,
@@ -54,6 +126,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       location: _locationController.text.trim(),
       phoneNo: _phoneController.text.trim(),
       restaurantName: _restaurantController.text.trim(),
+      restaurantLogo: _restaurantLogo, 
     );
 
     if (success && mounted) {
@@ -74,11 +147,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
         ),
       );
     }
+
+    setState(() {
+      _isUploadingLogo = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
@@ -144,11 +220,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 ),
                                 const SizedBox(height: 20),
 
+                                // Restaurant Logo Upload
+                                _buildLogoUploadSection(),
+                                const SizedBox(height: AppSpacing.lg),
+
+                                // Rest of the form fields remain the same...
                                 // Two Column Layout for Form Fields
                                 if (screenWidth > 700) ...[
                                   Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Expanded(
                                         child: Column(
@@ -158,23 +238,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                               label: 'Restaurant Name',
                                               icon: Icons.restaurant_outlined,
                                               validator: (value) {
-                                                if (value == null ||
-                                                    value.isEmpty) {
+                                                if (value == null || value.isEmpty) {
                                                   return 'Please enter restaurant name';
                                                 }
                                                 return null;
                                               },
                                             ),
-                                            const SizedBox(
-                                              height: AppSpacing.md,
-                                            ),
+                                            const SizedBox(height: AppSpacing.md),
                                             _buildFormField(
                                               controller: _nameController,
                                               label: 'Full Name',
                                               icon: Icons.person_outline,
                                               validator: (value) {
-                                                if (value == null ||
-                                                    value.isEmpty) {
+                                                if (value == null || value.isEmpty) {
                                                   return 'Please enter your name';
                                                 }
                                                 return null;
@@ -183,7 +259,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                           ],
                                         ),
                                       ),
-
                                       const SizedBox(width: AppSpacing.lg),
                                       Expanded(
                                         child: Column(
@@ -194,23 +269,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                               icon: Icons.phone_outlined,
                                               keyboardType: TextInputType.phone,
                                               validator: (value) {
-                                                if (value == null ||
-                                                    value.isEmpty) {
+                                                if (value == null || value.isEmpty) {
                                                   return 'Please enter your phone number';
                                                 }
                                                 return null;
                                               },
                                             ),
-                                            const SizedBox(
-                                              height: AppSpacing.md,
-                                            ),
+                                            const SizedBox(height: AppSpacing.md),
                                             _buildFormField(
                                               controller: _locationController,
                                               label: 'Location',
                                               icon: Icons.location_on_outlined,
                                               validator: (value) {
-                                                if (value == null ||
-                                                    value.isEmpty) {
+                                                if (value == null || value.isEmpty) {
                                                   return 'Please enter your location';
                                                 }
                                                 return null;
@@ -333,8 +404,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   obscureText: _obscureConfirmPassword,
                                   onToggleVisibility: () {
                                     setState(() {
-                                      _obscureConfirmPassword =
-                                          !_obscureConfirmPassword;
+                                      _obscureConfirmPassword = !_obscureConfirmPassword;
                                     });
                                   },
                                   validator: (value) {
@@ -352,16 +422,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 // Create Account Button
                                 Consumer<AuthProvider>(
                                   builder: (context, authProvider, child) {
+                                    final isProcessing = authProvider.isLoading || _isUploadingLogo;
                                     return SizedBox(
                                       width: double.infinity,
                                       child: CustomButton(
-                                        text: 'Create Account',
+                                        text: isProcessing ? 'Creating Account...' : 'Create Account',
                                         textColor: Colors.white,
                                         color: Colors.blue.shade600,
-                                        onPressed: authProvider.isLoading
-                                            ? null
-                                            : _submit,
-                                        isLoading: authProvider.isLoading,
+                                        onPressed: isProcessing ? null : _submit,
+                                        isLoading: isProcessing,
                                       ),
                                     );
                                   },
@@ -403,7 +472,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                 ),
 
-                // Right Side - Benefits/Features
+                // Right Side - Benefits/Features (unchanged)
                 if (screenWidth > 900) ...[
                   Expanded(
                     flex: 5,
@@ -459,6 +528,121 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
+  // New method for logo upload section
+  Widget _buildLogoUploadSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Restaurant Logo',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.grey.shade50,
+          ),
+          child: Column(
+            children: [
+              if (_restaurantLogo != null || _restaurantLogoUrl != null) ...[
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: _isWeb() && _restaurantLogo != null
+                      ? FutureBuilder<Uint8List?>(
+                          future: _imageUploadService.getFileBytes(_restaurantLogo),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasData && snapshot.data != null) {
+                              return ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.memory(
+                                  snapshot.data!,
+                                  width: 100,
+                                  height: 100,
+                                  fit: BoxFit.cover,
+                                ),
+                              );
+                            }
+                            return Icon(
+                              Icons.restaurant,
+                              size: 40,
+                              color: Colors.grey.shade400,
+                            );
+                          },
+                        )
+                      : _restaurantLogo != null && !_isWeb()
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(
+                                _restaurantLogo as File,
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : _restaurantLogoUrl != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    _restaurantLogoUrl!,
+                                    width: 100,
+                                    height: 100,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.restaurant,
+                                  size: 40,
+                                  color: Colors.grey.shade400,
+                                ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              ElevatedButton.icon(
+                onPressed: _isUploadingLogo ? null : _pickRestaurantLogo,
+                icon: _isUploadingLogo
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.upload),
+                label: Text(_isUploadingLogo ? 'Uploading...' : 
+                    _restaurantLogo != null ? 'Change Logo' : 'Upload Logo'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade50,
+                  foregroundColor: Colors.blue.shade700,
+                ),
+              ),
+              if (_restaurantLogo == null && _restaurantLogoUrl == null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Optional: Upload your restaurant logo',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Rest of the existing methods (_buildFormField, _buildPasswordField, _buildBenefitItem) remain the same...
   Widget _buildFormField({
     required TextEditingController controller,
     required String label,

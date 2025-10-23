@@ -81,7 +81,7 @@ class ImageUploadService {
         uploadTask = _storage
             .ref()
             .child(storagePath)
-            .putBlob(imageFile.slice()!, metadata);
+            .putBlob(imageFile.slice(), metadata);
       } else if (imageFile is File) {
         // For mobile - upload from File
         uploadTask = _storage.ref().child(storagePath).putFile(imageFile);
@@ -119,7 +119,7 @@ class ImageUploadService {
         uploadTask = _storage
             .ref()
             .child(storagePath)
-            .putBlob(imageFile.slice()!, metadata);
+            .putBlob(imageFile.slice(), metadata);
       } else if (imageFile is File) {
         // For mobile - upload from File
         uploadTask = _storage.ref().child(storagePath).putFile(imageFile);

@@ -1,29 +1,34 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io' show File;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:path/path.dart' as path;
 import 'package:pos/models/user.dart';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:async';
+
+import 'dart:html' as html show File;
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // Get current user
   User? get currentUser => _auth.currentUser;
 
-  // Stream of authentication state changes
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // Sign up with email and password
   Future<UserModel?> signUp({
     required String email,
     required String password,
     required String name,
     required UserRole role,
-    required String location, // New parameter
-    required String phoneNo, // New parameter
-    required String restaurantName, // New parameter
+    required String location,
+    required String phoneNo,
+    required String restaurantName,
   }) async {
     try {
-      // Create user in Firebase Auth
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -32,7 +37,6 @@ class AuthService {
       final now = DateTime.now();
       final trialEndsAt = now.add(const Duration(days: 7));
 
-      // Create user document in Firestore
       final user = UserModel(
         id: userCredential.user!.uid,
         email: email,
@@ -41,9 +45,9 @@ class AuthService {
         createdAt: now,
         trialEndsAt: trialEndsAt,
         subscriptionType: SubscriptionType.trial,
-        location: location, // New field
-        phoneNo: phoneNo, // New field
-        restaurantName: restaurantName, // New field
+        location: location,
+        phoneNo: phoneNo,
+        restaurantName: restaurantName,
       );
 
       await _firestore
@@ -57,7 +61,6 @@ class AuthService {
     }
   }
 
-  // Sign in with email and password
   Future<UserModel?> signIn({
     required String email,
     required String password,
@@ -68,7 +71,6 @@ class AuthService {
         password: password,
       );
 
-      // Get user data from Firestore
       final userDoc = await _firestore
           .collection('vendors')
           .doc(userCredential.user!.uid)
@@ -84,12 +86,10 @@ class AuthService {
     }
   }
 
-  // Sign out
   Future<void> signOut() async {
     await _auth.signOut();
   }
 
-  // Get current user data
   Future<UserModel?> getCurrentUserData() async {
     final user = _auth.currentUser;
     if (user == null) return null;
@@ -101,17 +101,14 @@ class AuthService {
     return null;
   }
 
-  // Reset password
   Future<void> resetPassword(String email) async {
     await _auth.sendPasswordResetEmail(email: email);
   }
 
-  // Update the sendPasswordResetEmail method in auth_service.dart
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (e) {
-      // More specific error handling
       if (e.code == 'user-not-found') {
         throw FirebaseAuthException(
           code: 'user-not-found',
@@ -131,14 +128,13 @@ class AuthService {
     }
   }
 
-  // Update user profile
   Future<void> updateProfile({
     required String name,
     required UserRole role,
     required bool isActive,
-    required String location, // New parameter
-    required String phoneNo, // New parameter
-    required String restaurantName, // New parameter
+    required String location,
+    required String phoneNo,
+    required String restaurantName,
   }) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -147,9 +143,80 @@ class AuthService {
       'name': name,
       'role': role.toString().split('.').last,
       'isActive': isActive,
-      'location': location, // New field
-      'phoneNo': phoneNo, // New field
-      'restaurantName': restaurantName, // New field
+      'location': location,
+      'phoneNo': phoneNo,
+      'restaurantName': restaurantName,
     });
+  }
+
+  Future<String?> uploadRestaurantLogo({
+    required dynamic logoFile,
+    required String vendorId,
+  }) async {
+    try {
+      final String fileName =
+          'restaurant_logo_${DateTime.now().millisecondsSinceEpoch}${_getFileExtension(logoFile)}';
+      final String storagePath = 'vendors/$vendorId/restaurant_logo/$fileName';
+
+      UploadTask uploadTask;
+
+      if (kIsWeb && logoFile is html.File) {
+        final metadata = SettableMetadata(
+          contentType: 'image/${_getMimeType(logoFile)}',
+        );
+        uploadTask = _storage
+            .ref()
+            .child(storagePath)
+            .putBlob(logoFile.slice(), metadata);
+      } else if (logoFile is File) {
+        uploadTask = _storage.ref().child(storagePath).putFile(logoFile);
+      } else {
+        throw Exception('Unsupported file type');
+      }
+
+      final TaskSnapshot snapshot = await uploadTask;
+      final String downloadUrl = await snapshot.ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      throw Exception('Failed to upload restaurant logo: $e');
+    }
+  }
+
+
+  String _getFileExtension(dynamic file) {
+    if (kIsWeb && file is html.File) {
+      final fileName = file.name;
+      final dotIndex = fileName.lastIndexOf('.');
+      return dotIndex != -1 ? fileName.substring(dotIndex) : '.jpg';
+    } else if (file is File) {
+      return path.extension(file.path);
+    }
+    return '.jpg';
+  }
+
+  String _getMimeType(html.File file) {
+    final type = file.type;
+    if (type.isNotEmpty) {
+      if (type.contains('jpeg') || type.contains('jpg')) return 'jpeg';
+      if (type.contains('png')) return 'png';
+      if (type.contains('gif')) return 'gif';
+      if (type.contains('bmp')) return 'bmp';
+      if (type.contains('webp')) return 'webp';
+    }
+    return 'jpeg';
+  }
+
+  Future<void> updateUserLogo({
+    required String userId,
+    required String logoUrl,
+  }) async {
+    try {
+      await _firestore.collection('vendors').doc(userId).update({
+        'restaurantLogoUrl': logoUrl,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+    } catch (e) {
+      throw Exception('Failed to update user logo: $e');
+    }
   }
 }

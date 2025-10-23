@@ -31,30 +31,72 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Sign up
+  // Update the signUp method in AuthProvider
   Future<bool> signUp({
     required String email,
     required String password,
     required String name,
     required UserRole role,
-    required String location, // New parameter
-    required String phoneNo, // New parameter
-    required String restaurantName, // New parameter
+    required String location,
+    required String phoneNo,
+    required String restaurantName,
+    dynamic restaurantLogo, // New optional parameter
   }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
+      // First create the user account
       _currentUser = await _authService.signUp(
         email: email,
         password: password,
         name: name,
         role: role,
-        location: location, // New parameter
-        phoneNo: phoneNo, // New parameter
-        restaurantName: restaurantName, // New parameter
+        location: location,
+        phoneNo: phoneNo,
+        restaurantName: restaurantName,
       );
+
+      // If logo is provided, upload it and update user document
+      if (restaurantLogo != null && _currentUser != null) {
+        try {
+          final logoUrl = await _authService.uploadRestaurantLogo(
+            logoFile: restaurantLogo,
+            vendorId: _currentUser!.id,
+          );
+
+          // Update user document with logo URL
+          if (logoUrl != null) {
+            await _authService.updateUserLogo(
+              userId: _currentUser!.id,
+              logoUrl: logoUrl,
+            );
+
+            // Update current user with logo URL
+            _currentUser = UserModel(
+              id: _currentUser!.id,
+              email: _currentUser!.email,
+              name: _currentUser!.name,
+              role: _currentUser!.role,
+              createdAt: _currentUser!.createdAt,
+              isActive: _currentUser!.isActive,
+              trialEndsAt: _currentUser!.trialEndsAt,
+              subscriptionType: _currentUser!.subscriptionType,
+              subscriptionEndsAt: _currentUser!.subscriptionEndsAt,
+              hasActiveSubscription: _currentUser!.hasActiveSubscription,
+              location: _currentUser!.location,
+              phoneNo: _currentUser!.phoneNo,
+              restaurantName: _currentUser!.restaurantName,
+              restaurantLogoUrl: logoUrl,
+            );
+          }
+        } catch (e) {
+          // Log logo upload error but don't fail the signup
+          print('Logo upload failed: $e');
+        }
+      }
+
       return true;
     } catch (e) {
       _error = e.toString();

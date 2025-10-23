@@ -15,9 +15,10 @@ class UserModel {
   final SubscriptionType subscriptionType;
   final DateTime? subscriptionEndsAt;
   final bool hasActiveSubscription;
-  final String location; // New field
-  final String phoneNo; // New field
-  final String restaurantName; // New field
+  final String location;
+  final String phoneNo;
+  final String restaurantName;
+  final String? restaurantLogoUrl; 
 
   UserModel({
     required this.id,
@@ -30,9 +31,10 @@ class UserModel {
     required this.subscriptionType,
     this.subscriptionEndsAt,
     this.hasActiveSubscription = false,
-    required this.location, // New field
-    required this.phoneNo, // New field
-    required this.restaurantName, // New field
+    required this.location,
+    required this.phoneNo,
+    required this.restaurantName,
+    this.restaurantLogoUrl, 
   });
 
   factory UserModel.fromMap(Map<String, dynamic> data, String id) {
@@ -53,9 +55,10 @@ class UserModel {
           ? (data['subscriptionEndsAt'] as Timestamp).toDate()
           : null,
       hasActiveSubscription: data['hasActiveSubscription'] ?? false,
-      location: data['location'] ?? '', // New field
-      phoneNo: data['phoneNo'] ?? '', // New field
-      restaurantName: data['restaurantName'] ?? '', // New field
+      location: data['location'] ?? '',
+      phoneNo: data['phoneNo'] ?? '',
+      restaurantName: data['restaurantName'] ?? '',
+      restaurantLogoUrl: data['restaurantLogoUrl'], 
     );
   }
 
@@ -72,9 +75,10 @@ class UserModel {
           ? Timestamp.fromDate(subscriptionEndsAt!)
           : null,
       'hasActiveSubscription': hasActiveSubscription,
-      'location': location, // New field
-      'phoneNo': phoneNo, // New field
-      'restaurantName': restaurantName, // New field
+      'location': location,
+      'phoneNo': phoneNo,
+      'restaurantName': restaurantName,
+      'restaurantLogoUrl': restaurantLogoUrl, 
     };
   }
 
