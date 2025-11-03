@@ -226,4 +226,42 @@ class ImageUploadService {
     }
     return null;
   }
+
+  // Add this method to ImageUploadService class
+  Future<String> uploadDiscountImage({
+    required dynamic imageFile,
+    required String vendorId,
+    required String discountId,
+  }) async {
+    try {
+      final String fileName =
+          'discount_${DateTime.now().millisecondsSinceEpoch}${_getFileExtension(imageFile)}';
+      final String storagePath =
+          'vendors/$vendorId/discounts/$discountId/$fileName';
+
+      UploadTask uploadTask;
+
+      if (_isWeb() && imageFile is html.File) {
+        // For web - upload from html.File
+        final metadata = SettableMetadata(
+          contentType: 'image/${_getMimeType(imageFile)}',
+        );
+        uploadTask = _storage
+            .ref()
+            .child(storagePath)
+            .putBlob(imageFile.slice(), metadata);
+      } else if (imageFile is File) {
+        // For mobile - upload from File
+        uploadTask = _storage.ref().child(storagePath).putFile(imageFile);
+      } else {
+        throw Exception('Unsupported file type');
+      }
+
+      final TaskSnapshot snapshot = await uploadTask;
+      final String downloadUrl = await snapshot.ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      throw Exception('Failed to upload discount image: $e');
+    }
+  }
 }
