@@ -49,7 +49,7 @@ class SubscriptionProvider with ChangeNotifier {
           now.year + 100,
           now.month,
           now.day,
-        ); // 100 years = lifetime
+        ); 
       default:
         return DateTime(now.year, now.month + 1, now.day);
     }

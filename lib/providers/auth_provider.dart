@@ -181,6 +181,73 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  // Update profile
+  Future<bool> updateProfile({
+    required String name,
+    required String location,
+    required String phoneNo,
+    required String restaurantName,
+    dynamic restaurantLogo,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // Upload logo if provided
+      String? logoUrl = _currentUser?.restaurantLogoUrl;
+      if (restaurantLogo != null && _currentUser != null) {
+        logoUrl = await _authService.uploadRestaurantLogo(
+          logoFile: restaurantLogo,
+          vendorId: _currentUser!.id,
+        );
+        if (logoUrl != null) {
+          await _authService.updateUserLogo(
+            userId: _currentUser!.id,
+            logoUrl: logoUrl,
+          );
+        }
+      }
+
+      // Update profile data
+      await _authService.updateProfile(
+        name: name,
+        role: _currentUser!.role,
+        isActive: _currentUser!.isActive,
+        location: location,
+        phoneNo: phoneNo,
+        restaurantName: restaurantName,
+      );
+
+      // Update current user
+      _currentUser = UserModel(
+        id: _currentUser!.id,
+        email: _currentUser!.email,
+        name: name,
+        role: _currentUser!.role,
+        createdAt: _currentUser!.createdAt,
+        isActive: _currentUser!.isActive,
+        trialEndsAt: _currentUser!.trialEndsAt,
+        subscriptionType: _currentUser!.subscriptionType,
+        subscriptionEndsAt: _currentUser!.subscriptionEndsAt,
+        hasActiveSubscription: _currentUser!.hasActiveSubscription,
+        location: location,
+        phoneNo: phoneNo,
+        restaurantName: restaurantName,
+        restaurantLogoUrl: logoUrl,
+      );
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   // Clear error
   void clearError() {
     _error = null;

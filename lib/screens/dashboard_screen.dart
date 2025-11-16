@@ -9,13 +9,12 @@ import 'package:pos/providers/category_provider.dart';
 import 'package:pos/providers/product_provider.dart';
 import 'package:pos/providers/statistics_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import '../utils/responsive.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
 import '../components/ui/custom_button.dart';
 import '../routes/app_router.dart';
-import 'package:pos/providers/auth_provider.dart'; // Add this import
+import 'package:pos/providers/auth_provider.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -30,7 +29,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late StatisticsProvider _statisticsProvider;
 
   // Tutorial coach mark controller and targets
-  TutorialCoachMark? tutorialCoachMark;
+  // TutorialCoachMark? tutorialCoachMark;
   final GlobalKey _categoriesGridKey = GlobalKey();
   final GlobalKey _statisticsBarKey = GlobalKey();
   final GlobalKey _quickActionsKey = GlobalKey();
@@ -73,7 +72,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   void dispose() {
-    tutorialCoachMark?.finish();
+    // tutorialCoachMark?.finish();
     super.dispose();
   }
 
@@ -255,42 +254,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     return Container(
                       padding: const EdgeInsets.all(AppSpacing.lg),
                       color: Colors.blue.shade50,
-                      child: Column(
+                      child: Row(
                         children: [
-                          Row(
-                            children: [
-                              // Restaurant Logo
-                              Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(25),
-                                  border: Border.all(
-                                    color: Colors.grey.shade300,
-                                    width: 1,
-                                  ),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(25),
-                                  child: _buildRestaurantLogo(user),
-                                ),
+                          // Restaurant Logo
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(25),
+                              border: Border.all(
+                                color: Colors.grey.shade300,
+                                width: 1,
                               ),
-                              const SizedBox(width: AppSpacing.md),
-                              Expanded(
-                                child: Text(
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(25),
+                              child: _buildRestaurantLogo(user),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
                                   user?.restaurantName.isNotEmpty == true
                                       ? user!.restaurantName
                                       : 'My Restaurant',
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                            ],
+                                Text(
+                                  user?.location.isNotEmpty == true
+                                      ? user!.location
+                                      : 'My Restaurant Address',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -363,12 +371,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 Icons.timeline,
                                 const Color(0xFF06B6D4),
                                 () => context.go(AppRouter.attendance),
-                              ),
-                              _buildQuickActionButton(
-                                l10n.drafts,
-                                Icons.drafts,
-                                AppColors.accentDark,
-                                () => context.go(AppRouter.drafts),
                               ),
                             ],
                           ),
@@ -461,11 +463,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'label': l10n.suppliers,
         'value': stats['suppliers'] ?? 0,
         'color': AppColors.success,
-      },
-      {
-        'label': l10n.drafts,
-        'value': stats['drafts'] ?? 0,
-        'color': Colors.purple,
       },
       {
         'label': l10n.purchases,

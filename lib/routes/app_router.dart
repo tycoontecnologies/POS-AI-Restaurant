@@ -5,6 +5,7 @@ import 'package:pos/providers/subscription_provider.dart';
 import 'package:pos/screens/auth/login_screen.dart';
 import 'package:pos/screens/auth/signup_screen.dart';
 import 'package:pos/screens/discounts_screen.dart';
+import 'package:pos/screens/orders_screen.dart';
 import 'package:pos/screens/payment_screen.dart';
 import 'package:pos/screens/payment_success_screen.dart';
 import 'package:pos/screens/pricing_screen.dart';
@@ -20,7 +21,6 @@ import '../screens/staff_screen.dart';
 import '../screens/attendance_screen.dart';
 import '../screens/suppliers_screen.dart';
 import '../screens/purchases_screen.dart';
-import '../screens/drafts_screen.dart';
 import '../screens/store_out_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/dashboard_screen.dart';
@@ -49,9 +49,9 @@ class AppRouter {
   static const String settings = '/settings';
   static const String salesReturn = '/salesReturn';
   static const String storeOut = '/storeOut';
-  static const String drafts = '/drafts';
   static const String customers = '/customers';
   static const String discounts = '/discounts';
+  static const String orders = '/orders';
 
   static final GoRouter router = GoRouter(
     initialLocation: login,
@@ -161,12 +161,6 @@ class AppRouter {
             redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
-            path: drafts,
-            name: 'drafts',
-            builder: (context, state) => const DraftsScreen(),
-            redirect: (context, state) => _checkSubscription(context, state),
-          ),
-          GoRoute(
             path: storeOut,
             name: 'store-out',
             builder: (context, state) => const StoreOutScreen(),
@@ -206,6 +200,12 @@ class AppRouter {
             path: discounts,
             name: 'discounts',
             builder: (context, state) => const DiscountsScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
+          ),
+          GoRoute(
+            path: orders,
+            name: 'orders',
+            builder: (context, state) => const OrdersScreen(),
             redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
@@ -342,12 +342,6 @@ class AppRouter {
         roles: [UserRole.admin, UserRole.staff, UserRole.user],
       ),
       NavigationItem(
-        icon: Icons.archive_outlined,
-        label: 'Drafts',
-        route: drafts,
-        roles: [UserRole.admin, UserRole.staff],
-      ),
-      NavigationItem(
         icon: Icons.storefront_outlined,
         label: 'Store Out',
         route: storeOut,
@@ -370,6 +364,12 @@ class AppRouter {
         label: 'Discounts',
         route: discounts,
         roles: [UserRole.admin],
+      ),
+      NavigationItem(
+        icon: Icons.shopping_bag,
+        label: 'Orders',
+        route: orders,
+        roles: [UserRole.admin, UserRole.staff, UserRole.user],
       ),
       NavigationItem(
         icon: Icons.settings,

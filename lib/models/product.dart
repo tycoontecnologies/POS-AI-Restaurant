@@ -1,10 +1,8 @@
-// models/product.dart
-
 class ProductAttribute {
   final String id;
   final String name;
-  final String type; // 'text', 'number', 'selection'
-  final List<String> options; // For selection type
+  final String type;
+  final List<String> options;
   final bool required;
 
   ProductAttribute({

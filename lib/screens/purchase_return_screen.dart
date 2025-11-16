@@ -1,5 +1,6 @@
 // purchase_return_screen.dart
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
@@ -480,7 +481,13 @@ class _PurchaseReturnScreenState extends State<PurchaseReturnScreen> {
                     ),
                   ),
                 ),
-                DataCell(Text(_formatDate(purchaseReturn.createdAt))),
+                DataCell(
+                  Text(
+                    DateFormat(
+                      'd MMM yyyy',
+                    ).format(purchaseReturn.createdAt.toLocal()),
+                  ),
+                ),
                 DataCell(_rowActions(purchaseReturn)),
               ],
             );

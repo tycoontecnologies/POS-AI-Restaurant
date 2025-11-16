@@ -52,19 +52,58 @@ class MainShell extends StatelessWidget {
   }
 }
 
-class _ModernAppHeader extends StatelessWidget {
+class _ModernAppHeader extends StatefulWidget {
   final String currentLocation;
 
   const _ModernAppHeader({required this.currentLocation});
 
   @override
+  State<_ModernAppHeader> createState() => _ModernAppHeaderState();
+}
+
+class _ModernAppHeaderState extends State<_ModernAppHeader> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  void _scrollLeft() {
+    _scrollController.animateTo(
+      (_scrollController.offset - 150).clamp(
+        0,
+        _scrollController.position.maxScrollExtent,
+      ),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _scrollRight() {
+    _scrollController.animateTo(
+      (_scrollController.offset + 150).clamp(
+        0,
+        _scrollController.position.maxScrollExtent,
+      ),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // final l10n = AppLocalizations.of(context)!;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final items = AppRouter.getNavigationItems(
       authProvider.currentUser?.role ?? UserRole.admin,
     );
-    // final localeProvider = Provider.of<LocaleProvider>(context);
+    final isCompact = Responsive.isMobile(context);
 
     return Container(
       decoration: BoxDecoration(
@@ -86,70 +125,110 @@ class _ModernAppHeader extends StatelessWidget {
         child: Container(
           height: 72,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isCompact = Responsive.isMobile(context);
-              return Row(
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (int i = 0; i < items.length; i++)
-                            _ModernHeaderButton(
-                              item: items[i],
-                              selected: currentLocation == items[i].route,
-                              onTap: () async {
-                                try {
-                                  final subscriptionProvider =
-                                      Provider.of<SubscriptionProvider>(
-                                        context,
-                                        listen: false,
-                                      );
-                                  final hasValidSubscription =
-                                      await subscriptionProvider
-                                          .hasValidSubscription();
+          child: Row(
+            children: [
+              // Left Arrow
+              // if (_showLeftArrow)
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white, // Background color
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  padding: EdgeInsets.all(0),
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Colors.blue, // Icon color
+                    size: 20,
+                    weight: 200,
+                  ),
+                  onPressed: _scrollLeft,
+                  splashRadius: 20,
+                ),
+              ),
 
-                                  if (!hasValidSubscription &&
-                                      items[i].route != AppRouter.pricing) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Please renew your subscription to access this feature',
-                                        ),
-                                        duration: Duration(seconds: 1),
-                                        backgroundColor: Colors.orange,
-                                      ),
+              // Scrollable tabs
+              Expanded(
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (_) {
+                    return false;
+                  },
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (int i = 0; i < items.length; i++)
+                          _ModernHeaderButton(
+                            item: items[i],
+                            selected: widget.currentLocation == items[i].route,
+                            onTap: () async {
+                              try {
+                                final subscriptionProvider =
+                                    Provider.of<SubscriptionProvider>(
+                                      context,
+                                      listen: false,
                                     );
-                                    context.go(AppRouter.pricing);
-                                  } else {
-                                    context.go(items[i].route);
-                                  }
-                                } catch (e) {
+                                final hasValidSubscription =
+                                    await subscriptionProvider
+                                        .hasValidSubscription();
+
+                                if (!hasValidSubscription &&
+                                    items[i].route != AppRouter.pricing) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      duration: Duration(seconds: 1),
+                                    const SnackBar(
                                       content: Text(
-                                        'Error checking subscription: $e',
+                                        'Please renew your subscription to access this feature',
                                       ),
-                                      backgroundColor: Colors.red,
+                                      duration: Duration(seconds: 1),
+                                      backgroundColor: Colors.orange,
                                     ),
                                   );
+                                  context.go(AppRouter.pricing);
+                                } else {
+                                  context.go(items[i].route);
                                 }
-                              },
-                              compact: isCompact,
-                            ),
-                        ],
-                      ),
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    duration: const Duration(seconds: 1),
+                                    content: Text(
+                                      'Error checking subscription: $e',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                            compact: isCompact,
+                          ),
+                      ],
                     ),
                   ),
+                ),
+              ),
 
-                  const SizedBox(width: AppSpacing.md),
-                  _HeaderActions(),
-                ],
-              );
-            },
+              // Right Arrow
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white, // Background color
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  padding: EdgeInsets.all(0),
+                  icon: const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: Colors.blue, // Icon color
+                    size: 20,
+                  ),
+                  onPressed: _scrollRight,
+                  splashRadius: 20,
+                ),
+              ),
+
+              const SizedBox(width: AppSpacing.md),
+              _HeaderActions(),
+            ],
           ),
         ),
       ),
@@ -221,14 +300,14 @@ class _ModernHeaderButtonState extends State<_ModernHeaderButton>
           return l10n.purchases;
         case 'sales':
           return l10n.sales;
-        case 'drafts':
-          return l10n.drafts;
         case 'storeOut':
           return l10n.storeOut;
         case 'Customers':
           return 'Customers';
         case 'Discounts':
           return 'Discounts';
+        case 'Orders':
+          return 'Orders';
         case 'settings':
           return l10n.settings;
         default:
@@ -320,44 +399,44 @@ class _HeaderActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Provider.of<ThemeProvider>(context);
-    final localeProvider = Provider.of<LocaleProvider>(context);
+    Provider.of<LocaleProvider>(context);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     return Row(
       children: [
         // Language selector
-        PopupMenuButton<Locale>(
-          child: _ActionButton(
-            icon: Icons.language,
-            tooltip: 'Language',
-            onTap: null,
-          ),
-          onSelected: (locale) {
-            localeProvider.setLocale(locale);
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: Locale('en'),
-              child: Row(
-                children: [Text('🇺🇸'), SizedBox(width: 8), Text('English')],
-              ),
-            ),
-            const PopupMenuItem(
-              value: Locale('ur'),
-              child: Row(
-                children: [Text('🇵🇰'), SizedBox(width: 8), Text('اردو')],
-              ),
-            ),
-            const PopupMenuItem(
-              value: Locale('ar'),
-              child: Row(
-                children: [Text('🇸🇦'), SizedBox(width: 8), Text('العربية')],
-              ),
-            ),
-          ],
-        ),
+        // PopupMenuButton<Locale>(
+        //   child: _ActionButton(
+        //     icon: Icons.language,
+        //     tooltip: 'Language',
+        //     onTap: null,
+        //   ),
+        //   onSelected: (locale) {
+        //     localeProvider.setLocale(locale);
+        //   },
+        //   itemBuilder: (context) => [
+        //     const PopupMenuItem(
+        //       value: Locale('en'),
+        //       child: Row(
+        //         children: [Text('🇺🇸'), SizedBox(width: 8), Text('English')],
+        //       ),
+        //     ),
+        //     const PopupMenuItem(
+        //       value: Locale('ur'),
+        //       child: Row(
+        //         children: [Text('🇵🇰'), SizedBox(width: 8), Text('اردو')],
+        //       ),
+        //     ),
+        //     const PopupMenuItem(
+        //       value: Locale('ar'),
+        //       child: Row(
+        //         children: [Text('🇸🇦'), SizedBox(width: 8), Text('العربية')],
+        //       ),
+        //     ),
+        //   ],
+        // ),
 
-        const SizedBox(width: AppSpacing.sm),
+        // const SizedBox(width: AppSpacing.sm),
 
         // Logout button
         _ActionButton(
@@ -426,7 +505,8 @@ class _ActionButtonState extends State<_ActionButton> {
       child: Tooltip(
         message: widget.tooltip,
         child: Material(
-          color: Colors.transparent,
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(6),
           child: InkWell(
             onTap: widget.onTap,
             borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -442,11 +522,7 @@ class _ActionButtonState extends State<_ActionButton> {
                     ? Border.all(color: AppColors.white.withOpacity(0.2))
                     : null,
               ),
-              child: Icon(
-                widget.icon,
-                color: AppColors.white.withOpacity(0.9),
-                size: 20,
-              ),
+              child: Icon(widget.icon, color: AppColors.white, size: 20),
             ),
           ),
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
@@ -172,7 +173,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text('Return ID: ${saleReturn.id}'),
-                Text('Original Sale ID: ${saleReturn.originalSaleId}'),
+                Text('Receipt ID: ${saleReturn.originalSaleId}'),
                 Text('Date: ${_formatDate(saleReturn.createdAt)}'),
                 Text(
                   'Total Refund: ${saleReturn.totalRefund.toStringAsFixed(0)}',
@@ -385,7 +386,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
         child: DataTableWidget(
           columns: [
             DataColumn(label: Text('#')),
-            DataColumn(label: Text('Sale ID')),
+            DataColumn(label: Text('Receipt ID')),
             DataColumn(label: Text('Products')),
             DataColumn(label: Text('Refund Amount')),
             DataColumn(label: Text('Reason')),
@@ -447,7 +448,13 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
                     ),
                   ),
                 ),
-                DataCell(Text(_formatDate(saleReturn.createdAt))),
+                DataCell(
+                  Text(
+                    DateFormat(
+                      'd MMM yyyy',
+                    ).format(saleReturn.createdAt.toLocal()),
+                  ),
+                ),
                 DataCell(_rowActions(saleReturn)),
               ],
             );
@@ -479,7 +486,7 @@ class _SaleReturnScreenState extends State<SaleReturnScreen> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    'Sale ID: ${saleReturn.originalSaleId.substring(0, 8)}...',
+                    'Receipt ID: ${saleReturn.originalSaleId.substring(0, 8)}...',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: AppSpacing.sm),

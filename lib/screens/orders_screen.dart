@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
-import 'package:pos/models/sale_return.dart';
-import 'package:pos/providers/sale_return_provider.dart';
-import 'package:pos/screens/select_return_items_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 import 'package:pos/l10n/app_localizations.dart';
-import '../models/sale.dart';
-import '../providers/sale_provider.dart';
+import '../models/order.dart';
+import '../providers/order_provider.dart';
 import '../providers/auth_provider.dart';
 import '../components/ui/custom_card.dart';
 import '../components/ui/custom_button.dart';
@@ -17,14 +14,14 @@ import '../components/ui/data_table_widget.dart';
 import '../utils/app_spacing.dart';
 import '../utils/app_colors.dart';
 
-class SalesTableScreen extends StatefulWidget {
-  const SalesTableScreen({super.key});
+class OrdersScreen extends StatefulWidget {
+  const OrdersScreen({super.key});
 
   @override
-  State<SalesTableScreen> createState() => _SalesTableScreenState();
+  State<OrdersScreen> createState() => _OrdersScreenState();
 }
 
-class _SalesTableScreenState extends State<SalesTableScreen> {
+class _OrdersScreenState extends State<OrdersScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
@@ -35,7 +32,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
   // Pagination variables
   final int _itemsPerPage = 20;
   bool _hasMore = true;
-  final List<Sale> _allSales = [];
+  final List<Order> _allOrders = [];
 
   @override
   void initState() {
@@ -45,7 +42,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
 
     // Delay the loading to avoid build phase conflicts
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadSales();
+      _loadOrders();
     });
   }
 
@@ -65,13 +62,13 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
   void _onScroll() {
     if (_scrollController.position.pixels ==
         _scrollController.position.maxScrollExtent) {
-      _loadMoreSales();
+      _loadMoreOrders();
     }
   }
 
-  Future<void> _loadSales() async {
+  Future<void> _loadOrders() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final saleProvider = Provider.of<SaleProvider>(context, listen: false);
+    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
 
     if (authProvider.currentUser != null) {
       setState(() {
@@ -80,11 +77,11 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       });
 
       try {
-        await saleProvider.fetchSales(authProvider.currentUser!.id);
+        await orderProvider.fetchOrders(authProvider.currentUser!.id);
         setState(() {
-          _allSales.clear();
-          _allSales.addAll(saleProvider.sales);
-          _hasMore = saleProvider.sales.length >= _itemsPerPage;
+          _allOrders.clear();
+          _allOrders.addAll(orderProvider.orders);
+          _hasMore = orderProvider.orders.length >= _itemsPerPage;
         });
       } catch (e) {
         setState(() {
@@ -93,8 +90,8 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              duration: Duration(seconds: 1),
-              content: Text('Failed to load sales: $e'),
+              duration: const Duration(seconds: 1),
+              content: Text('Failed to load orders: $e'),
               backgroundColor: AppColors.error,
             ),
           );
@@ -107,23 +104,22 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
     }
   }
 
-  Future<void> _loadMoreSales() async {
+  Future<void> _loadMoreOrders() async {
     if (_isLoadingMore || !_hasMore) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    Provider.of<SaleProvider>(context, listen: false);
+    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
 
     if (authProvider.currentUser != null) {
       setState(() => _isLoadingMore = true);
 
       try {
-        // Simulate loading more data (you'll need to implement proper pagination in your API)
-        await Future.delayed(const Duration(milliseconds: 500));
-
-        // For now, we'll just use the existing data but simulate pagination
-        // In a real app, you'd call something like saleProvider.fetchMoreSales()
+        // Load more orders from provider
+        await orderProvider.fetchOrders(authProvider.currentUser!.id);
         setState(() {
-          _hasMore = false; // Set to false since we don't have real pagination
+          _allOrders.clear();
+          _allOrders.addAll(orderProvider.orders);
+          _hasMore = orderProvider.orders.length >= _itemsPerPage;
           _isLoadingMore = false;
         });
       } catch (e) {
@@ -134,8 +130,8 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              duration: Duration(seconds: 1),
-              content: Text('Failed to load more sales: $e'),
+              duration: const Duration(seconds: 1),
+              content: Text('Failed to load more orders: $e'),
               backgroundColor: AppColors.error,
             ),
           );
@@ -144,47 +140,39 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
     }
   }
 
-  List<Sale> _filterSales(List<Sale> sales) {
-    if (_searchQuery.isEmpty) return sales;
+  List<Order> _filterOrders(List<Order> orders) {
+    if (_searchQuery.isEmpty) return orders;
 
     final query = _searchQuery.toLowerCase();
-    return sales.where((sale) {
-      return sale.id.toLowerCase().contains(query) ||
-          sale.items.any(
+    return orders.where((order) {
+      return order.id.toLowerCase().contains(query) ||
+          order.items.any(
             (item) => item.productName.toLowerCase().contains(query),
           ) ||
-          sale.total.toString().contains(query) ||
-          _formatDate(sale.createdAt).contains(query);
+          order.totalAmount.toString().contains(query) ||
+          order.status.toLowerCase().contains(query) ||
+          _formatDate(order.createdAt).contains(query);
     }).toList();
   }
 
-  List<Sale> _getPaginatedSales(List<Sale> allSales) {
-    final filteredSales = _filterSales(allSales);
-
-    // For infinite scroll, we show all filtered results
-    // If you want traditional pagination, uncomment below:
-    /*
-    final startIndex = (_currentPage - 1) * _itemsPerPage;
-    final endIndex = startIndex + _itemsPerPage;
-    return filteredSales.sublist(
-      startIndex.clamp(0, filteredSales.length),
-      endIndex.clamp(0, filteredSales.length),
-    );
-    */
-
-    return filteredSales;
+  List<Order> _getPaginatedOrders(List<Order> allOrders) {
+    final filteredOrders = _filterOrders(allOrders);
+    // For now, return all filtered orders since we're not implementing actual pagination
+    return filteredOrders;
   }
 
-  String _formatProductNames(List<SaleItem> items) {
+  String _formatProductNames(List<OrderItem> items) {
     if (items.isEmpty) return 'No items';
-
-    items.map((item) => item.productName).toList();
 
     // Group by product name and show quantity if multiple
     final grouped = groupBy(items, (item) => item.productName);
     final result = grouped.entries.map((entry) {
-      if (entry.value.length > 1) {
-        return '${entry.key} (x${entry.value.length})';
+      final totalQuantity = entry.value.fold(
+        0,
+        (sum, item) => sum + item.quantity,
+      );
+      if (totalQuantity > 1) {
+        return '${entry.key} (x$totalQuantity)';
       }
       return entry.key;
     }).toList();
@@ -193,10 +181,26 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
   }
 
   String _formatDate(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    return DateFormat('d MMM yyyy h:mm a').format(date.toLocal());
   }
 
-  void _showSaleDetails(Sale sale) {
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+      case 'confirmed':
+        return AppColors.warning;
+      case 'completed':
+      case 'delivered':
+        return AppColors.success;
+      case 'cancelled':
+      case 'rejected':
+        return AppColors.error;
+      default:
+        return AppColors.grey600;
+    }
+  }
+
+  void _showOrderDetails(Order order) {
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -212,15 +216,22 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Sale Details',
+                  'Order Details',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Text('Receipt ID: ${sale.id}'),
-                Text('Date: ${_formatDate(sale.createdAt)}'),
-                Text('Total: ${sale.total.toStringAsFixed(0)}'),
+                Text('Order ID: ${order.id}'),
+                Text('Date: ${_formatDate(order.createdAt)}'),
+                Text(
+                  'Status: ${order.status}',
+                  style: TextStyle(
+                    color: _getStatusColor(order.status),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text('Payment Method: ${order.paymentMethod}'),
                 const SizedBox(height: AppSpacing.lg),
                 const Divider(),
                 const SizedBox(height: AppSpacing.md),
@@ -236,26 +247,55 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                     child: DataTable(
                       columns: const [
                         DataColumn(label: Text('Product')),
+                        DataColumn(label: Text('Variant')),
                         DataColumn(label: Text('Price'), numeric: true),
                         DataColumn(label: Text('Qty'), numeric: true),
                         DataColumn(label: Text('Subtotal'), numeric: true),
                       ],
-                      rows: sale.items.map((item) {
+                      rows: order.items.map((item) {
                         return DataRow(
                           cells: [
                             DataCell(Text(item.productName)),
+                            DataCell(
+                              Text(item.selectedVariantName ?? 'Standard'),
+                            ),
                             DataCell(Text(item.price.toStringAsFixed(0))),
                             DataCell(Text('${item.quantity}')),
-                            DataCell(
-                              Text(
-                                (item.price * item.quantity).toStringAsFixed(0),
-                              ),
-                            ),
+                            DataCell(Text(item.totalPrice.toStringAsFixed(0))),
                           ],
                         );
                       }).toList(),
                     ),
                   ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                const Divider(),
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Subtotal: ${order.subtotal.toStringAsFixed(0)}',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                        Text(
+                          'Delivery Fee: ${order.deliveryFee.toStringAsFixed(0)}',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'Total: ${order.totalAmount.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Align(
@@ -274,93 +314,74 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
     );
   }
 
-  Widget _rowActions(Sale sale) {
-    return // In the mobileItemBuilder section of sale_record.dart, update the actions row:
-    Row(
+  Widget _rowActions(Order order) {
+    return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      spacing: 10,
+      spacing: 6,
       children: [
         IconButton(
           tooltip: 'View Details',
           icon: const Icon(Icons.visibility, size: 16),
-          onPressed: () => _showSaleDetails(sale),
+          onPressed: () => _showOrderDetails(order),
           style: IconButton.styleFrom(
             backgroundColor: AppColors.primary.withOpacity(0.1),
             foregroundColor: AppColors.primary,
           ),
         ),
-        IconButton(
-          tooltip: 'Return All Items',
-          icon: const Icon(Icons.all_inbox, size: 16),
-          onPressed: () => _returnAllItems(sale),
-          style: IconButton.styleFrom(
-            backgroundColor: AppColors.success.withOpacity(0.1),
-            foregroundColor: AppColors.success,
+        if (order.status.toLowerCase() != 'completed' &&
+            order.status.toLowerCase() != 'delivered')
+          IconButton(
+            tooltip: 'Mark as Completed',
+            icon: const Icon(Icons.check_circle, size: 16),
+            onPressed: () => _updateOrderStatus(order, 'completed'),
+            style: IconButton.styleFrom(
+              backgroundColor: AppColors.success.withOpacity(0.1),
+              foregroundColor: AppColors.success,
+            ),
           ),
-        ),
         IconButton(
-          tooltip: 'Select Items to Return',
-          icon: const Icon(Icons.checklist, size: 16),
-          onPressed: () => _returnSelectedItems(sale),
+          tooltip: 'Delete Order',
+          icon: const Icon(Icons.delete, size: 16),
+          onPressed: () => _deleteOrder(order),
           style: IconButton.styleFrom(
-            backgroundColor: AppColors.warning.withOpacity(0.1),
-            foregroundColor: AppColors.warning,
+            backgroundColor: AppColors.error.withOpacity(0.1),
+            foregroundColor: AppColors.error,
           ),
         ),
       ],
     );
   }
 
-  Future<void> _returnAllItems(Sale sale) async {
+  Future<void> _updateOrderStatus(Order order, String newStatus) async {
     final authProvider = context.read<AuthProvider>();
-    final saleReturnProvider = context.read<SaleReturnProvider>();
-    final reason = await _showReasonDialog();
-
-    if (reason == null) return; // User cancelled
+    final orderProvider = context.read<OrderProvider>();
 
     try {
-      // Create sale return items for all products
-      final returnItems = sale.items
-          .map(
-            (item) => SaleReturnItem(
-              productId: item.productId,
-              productName: item.productName,
-              originalPrice: item.price,
-              returnedQuantity: item.quantity,
-              refundAmount: item.price * item.quantity,
-            ),
-          )
-          .toList();
-
-      // Calculate total refund
-      final totalRefund = returnItems.fold(
-        0.0,
-        (sum, item) => sum + item.refundAmount,
+      final updatedOrder = order.copyWith(
+        status: newStatus,
+        deliveredAt: newStatus == 'completed'
+            ? DateTime.now()
+            : order.deliveredAt,
       );
 
-      // Create sale return
-      final saleReturn = SaleReturn(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        vendorId: authProvider.currentUser!.id,
-        originalSaleId: sale.id,
-        items: returnItems,
-        totalRefund: totalRefund,
-        reason: reason,
-        createdAt: DateTime.now(),
-      );
-
-      await saleReturnProvider.createSaleReturn(
+      await orderProvider.updateOrder(
         authProvider.currentUser!.id,
-        saleReturn,
+        updatedOrder,
       );
+
+      // 🔥 UPDATE LOCAL LIST IMMEDIATELY
+      final index = _allOrders.indexWhere((o) => o.id == order.id);
+      if (index != -1) {
+        setState(() {
+          _allOrders[index] = updatedOrder;
+        });
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            duration: Duration(seconds: 1),
-            content: Text(
-              'Return processed successfully for ${totalRefund.toStringAsFixed(0)}',
-            ),
+            duration: const Duration(seconds: 1),
+            content: Text('Order status updated to $newStatus'),
             backgroundColor: AppColors.success,
           ),
         );
@@ -369,8 +390,8 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            duration: Duration(seconds: 1),
-            content: Text('Failed to process return: $e'),
+            duration: const Duration(seconds: 1),
+            content: Text('Failed to update order: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -378,124 +399,65 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
     }
   }
 
-  Future<void> _returnSelectedItems(Sale sale) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => SelectReturnItemsScreen(sale: sale),
-      ),
-    );
-
-    if (result == null) return; // User cancelled
-
-    final authProvider = context.read<AuthProvider>();
-    final saleReturnProvider = context.read<SaleReturnProvider>();
-    final List<String> selectedProductIds = result['selectedProductIds'];
-    final String reason = result['reason'];
-
-    try {
-      // Create sale return items only for selected products
-      final returnItems = sale.items
-          .where((item) => selectedProductIds.contains(item.productId))
-          .map(
-            (item) => SaleReturnItem(
-              productId: item.productId,
-              productName: item.productName,
-              originalPrice: item.price,
-              returnedQuantity: item.quantity,
-              refundAmount: item.price * item.quantity,
-            ),
-          )
-          .toList();
-
-      // Calculate total refund
-      final totalRefund = returnItems.fold(
-        0.0,
-        (sum, item) => sum + item.refundAmount,
-      );
-
-      // Create sale return
-      final saleReturn = SaleReturn(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        vendorId: authProvider.currentUser!.id,
-        originalSaleId: sale.id,
-        items: returnItems,
-        totalRefund: totalRefund,
-        reason: reason,
-        createdAt: DateTime.now(),
-      );
-
-      await saleReturnProvider.createSaleReturn(
-        authProvider.currentUser!.id,
-        saleReturn,
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            duration: Duration(seconds: 1),
-            content: Text(
-              'Return processed successfully for ${totalRefund.toStringAsFixed(0)}',
-            ),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            duration: Duration(seconds: 1),
-            content: Text('Failed to process return: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<String?> _showReasonDialog() async {
-    final TextEditingController reasonController = TextEditingController();
-
-    return showDialog<String>(
+  Future<void> _deleteOrder(Order order) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reason for Return'),
-        content: TextField(
-          controller: reasonController,
-          decoration: const InputDecoration(
-            hintText: 'Enter reason for returning all items...',
-            border: OutlineInputBorder(),
-          ),
-          maxLines: 3,
-        ),
+        title: const Text('Delete Order'),
+        content: const Text('Are you sure you want to delete this order?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (reasonController.text.isNotEmpty) {
-                Navigator.pop(context, reasonController.text);
-              }
-            },
-            child: const Text('Confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Delete'),
           ),
         ],
       ),
     );
+
+    if (confirmed != true) return;
+
+    final authProvider = context.read<AuthProvider>();
+    final orderProvider = context.read<OrderProvider>();
+
+    try {
+      await orderProvider.deleteOrder(authProvider.currentUser!.id, order.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 1),
+            content: const Text('Order deleted successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 1),
+            content: Text('Failed to delete order: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    Provider.of<SaleProvider>(context);
+    final orderProvider = Provider.of<OrderProvider>(context);
     final l10n = AppLocalizations.of(context)!;
-    final paginatedSales = _getPaginatedSales(_allSales);
-    final filteredSales = _filterSales(_allSales);
+    final paginatedOrders = _getPaginatedOrders(_allOrders);
+    final filteredOrders = _filterOrders(_allOrders);
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -507,7 +469,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      l10n.sales,
+                      'Orders',
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(
                             fontWeight: FontWeight.w700,
@@ -516,7 +478,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'Track your sales records',
+                      'Track and manage your orders',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.grey600,
                       ),
@@ -524,6 +486,15 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                   ],
                 ),
               ),
+              if (orderProvider.isLoading)
+                const Padding(
+                  padding: EdgeInsets.only(right: 16.0),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
             ],
           ),
 
@@ -532,7 +503,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
           // Search bar
           SearchBarWidget(
             controller: _searchController,
-            hint: 'Search sales...',
+            hint: 'Search orders...',
             onChanged: (_) => _onSearchChanged(),
             onClear: () {
               _searchController.clear();
@@ -542,7 +513,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
 
           const SizedBox(height: AppSpacing.sm),
 
-          Expanded(child: _buildContent(l10n, paginatedSales, filteredSales)),
+          Expanded(child: _buildContent(l10n, paginatedOrders, filteredOrders)),
         ],
       ),
     );
@@ -550,10 +521,10 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
 
   Widget _buildContent(
     AppLocalizations l10n,
-    List<Sale> paginatedSales,
-    List<Sale> filteredSales,
+    List<Order> paginatedOrders,
+    List<Order> filteredOrders,
   ) {
-    if (_isLoading && _allSales.isEmpty) {
+    if (_isLoading && _allOrders.isEmpty) {
       return _buildShimmerTable();
     }
 
@@ -568,7 +539,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
             const SizedBox(height: AppSpacing.md),
             CustomButton(
               text: 'Retry',
-              onPressed: _loadSales,
+              onPressed: _loadOrders,
               variant: ButtonVariant.filled,
             ),
           ],
@@ -576,7 +547,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       );
     }
 
-    if (filteredSales.isEmpty) {
+    if (filteredOrders.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -585,14 +556,14 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
             const SizedBox(height: AppSpacing.md),
             Text(
               _searchQuery.isEmpty
-                  ? 'No sales records found'
-                  : 'No sales found for "$_searchQuery"',
+                  ? 'No orders found'
+                  : 'No orders found for "$_searchQuery"',
               style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
             ),
             if (_searchQuery.isEmpty) ...[
               const SizedBox(height: AppSpacing.md),
               Text(
-                'Your sales will appear here',
+                'Your orders will appear here',
                 style: TextStyle(color: Colors.grey.shade500),
               ),
             ],
@@ -606,35 +577,37 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
         if (scrollNotification is ScrollEndNotification &&
             _scrollController.position.pixels ==
                 _scrollController.position.maxScrollExtent) {
-          _loadMoreSales();
+          _loadMoreOrders();
         }
         return false;
       },
       child: SingleChildScrollView(
         controller: _scrollController,
         child: DataTableWidget(
-          columns: [
+          columns: const [
             DataColumn(label: Text('#')),
             DataColumn(label: Text('Products')),
             DataColumn(label: Text('Total')),
+            DataColumn(label: Text('Status')),
+            DataColumn(label: Text('Payment')),
             DataColumn(label: Text('Date')),
             DataColumn(label: Text('Actions')),
           ],
-          rows: paginatedSales.asMap().entries.map((entry) {
+          rows: paginatedOrders.asMap().entries.map((entry) {
             final index = entry.key;
-            final sale = entry.value;
-            final serialNumber = index + 1; // Serial number starts from 1
+            final order = entry.value;
+            final serialNumber = index + 1;
 
             return DataRow(
               cells: [
                 DataCell(Text('$serialNumber')),
                 DataCell(
                   SizedBox(
-                    width: 300,
+                    width: 250,
                     child: Tooltip(
-                      message: _formatProductNames(sale.items),
+                      message: _formatProductNames(order.items),
                       child: Text(
-                        _formatProductNames(sale.items),
+                        _formatProductNames(order.items),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -643,7 +616,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                 ),
                 DataCell(
                   Text(
-                    sale.total.toStringAsFixed(0),
+                    order.totalAmount.toStringAsFixed(0),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,
@@ -651,17 +624,38 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                   ),
                 ),
                 DataCell(
-                  Text(
-                    DateFormat('d MMM yyyy').format(sale.createdAt.toLocal()),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(order.status).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      order.status.toUpperCase(),
+                      style: TextStyle(
+                        color: _getStatusColor(order.status),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ),
-                DataCell(_rowActions(sale)),
+                DataCell(Text(order.paymentMethod)),
+                DataCell(
+                  Text(
+                    DateFormat('d MMM yyyy').format(order.createdAt.toLocal()),
+                  ),
+                ),
+                DataCell(_rowActions(order)),
               ],
             );
           }).toList(),
 
           mobileItemBuilder: (context, index) {
-            final sale = paginatedSales[index];
+            final order = paginatedOrders[index];
             return CustomCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -670,13 +664,13 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Sale #${sale.id.substring(0, 8)}...',
+                          'Order #${order.id.substring(0, 8)}...',
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
                       Text(
-                        sale.total.toStringAsFixed(0),
+                        order.totalAmount.toStringAsFixed(0),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: AppColors.primary,
@@ -686,22 +680,45 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    _formatProductNames(sale.items),
+                    _formatProductNames(order.items),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Date: ${_formatDate(sale.createdAt)}',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(order.status).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          order.status.toUpperCase(),
+                          style: TextStyle(
+                            color: _getStatusColor(order.status),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        _formatDate(order.createdAt),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.grey600,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
-                    children: [_rowActions(sale)],
+                    children: [_rowActions(order)],
                   ),
                 ],
               ),
@@ -715,22 +732,23 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
   Widget _buildShimmerTable() {
     return DataTableWidget(
       columns: List.generate(
-        8,
-        (index) => DataColumn(label: ShimmerEffect(width: 80, height: 20)),
+        7,
+        (index) =>
+            const DataColumn(label: ShimmerEffect(width: 80, height: 20)),
       ),
       rows: List.generate(
         5,
         (index) => DataRow(
           cells: List.generate(
-            8,
+            7,
             (index) => DataCell(
-              index == 7
-                  ? ShimmerEffect(
+              index == 6
+                  ? const ShimmerEffect(
                       width: 40,
                       height: 40,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.all(Radius.circular(20)),
                     )
-                  : ShimmerEffect(width: 80, height: 20),
+                  : const ShimmerEffect(width: 80, height: 20),
             ),
           ),
         ),
@@ -741,29 +759,27 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                children: [
+                children: const [
                   Expanded(child: ShimmerEffect(width: 120, height: 20)),
                   ShimmerEffect(width: 60, height: 20),
                 ],
               ),
-              SizedBox(height: AppSpacing.sm),
-              ShimmerEffect(width: 180, height: 16),
-              SizedBox(height: AppSpacing.sm),
-              ShimmerEffect(width: 150, height: 16),
-              SizedBox(height: AppSpacing.sm),
-              ShimmerEffect(width: 200, height: 16),
-              SizedBox(height: AppSpacing.sm),
-              ShimmerEffect(width: 120, height: 16),
-              SizedBox(height: AppSpacing.sm),
-              ShimmerEffect(width: 100, height: 16),
-              SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.sm),
+              const ShimmerEffect(width: 180, height: 16),
+              const SizedBox(height: AppSpacing.sm),
+              const ShimmerEffect(width: 150, height: 16),
+              const SizedBox(height: AppSpacing.sm),
+              const ShimmerEffect(width: 200, height: 16),
+              const SizedBox(height: AppSpacing.sm),
+              const ShimmerEffect(width: 120, height: 16),
+              const SizedBox(height: AppSpacing.sm),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
-                children: [
+                children: const [
                   ShimmerEffect(
                     width: 36,
                     height: 36,
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.all(Radius.circular(18)),
                   ),
                 ],
               ),

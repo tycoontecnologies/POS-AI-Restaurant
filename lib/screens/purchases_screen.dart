@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/models/purchase.dart';
 import 'package:pos/providers/product_provider.dart';
@@ -524,7 +525,11 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                   ),
                 ),
                 DataCell(Text(purchase.total.toStringAsFixed(0))),
-                DataCell(Text('${purchase.date.toLocal()}'.split(' ').first)),
+                DataCell(
+                  Text(
+                    DateFormat('d MMM yyyy').format(purchase.date.toLocal()),
+                  ),
+                ),
                 DataCell(_rowActions(purchase)),
               ],
             );

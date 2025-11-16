@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/models/customer.dart';
-import 'package:pos/models/review.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import '../components/ui/custom_button.dart';
@@ -30,7 +30,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
   late CustomerProvider _customerProvider;
   String _searchQuery = '';
   StreamSubscription<List<Customer>>? _subscription;
-  StreamSubscription<List<Review>>? _reviewSubscription;
   final formKey = GlobalKey<FormState>();
 
   @override
@@ -44,20 +43,12 @@ class _CustomersScreenState extends State<CustomersScreen> {
       setState(() {});
     });
 
-    _reviewSubscription = _customerProvider.getReviewsStream().listen((
-      reviews,
-    ) {
-      _customerProvider.setReviews(reviews);
-      setState(() {});
-    });
-
     _searchController.addListener(_applyFilter);
   }
 
   @override
   void dispose() {
     _subscription?.cancel();
-    _reviewSubscription?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -350,111 +341,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
     }
   }
 
-  void _viewReviews(Customer customer) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFFDFDFE),
-        surfaceTintColor: Colors.transparent,
-        title: Text('Reviews for ${customer.name}'),
-        content: SizedBox(
-          width: 500,
-          child: StreamBuilder<List<Review>>(
-            stream: _customerProvider.getCustomerReviewsStream(customer.id),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              final reviews = snapshot.data ?? [];
-
-              if (reviews.isEmpty) {
-                return const Center(child: Text('No reviews yet'));
-              }
-
-              return ListView.builder(
-                itemCount: reviews.length,
-                itemBuilder: (context, index) {
-                  final review = reviews[index];
-                  return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  review.customerName,
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                              Row(
-                                children: List.generate(
-                                  5,
-                                  (i) => Icon(
-                                    i < review.rating
-                                        ? Icons.star
-                                        : Icons.star_outline,
-                                    color: Colors.amber,
-                                    size: 16,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            review.feedback,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            'Posted: ${review.createdOn.toLocal()}',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: AppColors.grey600),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.delete, size: 18),
-                                onPressed: () {
-                                  _customerProvider.deleteReview(review.id);
-                                  Navigator.pop(context);
-                                },
-                                style: IconButton.styleFrom(
-                                  backgroundColor: AppColors.error.withOpacity(
-                                    0.1,
-                                  ),
-                                  foregroundColor: AppColors.error,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-        actions: [
-          CustomButton(
-            text: 'Close',
-            variant: ButtonVariant.text,
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -610,7 +496,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
                   ),
                 ),
               ),
-              DataCell(Text('${c.createdOn.toLocal()}'.split(' ').first)),
+              DataCell(
+                Text(DateFormat('d MMM yyyy').format(c.createdOn.toLocal())),
+              ),
               DataCell(_rowActions(c)),
             ],
           );
@@ -663,16 +551,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
-          tooltip: 'View Reviews',
-          icon: const Icon(Icons.rate_review, size: 18),
-          onPressed: () => _viewReviews(c),
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.blue.withOpacity(0.1),
-            foregroundColor: Colors.blue,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.xs),
         IconButton(
           tooltip: 'Edit',
           icon: const Icon(Icons.edit, size: 18),

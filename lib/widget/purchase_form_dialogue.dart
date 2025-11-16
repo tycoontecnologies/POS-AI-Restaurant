@@ -1260,8 +1260,12 @@ class _ProductSelectionDialogState extends State<ProductSelectionDialog> {
                                   Expanded(
                                     child: Text(
                                       selectedVariant != null
-                                          ? (product.purchasePrice + selectedVariant.priceModifier).toStringAsFixed(0)
-                                          : product.purchasePrice.toStringAsFixed(0),
+                                          ? (product.purchasePrice +
+                                                    selectedVariant
+                                                        .priceModifier)
+                                                .toStringAsFixed(0)
+                                          : product.purchasePrice
+                                                .toStringAsFixed(0),
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontWeight: FontWeight.w600,

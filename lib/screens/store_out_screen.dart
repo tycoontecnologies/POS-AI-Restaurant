@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/screens/add_edit_store_out_screen.dart';
 import 'package:pos/utils/app_colors.dart';
@@ -343,7 +344,9 @@ class _StoreOutScreenState extends State<StoreOutScreen> {
                     ),
                   ),
                 ),
-                DataCell(Text('${e.date.toLocal()}'.split(' ').first)),
+                DataCell(
+                  Text(DateFormat('d MMM yyyy').format(e.date.toLocal())),
+                ),
                 DataCell(Text(e.handledBy)),
                 DataCell(_rowActions(e)),
               ],

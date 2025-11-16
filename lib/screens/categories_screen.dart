@@ -2,6 +2,7 @@
 import 'dart:typed_data';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/l10n/app_localizations.dart';
@@ -712,10 +713,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       ),
                     ),
                     DataCell(
-                      Text(
-                        e.value.createdOn.toIso8601String().substring(0, 10),
-                      ),
+                      Text(DateFormat('d MMM yyyy').format(e.value.createdOn)),
                     ),
+
                     DataCell(_rowActions(e.value)),
                   ],
                 ),

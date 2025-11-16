@@ -1,30 +1,19 @@
 import 'package:flutter/foundation.dart';
 import 'package:pos/models/customer.dart';
-import 'package:pos/models/review.dart';
 import 'package:pos/services/customer_service.dart';
 
 class CustomerProvider with ChangeNotifier {
   final CustomerService _customerService = CustomerService();
   List<Customer> _customers = [];
   List<Customer> _filteredCustomers = [];
-  List<Review> _reviews = [];
   bool _isLoading = true;
 
   List<Customer> get customers => _customers;
   List<Customer> get filteredCustomers => _filteredCustomers;
-  List<Review> get reviews => _reviews;
   bool get isLoading => _isLoading;
 
   Stream<List<Customer>> getCustomersStream() {
     return _customerService.getCustomersStream();
-  }
-
-  Stream<List<Review>> getReviewsStream() {
-    return _customerService.getReviewsStream();
-  }
-
-  Stream<List<Review>> getCustomerReviewsStream(String customerId) {
-    return _customerService.getCustomerReviewsStream(customerId);
   }
 
   void filterCustomers(String query) {
@@ -46,10 +35,7 @@ class CustomerProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void setReviews(List<Review> reviews) {
-    _reviews = reviews;
-    notifyListeners();
-  }
+  
 
   Future<void> addCustomer(Customer customer) async {
     await _customerService.addCustomer(customer);
@@ -63,17 +49,6 @@ class CustomerProvider with ChangeNotifier {
     await _customerService.deleteCustomer(customerId);
   }
 
-  Future<void> addReview(Review review) async {
-    await _customerService.addReview(review);
-  }
-
-  Future<void> updateReview(Review review) async {
-    await _customerService.updateReview(review);
-  }
-
-  Future<void> deleteReview(String reviewId) async {
-    await _customerService.deleteReview(reviewId);
-  }
 
   Future<int> getCustomersCount() async {
     return await _customerService.getCustomersCount();

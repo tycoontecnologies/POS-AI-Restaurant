@@ -611,19 +611,17 @@ class _ProductItemRowState extends State<ProductItemRow> {
                   }
                 },
               ),
-              SizedBox(
+              Container(
                 width: 40,
-                child: TextFormField(
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  controller: TextEditingController(text: _quantity.toString()),
-                  onChanged: (value) {
-                    final qty = int.tryParse(value) ?? 1;
-                    if (qty > 0 && qty <= maxQuantity) {
-                      setState(() => _quantity = qty);
-                      widget.onQuantityChanged(_quantity);
-                    }
-                  },
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _quantity.toString(),
+                  style: const TextStyle(fontSize: 16),
                 ),
               ),
               IconButton(

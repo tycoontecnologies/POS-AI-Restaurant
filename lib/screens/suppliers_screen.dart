@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/models/supplier.dart';
@@ -585,7 +586,9 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   ),
                 ),
               ),
-              DataCell(Text('${e.createdOn.toLocal()}'.split(' ').first)),
+              DataCell(
+                Text(DateFormat('d MMM yyyy').format(e.createdOn.toLocal())),
+              ),
               DataCell(_rowActions(e)),
             ],
           );

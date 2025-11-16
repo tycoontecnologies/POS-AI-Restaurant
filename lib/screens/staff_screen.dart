@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:pos/components/ui/custom_input.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
@@ -842,7 +843,9 @@ class _StaffScreenState extends State<StaffScreen> {
               DataCell(Text(e.name)),
               DataCell(Text(e.dailyWage.toStringAsFixed(0))),
               DataCell(Text(e.phone)),
-              DataCell(Text('${e.joinDate.toLocal()}'.split(' ').first)),
+              DataCell(
+                Text(DateFormat('d MMM yyyy').format(e.joinDate.toLocal())),
+              ),
               DataCell(
                 Row(
                   children: [

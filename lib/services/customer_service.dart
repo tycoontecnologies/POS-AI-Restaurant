@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/customer.dart';
-import '../models/review.dart';
 
 class CustomerService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -82,52 +81,6 @@ class CustomerService {
       return customer.name.toLowerCase().contains(query.toLowerCase()) ||
           customer.phone.toLowerCase().contains(query.toLowerCase());
     }).toList();
-  }
-
-  Stream<List<Review>> getReviewsStream() {
-    return _getReviewsCollection()
-        .orderBy('createdOn', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) =>
-                    Review.fromMap(doc.data() as Map<String, dynamic>, doc.id),
-              )
-              .toList(),
-        );
-  }
-
-  Stream<List<Review>> getCustomerReviewsStream(String customerId) {
-    return _getReviewsCollection()
-        .where('customerId', isEqualTo: customerId)
-        .orderBy('createdOn', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) =>
-                    Review.fromMap(doc.data() as Map<String, dynamic>, doc.id),
-              )
-              .toList(),
-        );
-  }
-
-  Future<void> addReview(Review review) async {
-    final docRef = _getReviewsCollection().doc();
-    final reviewWithId = review.copyWith(id: docRef.id);
-    await docRef.set(reviewWithId.toMap());
-  }
-
-  Future<void> updateReview(Review review) async {
-    await _getReviewsCollection().doc(review.id).update({
-      ...review.toMap(),
-      'updatedOn': Timestamp.now(),
-    });
-  }
-
-  Future<void> deleteReview(String reviewId) async {
-    await _getReviewsCollection().doc(reviewId).delete();
   }
 
   Future<int> getCustomersCount() async {

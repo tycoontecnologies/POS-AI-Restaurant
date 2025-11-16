@@ -427,35 +427,36 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         ],
                       ),
                       const SizedBox(height: AppSpacing.xs),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: CustomInput(
-                              label: l10n.salePrice,
-                              controller: saleCtrl,
-                              hint: '0.00',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
+                      if (!hasVariants)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CustomInput(
+                                label: l10n.salePrice,
+                                controller: saleCtrl,
+                                hint: '0.00',
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: CustomInput(
-                              label: l10n.purchasePrice,
-                              controller: purchaseCtrl,
-                              hint: '0.00',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              prefixIcon: const Icon(Icons.shopping_cart),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: CustomInput(
+                                label: l10n.purchasePrice,
+                                controller: purchaseCtrl,
+                                hint: '0.00',
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                prefixIcon: const Icon(Icons.shopping_cart),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
+                          ],
+                        ),
+                      if (!hasVariants) const SizedBox(height: AppSpacing.xs),
                       if (!hasVariants)
                         CustomInput(
                           label: l10n.quantity,
@@ -709,6 +710,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
   }
 
+  double _getMinVariantPrice(Product product) {
+    if (product.hasVariants && product.variants.isNotEmpty) {
+      return product.minPrice;
+    }
+    return product.salePrice;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -854,8 +862,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     DataCell(Text(entry.value.name)),
                     DataCell(Text(entry.value.category)),
                     DataCell(Text(entry.value.unit)),
-                    DataCell(Text(entry.value.salePrice.toStringAsFixed(0))),
-                    // DataCell(
+                    DataCell(
+                      Text(
+                        entry.value.hasVariants &&
+                                entry.value.variants.isNotEmpty
+                            ? _getMinVariantPrice(
+                                entry.value,
+                              ).toStringAsFixed(0)
+                            : entry.value.salePrice.toStringAsFixed(0),
+                      ),
+                    ), // DataCell(
                     //   Text(entry.value.purchasePrice.toStringAsFixed(0)),
                     // ),
                     DataCell(

@@ -9,8 +9,8 @@ import 'package:pos/providers/attendance_provider.dart';
 import 'package:pos/providers/auth_provider.dart';
 import 'package:pos/providers/cart_provider.dart';
 import 'package:pos/providers/category_provider.dart';
-import 'package:pos/providers/customer_provider.dart'; 
-import 'package:pos/providers/draft_provider.dart';
+import 'package:pos/providers/customer_provider.dart';
+import 'package:pos/providers/order_provider.dart';
 import 'package:pos/providers/product_provider.dart';
 import 'package:pos/providers/purchase_provider.dart';
 import 'package:pos/providers/purchase_return_provider.dart';
@@ -30,9 +30,9 @@ import 'routes/app_router.dart';
 import 'utils/app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'providers/locale_provider.dart';
-import 'package:pos/providers/ingredient_provider.dart'; 
+import 'package:pos/providers/ingredient_provider.dart';
 import 'package:pos/providers/recipe_provider.dart';
-import 'package:pos/providers/discount_provider.dart'; 
+import 'package:pos/providers/discount_provider.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 void main() async {
@@ -69,17 +69,17 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => PurchaseProvider()),
         ChangeNotifierProvider(create: (_) => SaleProvider()),
-        ChangeNotifierProvider(create: (_) => DraftProvider()),
         ChangeNotifierProvider(create: (_) => StoreOutProvider()),
         ChangeNotifierProvider(create: (_) => StatisticsProvider()),
         ChangeNotifierProvider(create: (_) => SaleReturnProvider()),
         ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => PurchaseReturnProvider()),
-        ChangeNotifierProvider(create: (_) => IngredientProvider()), 
-        ChangeNotifierProvider(create: (_) => RecipeProvider()), 
-        ChangeNotifierProvider(create: (_) => CustomerProvider()), 
-        ChangeNotifierProvider(create: (_) => DiscountProvider()), 
+        ChangeNotifierProvider(create: (_) => IngredientProvider()),
+        ChangeNotifierProvider(create: (_) => RecipeProvider()),
+        ChangeNotifierProvider(create: (_) => CustomerProvider()),
+        ChangeNotifierProvider(create: (_) => DiscountProvider()),
+        ChangeNotifierProvider(create: (_) => OrderProvider()),
         ChangeNotifierProxyProvider<AuthProvider, StaffProvider>(
           create: (context) =>
               StaffProvider(FirebaseStaffService(context.read<AuthProvider>())),
