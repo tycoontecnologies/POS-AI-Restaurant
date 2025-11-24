@@ -26,6 +26,7 @@ import '../screens/settings_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/ingredients_screen.dart';
 import '../screens/customers_screen.dart';
+import '../screens/table_management_screen.dart';
 import '../components/layout/main_shell.dart';
 
 class AppRouter {
@@ -52,6 +53,7 @@ class AppRouter {
   static const String customers = '/customers';
   static const String discounts = '/discounts';
   static const String orders = '/orders';
+  static const String tables = '/tables';
 
   static final GoRouter router = GoRouter(
     initialLocation: login,
@@ -212,6 +214,12 @@ class AppRouter {
             path: paymentSuccess,
             name: 'payment-success',
             builder: (context, state) => const PaymentSuccessScreen(),
+          ),
+          GoRoute(
+            path: tables,
+            name: 'tables',
+            builder: (context, state) => const TableManagementScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
         ],
       ),
@@ -376,6 +384,12 @@ class AppRouter {
         label: 'Settings',
         route: settings,
         roles: [UserRole.admin],
+      ),
+      NavigationItem(
+        icon: Icons.table_chart,
+        label: 'Tables',
+        route: tables,
+        roles: [UserRole.admin, UserRole.staff],
       ),
     ];
 

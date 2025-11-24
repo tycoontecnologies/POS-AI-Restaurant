@@ -265,7 +265,7 @@ class _CustomVariantDialogState extends State<_CustomVariantDialog> {
               children: [
                 Expanded(
                   child: CustomInput(
-                    label: 'Price Modifier',
+                    label: 'Sale Price',
                     controller: _priceController,
                     hint: '0.00',
                     keyboardType: const TextInputType.numberWithOptions(

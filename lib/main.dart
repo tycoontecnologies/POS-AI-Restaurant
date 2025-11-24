@@ -34,6 +34,7 @@ import 'package:pos/providers/ingredient_provider.dart';
 import 'package:pos/providers/recipe_provider.dart';
 import 'package:pos/providers/discount_provider.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
+import 'package:pos/providers/table_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -97,6 +98,11 @@ class MyApp extends StatelessWidget {
           create: (context) => CategoryProvider(context.read<AuthProvider>()),
           update: (context, authProvider, categoryProvider) =>
               categoryProvider!,
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, TableProvider>(
+          create: (context) => TableProvider(context.read<AuthProvider>()),
+          update: (context, authProvider, tableProvider) =>
+              tableProvider ?? TableProvider(authProvider),
         ),
       ],
       child: Consumer3<AuthProvider, ThemeProvider, LocaleProvider>(

@@ -1,6 +1,8 @@
 // cart_provider.dart
 import 'package:flutter/foundation.dart';
 import 'package:pos/models/product.dart';
+import 'package:pos/models/table.dart';
+import 'package:collection/collection.dart'; 
 
 class CartItem {
   final Product product;
@@ -41,8 +43,12 @@ class CartItem {
 
 class CartProvider with ChangeNotifier {
   final List<CartItem> _cartItems = [];
+  RestaurantTable? _selectedTable;
+  int _tableNumber = 0; 
 
   List<CartItem> get cartItems => _cartItems;
+  RestaurantTable? get selectedTable => _selectedTable;
+  int get tableNumber => _selectedTable?.tableNumber ?? _tableNumber; 
 
   void addToCart(Product product, {ProductVariant? variant, int quantity = 1}) {
     final uniqueId = variant != null 
@@ -98,6 +104,20 @@ class CartProvider with ChangeNotifier {
 
   void clearCart() {
     _cartItems.clear();
+    _selectedTable = null;
+    _tableNumber = 0; // Reset table number when clearing cart
+    notifyListeners();
+  }
+
+  void setSelectedTable(RestaurantTable table) {
+    _selectedTable = table;
+    _tableNumber = table.tableNumber; // Update table number when setting selected table
+    notifyListeners();
+  }
+
+  void clearSelectedTable() {
+    _selectedTable = null;
+    _tableNumber = 0; // Reset table number when clearing selected table
     notifyListeners();
   }
 

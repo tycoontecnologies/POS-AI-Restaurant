@@ -1,6 +1,6 @@
 import 'dart:typed_data';
-
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import for FirebaseFirestore
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -8,9 +8,11 @@ import 'package:intl/intl.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/models/product.dart';
 import 'package:pos/models/category.dart';
+import 'package:pos/models/table.dart';
 import 'package:pos/providers/category_provider.dart';
 import 'package:pos/providers/product_provider.dart';
 import 'package:pos/providers/cart_provider.dart';
+import 'package:pos/providers/table_provider.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
@@ -379,47 +381,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     );
   }
 
-  Future<String?> _promptTableNumber() async {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Enter Table Number'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Please enter the table number for this order. For takeaway, you may leave it blank.',
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: controller,
-                decoration: const InputDecoration(
-                  labelText: 'Table Number (optional)',
-                  hintText: 'e.g., 5 or A1',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(null),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(
-                controller.text.trim().isEmpty ? null : controller.text.trim(),
-              ),
-              child: const Text('Confirm'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Future<void> _printKitchenTicket(Sale sale) async {
     final pdf = pw.Document();
 
@@ -747,7 +708,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                     ),
                     pw.SizedBox(height: 6),
                     pw.Text(
-                      'Developed by Tycoon Technologies',
+                      'Developed by Tycoon Technologies Pvt. Ltd',
                       style: pw.TextStyle(
                         fontSize: 9,
                         fontWeight: pw.FontWeight.bold,
@@ -798,6 +759,96 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     return Uint8List(0);
   }
 
+  Future<void> _addToTable() async {
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    final tableProvider = Provider.of<TableProvider>(context, listen: false);
+    final authProvider = _categoryProvider.authProvider;
+
+    if (authProvider?.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to add order to table')),
+      );
+      return;
+    }
+
+    if (cartProvider.isCartEmpty) return;
+    if (cartProvider.selectedTable == null) return;
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    try {
+      final selectedTable = cartProvider.selectedTable!;
+      final vendorId = authProvider!.currentUser!.id;
+
+      // Create order data structure
+      final orderData = {
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'tableNumber': selectedTable.tableNumber.toString(),
+        'items': cartProvider.cartItems.map((item) {
+          return {
+            'productId': item.product.id,
+            'productName': item.displayName,
+            'selectedVariantId': item.variant?.id,
+            'selectedVariantName': item.variant?.name,
+            'quantity': item.quantity,
+            'price': item.unitPrice,
+            'totalPrice': item.totalPrice,
+          };
+        }).toList(),
+        'subtotal': cartProvider.total,
+        'status': 'pending',
+        'createdAt': DateTime.now().millisecondsSinceEpoch,
+      };
+
+      // Save order to table's orders subcollection
+      await FirebaseFirestore.instance
+          .collection('vendors')
+          .doc(vendorId)
+          .collection('tables')
+          .doc(selectedTable.id)
+          .collection('orders')
+          .add(orderData);
+
+      // Update table status to occupied if not already
+      if (selectedTable.status != TableStatus.occupied) {
+        await tableProvider.updateTableStatus(
+          selectedTable.id,
+          TableStatus.occupied,
+        );
+      }
+
+      // Clear cart
+      cartProvider.clearCart();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Order added to Table ${selectedTable.tableNumber}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Navigate back to dashboard or stay on screen
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error adding order: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isProcessing = false;
+      });
+    }
+  }
+
   Future<void> _checkout() async {
     final cartProvider = Provider.of<CartProvider>(context, listen: false);
     final productProvider = Provider.of<ProductProvider>(
@@ -805,6 +856,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
       listen: false,
     );
     final saleProvider = Provider.of<SaleProvider>(context, listen: false);
+    final tableProvider = Provider.of<TableProvider>(context, listen: false);
     final authProvider = _categoryProvider.authProvider;
 
     if (authProvider?.currentUser == null) {
@@ -821,12 +873,26 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     });
 
     try {
-      final tableNumber = await _promptTableNumber();
-      if (!mounted) return;
+      String? tableNumber;
+
+      if (cartProvider.selectedTable != null) {
+        tableNumber = cartProvider.selectedTable!.tableNumber.toString();
+
+        // ✅ Update table status to OCCUPIED
+        await tableProvider.updateTableStatus(
+          cartProvider.selectedTable!.id,
+          TableStatus.occupied,
+        );
+
+        print(
+          'Table ${cartProvider.selectedTable!.tableNumber} status updated to occupied',
+        );
+      } else {
+        tableNumber = '0';
+      }
 
       final now = DateTime.now();
       final saleId = DateFormat('ddMMyyHHmm').format(now);
-      // final saleId = FirebaseFirestore.instance.collection('sales').doc().id;
 
       final sale = Sale(
         id: saleId,
@@ -881,7 +947,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
       await saleProvider.createSale(authProvider.currentUser!.id, sale);
 
       await _printKitchenTicket(sale);
-      // await Future.delayed(const Duration(seconds: 3));
       await _printBill(sale);
 
       cartProvider.clearCart();
@@ -1356,14 +1421,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-              SizedBox(
-                width: double.infinity,
-                child: CustomButton(
-                  text: _isProcessing ? 'Processing...' : 'Checkout',
-                  icon: Icons.payment,
-                  onPressed: _isProcessing ? null : _checkout,
-                ),
-              ),
+              SizedBox(width: double.infinity, child: _buildCheckoutButton()),
             ],
           ),
         );
@@ -1550,10 +1608,21 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   }
 
   Widget _buildCheckoutButton() {
+    final cartProvider = Provider.of<CartProvider>(context);
+    final isTableSelected = cartProvider.selectedTable != null;
+
     return CustomButton(
-      text: _isProcessing ? 'Processing...' : 'Checkout',
-      icon: Icons.payment,
-      onPressed: _isProcessing ? null : _checkout,
+      text: _isProcessing
+          ? 'Processing...'
+          : isTableSelected
+          ? 'Add to Table'
+          : 'Checkout',
+      icon: isTableSelected ? Icons.table_restaurant : Icons.payment,
+      onPressed: _isProcessing
+          ? null
+          : isTableSelected
+          ? _addToTable
+          : _checkout,
     );
   }
 

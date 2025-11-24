@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
+import 'package:pos/components/ui/table_order_dialog.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:pos/models/category.dart';
 import 'package:pos/models/user.dart';
@@ -331,6 +332,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             childAspectRatio: 1.3,
                             children: [
                               _buildQuickActionButton(
+                                'Table Order',
+                                Icons.table_chart,
+                                Colors.teal,
+                                _showTableOrderDialog,
+                              ),
+                              _buildQuickActionButton(
                                 l10n.sales,
                                 Icons.shopping_cart,
                                 const Color(0xFF8B5CF6),
@@ -511,6 +518,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
         )
         .toList();
   }
+
+  void _showTableOrderDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => TableOrderDialog(
+        onTableSelected: (table) {
+          setState(() {});
+          // Show confirmation
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Table ${table.tableNumber} selected'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
 // Rest of the code remains the same (_PagedCategoryGrid, HoverableCategoryCard, etc.)
@@ -659,8 +684,8 @@ class _HoverableCategoryCardState extends State<HoverableCategoryCard> {
             children: [
               if (widget.category.imageUrl.isNotEmpty)
                 Container(
-                  width: 60,
-                  height: 60,
+                  width: 100,
+                  height: 100,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -690,8 +715,8 @@ class _HoverableCategoryCardState extends State<HoverableCategoryCard> {
                 )
               else
                 Container(
-                  width: 60,
-                  height: 60,
+                  width: 100,
+                  height: 100,
                   decoration: BoxDecoration(
                     color: Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(12),
