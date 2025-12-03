@@ -169,7 +169,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                       return _PagedCategoryGrid(
                         categories: categoriesWithProducts,
-                        currentPage: 1,
                         onCategoryTap: (category) {
                           context.go('/category-products/${category.name}');
                         },
@@ -541,50 +540,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
 // Rest of the code remains the same (_PagedCategoryGrid, HoverableCategoryCard, etc.)
 class _PagedCategoryGrid extends StatelessWidget {
   final List<Category> categories;
-  final int currentPage;
   final Function(Category) onCategoryTap;
 
   const _PagedCategoryGrid({
     required this.categories,
-    required this.currentPage,
     required this.onCategoryTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final isDesktop = Responsive.isDesktop(context);
     final isTablet = Responsive.isTablet(context);
     final crossAxisCount = isDesktop ? 4 : (isTablet ? 4 : 2);
-    const rows = 3;
-    final pageSize = crossAxisCount * rows;
-    final start = (currentPage - 1) * pageSize;
-    final end = (start + pageSize).clamp(0, categories.length);
-    final pageItems = categories.sublist(start, end);
-
-    if (categories.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.category_outlined,
-              size: 60,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              l10n.noCategoriesWithProductsFound,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
 
     return GridView.builder(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -594,9 +561,9 @@ class _PagedCategoryGrid extends StatelessWidget {
         childAspectRatio: 1.5,
       ),
       padding: const EdgeInsets.all(0),
-      itemCount: pageItems.length,
+      itemCount: categories.length, // Show all categories
       itemBuilder: (context, index) {
-        final category = pageItems[index];
+        final category = categories[index];
 
         return HoverableCategoryCard(
           category: category,
