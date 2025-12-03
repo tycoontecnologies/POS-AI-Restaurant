@@ -684,7 +684,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                   ],
                 ),
               ),
-              pw.SizedBox(height: 16),
+              pw.SizedBox(height: 12),
 
               // ===== FOOTER =====
               pw.Divider(thickness: 1),
@@ -701,22 +701,23 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                     pw.SizedBox(height: 2),
                     pw.Text(
                       'Please visit again.',
-                      style: pw.TextStyle(
-                        fontSize: 9,
-                        color: PdfColors.grey700,
-                      ),
+                      style: pw.TextStyle(fontSize: 9),
                     ),
                     pw.SizedBox(height: 6),
                     pw.Text(
                       'Developed by Tycoon Technologies Pvt. Ltd',
                       style: pw.TextStyle(
-                        fontSize: 9,
+                        fontSize: 8,
                         fontWeight: pw.FontWeight.bold,
                       ),
                     ),
                     pw.Text(
                       '03060626699',
-                      style: const pw.TextStyle(fontSize: 9),
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
+                    pw.Text(
+                      'www.tycoon.technology',
+                      style: const pw.TextStyle(fontSize: 8),
                     ),
                   ],
                 ),
@@ -946,7 +947,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
 
       await saleProvider.createSale(authProvider.currentUser!.id, sale);
 
-      await _printKitchenTicket(sale);
+      // await _printKitchenTicket(sale);
       await _printBill(sale);
 
       cartProvider.clearCart();
