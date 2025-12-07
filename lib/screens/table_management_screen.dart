@@ -48,7 +48,7 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
               CustomInput(
                 controller: _tableNumberController,
                 label: 'Table Number',
-                keyboardType: TextInputType.number,
+                keyboardType: TextInputType.text, // Changed from number to text
               ),
               const SizedBox(height: AppSpacing.md),
               CustomInput(
@@ -66,12 +66,15 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
           ),
           FilledButton(
             onPressed: () async {
-              final tableNumber = int.tryParse(_tableNumberController.text);
+              final tableNumber = _tableNumberController.text.trim();
               final seats = int.tryParse(_seatsController.text);
 
-              if (tableNumber == null || seats == null) {
+              if (tableNumber.isEmpty || seats == null) {
+                // Changed validation
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter valid numbers')),
+                  const SnackBar(
+                    content: Text('Please enter valid table number and seats'),
+                  ),
                 );
                 return;
               }
@@ -80,7 +83,10 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
                 context,
                 listen: false,
               );
-              await provider.addTable(tableNumber, seats);
+              await provider.addTable(
+                tableNumber,
+                seats,
+              ); // Changed parameter type
 
               if (mounted) {
                 Navigator.pop(context);
@@ -354,7 +360,7 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
                         ),
                         child: Center(
                           child: Text(
-                            '${table.tableNumber}',
+                            table.tableNumber, // Already String
                             style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.bold,

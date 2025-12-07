@@ -21,6 +21,7 @@ import 'package:pos/providers/statistics_provider.dart';
 import 'package:pos/providers/store_out_provider.dart';
 import 'package:pos/providers/subscription_provider.dart';
 import 'package:pos/providers/supplier_provider.dart';
+import 'package:pos/providers/table_order_provider.dart';
 import 'package:pos/services/staff_service.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
@@ -81,6 +82,11 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CustomerProvider()),
         ChangeNotifierProvider(create: (_) => DiscountProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
+        ChangeNotifierProvider(
+          create: (context) => TableOrderProvider(
+            Provider.of<AuthProvider>(context, listen: false),
+          ),
+        ),
         ChangeNotifierProxyProvider<AuthProvider, StaffProvider>(
           create: (context) =>
               StaffProvider(FirebaseStaffService(context.read<AuthProvider>())),

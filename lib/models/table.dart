@@ -1,16 +1,16 @@
-// Table model with status enum
+
 enum TableStatus { empty, occupied, served }
 
 class RestaurantTable {
   final String id;
-  final int tableNumber;
+  final String tableNumber;  // Changed from int to String
   final int numberOfSeats;
   final TableStatus status;
   final DateTime createdAt;
 
   RestaurantTable({
     required this.id,
-    required this.tableNumber,
+    required this.tableNumber,  // Changed from int to String
     required this.numberOfSeats,
     required this.status,
     required this.createdAt,
@@ -34,7 +34,7 @@ class RestaurantTable {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'tableNumber': tableNumber,
+      'tableNumber': tableNumber,  // Already String
       'numberOfSeats': numberOfSeats,
       'status': statusString,
       'createdAt': createdAt.millisecondsSinceEpoch,
@@ -44,7 +44,7 @@ class RestaurantTable {
   factory RestaurantTable.fromMap(Map<String, dynamic> map) {
     return RestaurantTable(
       id: map['id'] ?? '',
-      tableNumber: map['tableNumber'] ?? 0,
+      tableNumber: map['tableNumber']?.toString() ?? '0',  // Convert to String
       numberOfSeats: map['numberOfSeats'] ?? 0,
       status: statusFromString(map['status'] ?? 'empty'),
       createdAt: map['createdAt'] is String
@@ -55,7 +55,7 @@ class RestaurantTable {
 
   RestaurantTable copyWith({
     String? id,
-    int? tableNumber,
+    String? tableNumber,  // Changed from int? to String?
     int? numberOfSeats,
     TableStatus? status,
     DateTime? createdAt,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pos/models/table.dart';
 import 'package:pos/models/user.dart';
 import 'package:pos/providers/subscription_provider.dart';
 import 'package:pos/screens/auth/login_screen.dart';
@@ -12,6 +13,7 @@ import 'package:pos/screens/pricing_screen.dart';
 import 'package:pos/screens/purchase_return_screen.dart';
 import 'package:pos/screens/sale_record_screen.dart';
 import 'package:pos/screens/sale_return_screen.dart';
+import 'package:pos/screens/table_order_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/screens/category_products_screen.dart';
 import 'package:pos/providers/auth_provider.dart';
@@ -221,6 +223,14 @@ class AppRouter {
             builder: (context, state) => const TableManagementScreen(),
             redirect: (context, state) => _checkSubscription(context, state),
           ),
+          // In your AppRouter configuration
+          GoRoute(
+            path: '/table-order/:tableId',
+            builder: (context, state) {
+              final table = state.extra as RestaurantTable;
+              return TableOrderScreen(table: table);
+            },
+          ),
         ],
       ),
     ],
@@ -285,7 +295,7 @@ class AppRouter {
     final allItems = [
       NavigationItem(
         icon: Icons.dashboard,
-        label: 'Dashboard',
+        label: 'POS',
         route: dashboard,
         roles: [UserRole.admin, UserRole.staff, UserRole.kitchen],
       ),

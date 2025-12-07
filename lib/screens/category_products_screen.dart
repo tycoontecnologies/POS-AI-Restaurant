@@ -12,6 +12,7 @@ import 'package:pos/models/table.dart';
 import 'package:pos/providers/category_provider.dart';
 import 'package:pos/providers/product_provider.dart';
 import 'package:pos/providers/cart_provider.dart';
+import 'package:pos/providers/table_order_provider.dart';
 import 'package:pos/providers/table_provider.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_colors.dart';
@@ -99,13 +100,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                 variant: variant,
                 quantity: quantity,
               );
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${variant.name} added to cart'),
-                  backgroundColor: AppColors.success,
-                  duration: const Duration(seconds: 1),
-                ),
-              );
             } catch (e) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -122,13 +116,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
       // Add product without variants directly
       try {
         cartProvider.addToCart(product);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${product.name} added to cart'),
-            backgroundColor: AppColors.success,
-            duration: const Duration(seconds: 1),
-          ),
-        );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -381,81 +368,81 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     );
   }
 
-  Future<void> _printKitchenTicket(Sale sale) async {
-    final pdf = pw.Document();
+  // Future<void> _printKitchenTicket(Sale sale) async {
+  //   final pdf = pw.Document();
 
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.roll80,
-        build: (_) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Center(
-                child: pw.Text(
-                  'KITCHEN ORDER TICKET',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                  textAlign: pw.TextAlign.center,
-                ),
-              ),
-              pw.SizedBox(height: 6),
-              pw.Divider(),
-              if (sale.tableNumber != null && sale.tableNumber!.isNotEmpty) ...[
-                pw.Text(
-                  'TABLE: ${sale.tableNumber}',
-                  style: pw.TextStyle(
-                    fontSize: 14,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 4),
-              ],
-              pw.Text('Order: ${sale.id.substring(0, 6)}'),
-              pw.Text('Time: ${sale.createdAt}'),
-              pw.SizedBox(height: 6),
-              pw.Text(
-                'ITEMS:',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-              ),
-              pw.SizedBox(height: 4),
-              ...sale.items.map(
-                (item) => pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(vertical: 2),
-                  child: pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Expanded(
-                        child: pw.Text(
-                          item.productName,
-                          style: const pw.TextStyle(fontSize: 12),
-                        ),
-                      ),
-                      pw.Text(
-                        'x${item.quantity}',
-                        style: const pw.TextStyle(fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              pw.SizedBox(height: 8),
-              pw.Center(
-                child: pw.Text(
-                  'Send to kitchen',
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+  //   pdf.addPage(
+  //     pw.Page(
+  //       pageFormat: PdfPageFormat.roll80,
+  //       build: (_) {
+  //         return pw.Column(
+  //           crossAxisAlignment: pw.CrossAxisAlignment.start,
+  //           children: [
+  //             pw.Center(
+  //               child: pw.Text(
+  //                 'KITCHEN ORDER TICKET',
+  //                 style: pw.TextStyle(
+  //                   fontSize: 16,
+  //                   fontWeight: pw.FontWeight.bold,
+  //                 ),
+  //                 textAlign: pw.TextAlign.center,
+  //               ),
+  //             ),
+  //             pw.SizedBox(height: 6),
+  //             pw.Divider(),
+  //             if (sale.tableNumber != null && sale.tableNumber!.isNotEmpty) ...[
+  //               pw.Text(
+  //                 'TABLE: ${sale.tableNumber}',
+  //                 style: pw.TextStyle(
+  //                   fontSize: 14,
+  //                   fontWeight: pw.FontWeight.bold,
+  //                 ),
+  //               ),
+  //               pw.SizedBox(height: 4),
+  //             ],
+  //             pw.Text('Order: ${sale.id.substring(0, 6)}'),
+  //             pw.Text('Time: ${sale.createdAt}'),
+  //             pw.SizedBox(height: 6),
+  //             pw.Text(
+  //               'ITEMS:',
+  //               style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+  //             ),
+  //             pw.SizedBox(height: 4),
+  //             ...sale.items.map(
+  //               (item) => pw.Padding(
+  //                 padding: const pw.EdgeInsets.symmetric(vertical: 2),
+  //                 child: pw.Row(
+  //                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+  //                   children: [
+  //                     pw.Expanded(
+  //                       child: pw.Text(
+  //                         item.productName,
+  //                         style: const pw.TextStyle(fontSize: 12),
+  //                       ),
+  //                     ),
+  //                     pw.Text(
+  //                       'x${item.quantity}',
+  //                       style: const pw.TextStyle(fontSize: 12),
+  //                     ),
+  //                   ],
+  //                 ),
+  //               ),
+  //             ),
+  //             pw.SizedBox(height: 8),
+  //             pw.Center(
+  //               child: pw.Text(
+  //                 'Send to kitchen',
+  //                 style: const pw.TextStyle(fontSize: 10),
+  //               ),
+  //             ),
+  //           ],
+  //         );
+  //       },
+  //     ),
+  //   );
 
-    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
-  }
+  //   await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+  // }
 
   Future<void> _printBill(Sale sale) async {
     final pdf = pw.Document();
@@ -852,10 +839,11 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
 
   Future<void> _checkout() async {
     final cartProvider = Provider.of<CartProvider>(context, listen: false);
-    final productProvider = Provider.of<ProductProvider>(
+    final tableOrderProvider = Provider.of<TableOrderProvider>(
       context,
       listen: false,
     );
+    Provider.of<ProductProvider>(context, listen: false);
     final saleProvider = Provider.of<SaleProvider>(context, listen: false);
     final tableProvider = Provider.of<TableProvider>(context, listen: false);
     final authProvider = _categoryProvider.authProvider;
@@ -875,92 +863,65 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
 
     try {
       String? tableNumber;
+      bool isTableOrder = false;
 
+      // Determine order type
       if (cartProvider.selectedTable != null) {
         tableNumber = cartProvider.selectedTable!.tableNumber.toString();
-
-        // ✅ Update table status to OCCUPIED
-        await tableProvider.updateTableStatus(
-          cartProvider.selectedTable!.id,
-          TableStatus.occupied,
-        );
-
-        print(
-          'Table ${cartProvider.selectedTable!.tableNumber} status updated to occupied',
-        );
-      } else {
-        tableNumber = '0';
+        isTableOrder = true;
       }
 
-      final now = DateTime.now();
-      final saleId = DateFormat('ddMMyyHHmm').format(now);
-
-      final sale = Sale(
-        id: saleId,
-        vendorId: authProvider!.currentUser!.id,
-        items: cartProvider.cartItems
-            .map(
-              (cartItem) => SaleItem(
-                productId: cartItem.product.id,
-                productName: cartItem.displayName,
-                price: cartItem.unitPrice,
-                quantity: cartItem.quantity,
-              ),
-            )
-            .toList(),
-        total: cartProvider.total,
-        createdAt: DateTime.now(),
+      // Create sale from cart
+      final vendorId = authProvider!.currentUser!.id;
+      final sale = await cartProvider.createSaleFromCart(
+        vendorId: vendorId,
         tableNumber: tableNumber,
       );
 
-      await _saleService.createSale(authProvider.currentUser!.id, sale);
+      // Save to sales collection
+      await _saleService.createSale(vendorId, sale);
+      await saleProvider.createSale(vendorId, sale);
 
-      // Update product/variant quantities in Firebase
-      for (final cartItem in cartProvider.cartItems) {
-        if (cartItem.variant != null) {
-          // Update variant quantity
-          final updatedVariants = cartItem.product.variants.map((v) {
-            if (v.id == cartItem.variant!.id) {
-              return v.copyWith(quantity: v.quantity - cartItem.quantity);
-            }
-            return v;
-          }).toList();
+      // If this is a table order, merge cart with table's persistent order
+      if (isTableOrder) {
+        final tableId = cartProvider.selectedTable!.id;
 
-          final updatedProduct = cartItem.product.copyWith(
-            variants: updatedVariants,
-          );
-          await productProvider.updateProduct(
-            authProvider.currentUser!.id,
-            updatedProduct,
-          );
-        } else {
-          // Update product quantity
-          final updatedProduct = cartItem.product.copyWith(
-            quantity: cartItem.product.quantity - cartItem.quantity,
-          );
-          await productProvider.updateProduct(
-            authProvider.currentUser!.id,
-            updatedProduct,
+        // Add all cart items to table's persistent order
+        for (final cartItem in cartProvider.cartItems) {
+          await tableOrderProvider.addToTableOrder(
+            tableId: tableId,
+            product: cartItem.product,
+            variant: cartItem.variant,
+            quantity: cartItem.quantity,
           );
         }
+
+        // Update table status
+        await tableProvider.updateTableStatus(tableId, TableStatus.occupied);
       }
 
-      await saleProvider.createSale(authProvider.currentUser!.id, sale);
+      // Clear cart (but preserve table's persistent order)
+      cartProvider.completeSale();
 
-      // await _printKitchenTicket(sale);
+      // Print receipts
       await _printBill(sale);
 
-      cartProvider.clearCart();
-      setState(() {
-        _isProcessing = false;
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isTableOrder
+                  ? 'Order added to Table $tableNumber'
+                  : 'Sale completed successfully',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to complete sale: $e')));
-      setState(() {
-        _isProcessing = false;
-      });
+      // Error handling
+    } finally {
+      setState(() => _isProcessing = false);
     }
   }
 

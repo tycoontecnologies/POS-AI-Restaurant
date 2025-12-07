@@ -48,7 +48,8 @@ class TableProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> addTable(int tableNumber, int numberOfSeats) async {
+  Future<void> addTable(String tableNumber, int numberOfSeats) async {
+    // Changed from int to String
     if (_vendorId.isEmpty) return;
 
     try {
@@ -57,11 +58,11 @@ class TableProvider extends ChangeNotifier {
           .doc(_vendorId)
           .collection('tables')
           .add({
-        'tableNumber': tableNumber,
-        'numberOfSeats': numberOfSeats,
-        'status': 'empty',
-        'createdAt': DateTime.now().millisecondsSinceEpoch,
-      });
+            'tableNumber': tableNumber, // Already String
+            'numberOfSeats': numberOfSeats,
+            'status': 'empty',
+            'createdAt': DateTime.now().millisecondsSinceEpoch,
+          });
 
       final newTable = RestaurantTable(
         id: docRef.id,
@@ -72,7 +73,17 @@ class TableProvider extends ChangeNotifier {
       );
 
       _tables.add(newTable);
-      _tables.sort((a, b) => a.tableNumber.compareTo(b.tableNumber));
+      // Sort tables by converting to numbers if possible, otherwise alphabetically
+      _tables.sort((a, b) {
+        final aNum = int.tryParse(a.tableNumber);
+        final bNum = int.tryParse(b.tableNumber);
+
+        if (aNum != null && bNum != null) {
+          return aNum.compareTo(bNum);
+        } else {
+          return a.tableNumber.compareTo(b.tableNumber);
+        }
+      });
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -80,7 +91,11 @@ class TableProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> updateTable(String id, {int? numberOfSeats, TableStatus? status}) async {
+  Future<void> updateTable(
+    String id, {
+    int? numberOfSeats,
+    TableStatus? status,
+  }) async {
     if (_vendorId.isEmpty) return;
 
     try {
