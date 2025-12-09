@@ -1,3 +1,5 @@
+// lib/screens/sale_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
@@ -17,14 +19,14 @@ import '../components/ui/data_table_widget.dart';
 import '../utils/app_spacing.dart';
 import '../utils/app_colors.dart';
 
-class SalesTableScreen extends StatefulWidget {
-  const SalesTableScreen({super.key});
+class SaleScreen extends StatefulWidget {
+  const SaleScreen({super.key});
 
   @override
-  State<SalesTableScreen> createState() => _SalesTableScreenState();
+  State<SaleScreen> createState() => _SaleScreenState();
 }
 
-class _SalesTableScreenState extends State<SalesTableScreen> {
+class _SaleScreenState extends State<SaleScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
@@ -36,6 +38,13 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
   final int _itemsPerPage = 20;
   bool _hasMore = true;
   final List<Sale> _allSales = [];
+
+  // Filtering
+  DateTime? _singleDate; // when user picks a single date
+  DateTimeRange? _dateRange; // when user picks a range
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
+  String _presetFilter = 'All'; // All, Today, This Week, This Month
 
   @override
   void initState() {
@@ -93,7 +102,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              duration: Duration(seconds: 1),
+              duration: const Duration(seconds: 1),
               content: Text('Failed to load sales: $e'),
               backgroundColor: AppColors.error,
             ),
@@ -134,7 +143,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              duration: Duration(seconds: 1),
+              duration: const Duration(seconds: 1),
               content: Text('Failed to load more sales: $e'),
               backgroundColor: AppColors.error,
             ),
@@ -144,47 +153,205 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
     }
   }
 
-  List<Sale> _filterSales(List<Sale> sales) {
-    if (_searchQuery.isEmpty) return sales;
+  // Combined filtering: search + date/time filters + preset
+  List<Sale> _applyAllFilters() {
+    final now = DateTime.now();
+    List<Sale> list = _allSales;
 
-    final query = _searchQuery.toLowerCase();
-    return sales.where((sale) {
-      return sale.id.toLowerCase().contains(query) ||
-          sale.items.any(
-            (item) => item.productName.toLowerCase().contains(query),
-          ) ||
-          sale.total.toString().contains(query) ||
-          _formatDate(sale.createdAt).contains(query);
-    }).toList();
+    // Preset filter logic
+    if (_presetFilter == 'Today') {
+      final DateTime start = DateTime(now.year, now.month, now.day);
+      final DateTime end = start
+          .add(const Duration(days: 1))
+          .subtract(const Duration(milliseconds: 1));
+      list = list
+          .where(
+            (s) =>
+                s.createdAt.toLocal().isAfter(
+                  start.subtract(const Duration(milliseconds: 1)),
+                ) &&
+                s.createdAt.toLocal().isBefore(
+                  end.add(const Duration(milliseconds: 1)),
+                ),
+          )
+          .toList();
+    } else if (_presetFilter == 'This Week') {
+      // assuming week starts on Monday
+      final weekday = now.weekday;
+      final start = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: weekday - 1));
+      final end = start
+          .add(const Duration(days: 7))
+          .subtract(const Duration(milliseconds: 1));
+      list = list
+          .where(
+            (s) =>
+                s.createdAt.toLocal().isAfter(
+                  start.subtract(const Duration(milliseconds: 1)),
+                ) &&
+                s.createdAt.toLocal().isBefore(
+                  end.add(const Duration(milliseconds: 1)),
+                ),
+          )
+          .toList();
+    } else if (_presetFilter == 'This Month') {
+      final start = DateTime(now.year, now.month, 1);
+      final end = DateTime(
+        now.year,
+        now.month + 1,
+        1,
+      ).subtract(const Duration(milliseconds: 1));
+      list = list
+          .where(
+            (s) =>
+                s.createdAt.toLocal().isAfter(
+                  start.subtract(const Duration(milliseconds: 1)),
+                ) &&
+                s.createdAt.toLocal().isBefore(
+                  end.add(const Duration(milliseconds: 1)),
+                ),
+          )
+          .toList();
+    }
+
+    // Single date filter
+    if (_singleDate != null) {
+      final start = DateTime(
+        _singleDate!.year,
+        _singleDate!.month,
+        _singleDate!.day,
+      );
+      final end = start
+          .add(const Duration(days: 1))
+          .subtract(const Duration(milliseconds: 1));
+      list = list
+          .where(
+            (s) =>
+                s.createdAt.toLocal().isAfter(
+                  start.subtract(const Duration(milliseconds: 1)),
+                ) &&
+                s.createdAt.toLocal().isBefore(
+                  end.add(const Duration(milliseconds: 1)),
+                ),
+          )
+          .toList();
+    }
+
+    // Date range filter
+    if (_dateRange != null) {
+      final start = DateTime(
+        _dateRange!.start.year,
+        _dateRange!.start.month,
+        _dateRange!.start.day,
+      );
+      final end = DateTime(
+        _dateRange!.end.year,
+        _dateRange!.end.month,
+        _dateRange!.end.day,
+      ).add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
+      list = list
+          .where(
+            (s) =>
+                s.createdAt.toLocal().isAfter(
+                  start.subtract(const Duration(milliseconds: 1)),
+                ) &&
+                s.createdAt.toLocal().isBefore(
+                  end.add(const Duration(milliseconds: 1)),
+                ),
+          )
+          .toList();
+    }
+
+    // Time-of-day filter (applied within singleDate or for each day in range)
+    if (_startTime != null || _endTime != null) {
+      list = list.where((s) {
+        final local = s.createdAt.toLocal();
+        // Build comparison times on same day of sale
+        final startTimeOfSale = DateTime(
+          local.year,
+          local.month,
+          local.day,
+          _startTime?.hour ?? 0,
+          _startTime?.minute ?? 0,
+        );
+        final endTimeOfSale = DateTime(
+          local.year,
+          local.month,
+          local.day,
+          _endTime?.hour ?? 23,
+          _endTime?.minute ?? 59,
+        );
+        return local.isAfter(
+              startTimeOfSale.subtract(const Duration(milliseconds: 1)),
+            ) &&
+            local.isBefore(endTimeOfSale.add(const Duration(milliseconds: 1)));
+      }).toList();
+    }
+
+    // Search filter
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      list = list.where((sale) {
+        final matchId = sale.id.toLowerCase().contains(query);
+        final matchItems = sale.items.any(
+          (item) => item.productName.toLowerCase().contains(query),
+        );
+        final matchTotal = sale.total.toString().contains(query);
+        final matchDate =
+            _formatDate(sale.createdAt).contains(query) ||
+            DateFormat(
+              'd MMM yyyy',
+            ).format(sale.createdAt.toLocal()).toLowerCase().contains(query);
+        return matchId || matchItems || matchTotal || matchDate;
+      }).toList();
+    }
+
+    // Sort by date desc (most recent first)
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    return list;
   }
 
-  List<Sale> _getPaginatedSales(List<Sale> allSales) {
-    final filteredSales = _filterSales(allSales);
+  double _sumSalesForToday() {
+    final today = DateTime.now();
+    final start = DateTime(today.year, today.month, today.day);
+    final end = start
+        .add(const Duration(days: 1))
+        .subtract(const Duration(milliseconds: 1));
 
-    // For infinite scroll, we show all filtered results
-    // If you want traditional pagination, uncomment below:
-    /*
-    final startIndex = (_currentPage - 1) * _itemsPerPage;
-    final endIndex = startIndex + _itemsPerPage;
-    return filteredSales.sublist(
-      startIndex.clamp(0, filteredSales.length),
-      endIndex.clamp(0, filteredSales.length),
-    );
-    */
+    final todays = _allSales.where((s) {
+      final t = s.createdAt.toLocal();
+      return t.isAfter(start.subtract(const Duration(milliseconds: 1))) &&
+          t.isBefore(end.add(const Duration(milliseconds: 1)));
+    });
 
-    return filteredSales;
+    double sum = 0;
+    for (var s in todays) {
+      sum += s.total;
+    }
+    return sum;
+  }
+
+  double _sumSalesForList(List<Sale> list) {
+    double sum = 0;
+    for (var s in list) {
+      sum += s.total;
+    }
+    return sum;
   }
 
   String _formatProductNames(List<SaleItem> items) {
     if (items.isEmpty) return 'No items';
 
-    items.map((item) => item.productName).toList();
-
     // Group by product name and show quantity if multiple
     final grouped = groupBy(items, (item) => item.productName);
     final result = grouped.entries.map((entry) {
-      if (entry.value.length > 1) {
-        return '${entry.key} (x${entry.value.length})';
+      final qty = entry.value.fold<int>(0, (p, e) => p + (e.quantity));
+      if (qty > 1) {
+        return '${entry.key} (x$qty)';
       }
       return entry.key;
     }).toList();
@@ -231,7 +398,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Expanded(
+                Flexible(
                   child: SingleChildScrollView(
                     child: DataTable(
                       columns: const [
@@ -241,16 +408,14 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                         DataColumn(label: Text('Subtotal'), numeric: true),
                       ],
                       rows: sale.items.map((item) {
+                        final price = item.price;
+                        final qty = item.quantity;
                         return DataRow(
                           cells: [
                             DataCell(Text(item.productName)),
-                            DataCell(Text(item.price.toStringAsFixed(0))),
-                            DataCell(Text('${item.quantity}')),
-                            DataCell(
-                              Text(
-                                (item.price * item.quantity).toStringAsFixed(0),
-                              ),
-                            ),
+                            DataCell(Text(price.toStringAsFixed(0))),
+                            DataCell(Text('$qty')),
+                            DataCell(Text((price * qty).toStringAsFixed(0))),
                           ],
                         );
                       }).toList(),
@@ -275,10 +440,8 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
   }
 
   Widget _rowActions(Sale sale) {
-    return // In the mobileItemBuilder section of sale_record.dart, update the actions row:
-    Row(
+    return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      spacing: 10,
       children: [
         IconButton(
           tooltip: 'View Details',
@@ -327,7 +490,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
               productName: item.productName,
               originalPrice: item.price,
               returnedQuantity: item.quantity,
-              refundAmount: item.price * item.quantity,
+              refundAmount: (item.price) * (item.quantity),
             ),
           )
           .toList();
@@ -335,7 +498,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       // Calculate total refund
       final totalRefund = returnItems.fold(
         0.0,
-        (sum, item) => sum + item.refundAmount,
+        (sum, item) => sum + (item.refundAmount),
       );
 
       // Create sale return
@@ -357,7 +520,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            duration: Duration(seconds: 1),
+            duration: const Duration(seconds: 1),
             content: Text(
               'Return processed successfully for ${totalRefund.toStringAsFixed(0)}',
             ),
@@ -369,7 +532,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            duration: Duration(seconds: 1),
+            duration: const Duration(seconds: 1),
             content: Text('Failed to process return: $e'),
             backgroundColor: AppColors.error,
           ),
@@ -403,7 +566,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
               productName: item.productName,
               originalPrice: item.price,
               returnedQuantity: item.quantity,
-              refundAmount: item.price * item.quantity,
+              refundAmount: (item.price) * (item.quantity),
             ),
           )
           .toList();
@@ -411,7 +574,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       // Calculate total refund
       final totalRefund = returnItems.fold(
         0.0,
-        (sum, item) => sum + item.refundAmount,
+        (sum, item) => sum + (item.refundAmount),
       );
 
       // Create sale return
@@ -433,7 +596,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            duration: Duration(seconds: 1),
+            duration: const Duration(seconds: 1),
             content: Text(
               'Return processed successfully for ${totalRefund.toStringAsFixed(0)}',
             ),
@@ -445,7 +608,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            duration: Duration(seconds: 1),
+            duration: const Duration(seconds: 1),
             content: Text('Failed to process return: $e'),
             backgroundColor: AppColors.error,
           ),
@@ -487,22 +650,100 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
     );
   }
 
+  // UI helpers for picking dates and times
+  Future<void> _pickSingleDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _singleDate ?? now,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (picked != null) {
+      setState(() {
+        _singleDate = picked;
+        _dateRange = null; // clear range when single date chosen
+        _presetFilter = 'All';
+      });
+    }
+  }
+
+  Future<void> _pickDateRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 5),
+      initialDateRange:
+          _dateRange ??
+          DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now),
+    );
+    if (picked != null) {
+      setState(() {
+        _dateRange = picked;
+        _singleDate = null;
+        _presetFilter = 'All';
+      });
+    }
+  }
+
+  Future<void> _pickStartTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _startTime ?? const TimeOfDay(hour: 0, minute: 0),
+    );
+    if (picked != null) {
+      setState(() {
+        _startTime = picked;
+      });
+    }
+  }
+
+  Future<void> _pickEndTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _endTime ?? const TimeOfDay(hour: 23, minute: 59),
+    );
+    if (picked != null) {
+      setState(() {
+        _endTime = picked;
+      });
+    }
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _presetFilter = 'All';
+      _singleDate = null;
+      _dateRange = null;
+      _startTime = null;
+      _endTime = null;
+      _searchController.clear();
+      _searchQuery = '';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    Provider.of<SaleProvider>(context);
+    Provider.of<SaleProvider>(context); // keep provider alive
     final l10n = AppLocalizations.of(context)!;
-    final paginatedSales = _getPaginatedSales(_allSales);
-    final filteredSales = _filterSales(_allSales);
+    final filteredSales = _applyAllFilters();
+
+    final todaysTotal = _sumSalesForToday();
+    final filteredTotal = _sumSalesForList(filteredSales);
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // LEFT SIDE TITLE
               Expanded(
+                flex: 2,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -524,35 +765,244 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                   ],
                 ),
               ),
+
+              const SizedBox(width: 20),
+
+              // ------------------ RIGHT SIDE CARDS ------------------
+              Expanded(
+                flex: 3,
+                child: Row(
+                  children: [
+                    // ---------- Today Total ----------
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.grey100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.grey300.withOpacity(0.4),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Today\'s Sales',
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(
+                                    color: AppColors.grey700,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              NumberFormat('#,###').format(todaysTotal),
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primary,
+                                    fontSize: 20,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: AppSpacing.sm),
+
+                    // ---------- Filtered Total ----------
+                    Expanded(
+                      child: CustomCard(
+                        color: Colors.grey.shade100,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${filteredSales.length} records',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: AppColors.grey600),
+                            ),
+                            Text(
+                              NumberFormat.currency(
+                                symbol: '',
+                                decimalDigits: 0,
+                              ).format(filteredTotal),
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.success,
+                                    fontSize: 20,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
-          ),
-
-          const SizedBox(height: AppSpacing.md),
-
-          // Search bar
-          SearchBarWidget(
-            controller: _searchController,
-            hint: 'Search sales...',
-            onChanged: (_) => _onSearchChanged(),
-            onClear: () {
-              _searchController.clear();
-              _onSearchChanged();
-            },
           ),
 
           const SizedBox(height: AppSpacing.sm),
 
-          Expanded(child: _buildContent(l10n, paginatedSales, filteredSales)),
+          // Search and filters row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                flex: 2,
+                child: SearchBarWidget(
+                  controller: _searchController,
+                  hint: 'Search sales...',
+                  onChanged: (_) => _onSearchChanged(),
+                  onClear: () {
+                    _searchController.clear();
+                    _onSearchChanged();
+                  },
+                ),
+              ),
+
+              const SizedBox(width: AppSpacing.sm),
+
+              // Preset dropdown
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.grey200),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _presetFilter,
+                    items: const [
+                      DropdownMenuItem(value: 'All', child: Text('All')),
+                      DropdownMenuItem(value: 'Today', child: Text('Today')),
+                      DropdownMenuItem(
+                        value: 'This Week',
+                        child: Text('This Week'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'This Month',
+                        child: Text('This Month'),
+                      ),
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() {
+                        _presetFilter = v;
+                        // clear single/range when selecting preset
+                        if (v != 'All') {
+                          _singleDate = null;
+                          _dateRange = null;
+                        }
+                      });
+                    },
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: AppSpacing.sm),
+
+              // Buttons for date pickers
+              IconButton(
+                tooltip: 'Pick single date',
+                onPressed: _pickSingleDate,
+                icon: const Icon(Icons.calendar_today),
+              ),
+              IconButton(
+                tooltip: 'Pick date range',
+                onPressed: _pickDateRange,
+                icon: const Icon(Icons.date_range),
+              ),
+              IconButton(
+                tooltip: 'Pick start time',
+                onPressed: _pickStartTime,
+                icon: const Icon(Icons.access_time),
+              ),
+              IconButton(
+                tooltip: 'Pick end time',
+                onPressed: _pickEndTime,
+                icon: const Icon(Icons.access_time_filled),
+              ),
+
+              const SizedBox(width: AppSpacing.sm),
+
+              CustomButton(
+                text: 'Reset',
+                variant: ButtonVariant.outlined,
+                onPressed: _resetFilters,
+              ),
+            ],
+          ),
+
+          // Show active filter summary
+          if (_presetFilter != 'All' ||
+              _singleDate != null ||
+              _dateRange != null ||
+              _startTime != null ||
+              _endTime != null)
+            Padding(
+              padding: const EdgeInsets.only(
+                top: AppSpacing.sm,
+                bottom: AppSpacing.sm,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        if (_presetFilter != 'All')
+                          Chip(label: Text('Preset: $_presetFilter')),
+                        if (_singleDate != null)
+                          Chip(
+                            label: Text(
+                              'Date: ${DateFormat('d MMM yyyy').format(_singleDate!)}',
+                            ),
+                          ),
+                        if (_dateRange != null)
+                          Chip(
+                            label: Text(
+                              'Range: ${DateFormat('d MMM yyyy').format(_dateRange!.start)} - ${DateFormat('d MMM yyyy').format(_dateRange!.end)}',
+                            ),
+                          ),
+                        if (_startTime != null)
+                          Chip(
+                            label: Text('From: ${_startTime!.format(context)}'),
+                          ),
+                        if (_endTime != null)
+                          Chip(label: Text('To: ${_endTime!.format(context)}')),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Clear filters',
+                    onPressed: _resetFilters,
+                    icon: const Icon(Icons.clear),
+                  ),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: AppSpacing.sm),
+
+          Expanded(child: _buildContent(l10n, filteredSales)),
         ],
       ),
     );
   }
 
-  Widget _buildContent(
-    AppLocalizations l10n,
-    List<Sale> paginatedSales,
-    List<Sale> filteredSales,
-  ) {
+  Widget _buildContent(AppLocalizations l10n, List<Sale> filteredSales) {
     if (_isLoading && _allSales.isEmpty) {
       return _buildShimmerTable();
     }
@@ -592,7 +1042,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
             if (_searchQuery.isEmpty) ...[
               const SizedBox(height: AppSpacing.md),
               Text(
-                'Your sales will appear here',
+                'Try clearing filters or fetch fresh data.',
                 style: TextStyle(color: Colors.grey.shade500),
               ),
             ],
@@ -614,13 +1064,13 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
         controller: _scrollController,
         child: DataTableWidget(
           columns: [
-            DataColumn(label: Text('#')),
-            DataColumn(label: Text('Products')),
-            DataColumn(label: Text('Total')),
-            DataColumn(label: Text('Date')),
-            DataColumn(label: Text('Actions')),
+            const DataColumn(label: Text('#')),
+            const DataColumn(label: Text('Products')),
+            const DataColumn(label: Text('Total')),
+            const DataColumn(label: Text('Date')),
+            const DataColumn(label: Text('Actions')),
           ],
-          rows: paginatedSales.asMap().entries.map((entry) {
+          rows: filteredSales.asMap().entries.map((entry) {
             final index = entry.key;
             final sale = entry.value;
             final serialNumber = index + 1; // Serial number starts from 1
@@ -652,7 +1102,9 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                 ),
                 DataCell(
                   Text(
-                    DateFormat('d MMM yyyy').format(sale.createdAt.toLocal()),
+                    DateFormat(
+                      'd MMM yyyy – hh:mm a',
+                    ).format(sale.createdAt.toLocal()),
                   ),
                 ),
                 DataCell(_rowActions(sale)),
@@ -661,7 +1113,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
           }).toList(),
 
           mobileItemBuilder: (context, index) {
-            final sale = paginatedSales[index];
+            final sale = filteredSales[index];
             return CustomCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -670,7 +1122,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Sale #${sale.id.substring(0, 8)}...',
+                          'Sale #${sale.id.substring(0, sale.id.length > 8 ? 8 : sale.id.length)}',
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
@@ -693,7 +1145,7 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    'Date: ${_formatDate(sale.createdAt)}',
+                    'Date: ${DateFormat('d MMM yyyy – hh:mm a').format(sale.createdAt.toLocal())}',
                     style: Theme.of(
                       context,
                     ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
@@ -746,17 +1198,17 @@ class _SalesTableScreenState extends State<SalesTableScreen> {
                   ShimmerEffect(width: 60, height: 20),
                 ],
               ),
-              SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.sm),
               ShimmerEffect(width: 180, height: 16),
-              SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.sm),
               ShimmerEffect(width: 150, height: 16),
-              SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.sm),
               ShimmerEffect(width: 200, height: 16),
-              SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.sm),
               ShimmerEffect(width: 120, height: 16),
-              SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.sm),
               ShimmerEffect(width: 100, height: 16),
-              SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.sm),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [

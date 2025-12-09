@@ -35,6 +35,8 @@ class _TableOrderDialogState extends State<TableOrderDialog> {
         return Colors.green.shade300; // Green
       case TableStatus.served:
         return Colors.orange.shade300; // Orange
+      case TableStatus.cleared:
+        return Colors.blue.shade400; // Blue
     }
   }
 
@@ -46,6 +48,8 @@ class _TableOrderDialogState extends State<TableOrderDialog> {
         return 'Occupied';
       case TableStatus.served:
         return 'Served';
+      case TableStatus.cleared:
+        return 'Cleared';
     }
   }
 

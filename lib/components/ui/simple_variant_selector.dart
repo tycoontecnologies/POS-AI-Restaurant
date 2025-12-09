@@ -288,7 +288,11 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                             ),
                           ),
                           Text(
-                            (_selectedVariant!.getPrice(widget.product.salePrice) * _quantity).toStringAsFixed(0),
+                            (_selectedVariant!.getPrice(
+                                      widget.product.salePrice,
+                                    ) *
+                                    _quantity)
+                                .toStringAsFixed(0),
                             style: AppTypography.h6.copyWith(
                               fontWeight: FontWeight.w700,
                               color: AppColors.primary,
@@ -311,7 +315,7 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
           onPressed: () => Navigator.pop(context),
         ),
         CustomButton(
-          text: 'Add to Cart',
+          text: 'Add',
           onPressed: _selectedVariant != null && _quantity > 0
               ? () {
                   widget.onAddToCart(_selectedVariant!, _quantity);

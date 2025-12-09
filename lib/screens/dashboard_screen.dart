@@ -1,11 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pdf/pdf.dart';
 import 'package:pos/components/ui/custom_input.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
-import 'package:pos/components/ui/table_order_dialog.dart';
 import 'package:pos/l10n/app_localizations.dart';
 import 'package:pos/models/category.dart';
+import 'package:pos/models/sale.dart';
 import 'package:pos/models/table.dart';
 import 'package:pos/models/user.dart';
 import 'package:pos/providers/category_provider.dart';
@@ -13,6 +14,8 @@ import 'package:pos/providers/product_provider.dart';
 import 'package:pos/providers/statistics_provider.dart';
 import 'package:pos/providers/table_order_provider.dart';
 import 'package:pos/providers/table_provider.dart';
+import 'package:pos/services/pdf_service.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import '../utils/responsive.dart';
 import '../utils/app_colors.dart';
@@ -89,6 +92,239 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.dispose();
   }
 
+  void _handleViewItems(RestaurantTable table) {
+    final tableOrderProvider = Provider.of<TableOrderProvider>(
+      context,
+      listen: false,
+    );
+
+    final orderItems = tableOrderProvider.getOrderForTable(table.id);
+
+    if (orderItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No items found for Table ${table.tableNumber}'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 40,
+            vertical: 24,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 340), // ⬅ Reduced width
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ---------- Title ----------
+                  Text(
+                    'Items for Table ${table.tableNumber}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ---------- List ----------
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: orderItems.length,
+                      separatorBuilder: (_, __) => const Divider(height: 8),
+                      itemBuilder: (context, index) {
+                        final item = orderItems[index];
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // Icon box
+                            // Container(
+                            //   width: 38,
+                            //   height: 38,
+                            //   decoration: BoxDecoration(
+                            //     color: AppColors.primary.withOpacity(0.08),
+                            //     borderRadius: BorderRadius.circular(10),
+                            //   ),
+                            //   child: Icon(
+                            //     Icons.fastfood,
+                            //     size: 20,
+                            //     color: AppColors.primary,
+                            //   ),
+                            // ),
+                            // const SizedBox(width: 12),
+
+                            // Item info
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.displayName,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Qty: ${item.quantity}",
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Price
+                            Text(
+                              item.totalPrice.toStringAsFixed(0),
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.success,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ---------- Button ----------
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text(
+                        'Close',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _printBillForTable(RestaurantTable table) async {
+    final authProvider = _categoryProvider.authProvider;
+    final user = authProvider?.currentUser;
+    final tableOrderProvider = Provider.of<TableOrderProvider>(
+      context,
+      listen: false,
+    );
+    final tableProvider = Provider.of<TableProvider>(context, listen: false);
+
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to print bill')),
+      );
+      return;
+    }
+
+    // Check if table is in cleared status
+    if (table.status != TableStatus.cleared) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please set Table ${table.tableNumber} to "Cleared" status first',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Get items for this table
+    final tableOrderItems = tableOrderProvider.getOrderForTable(table.id);
+
+    if (tableOrderItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No items found for Table ${table.tableNumber}'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Calculate total
+    final total = tableOrderItems.fold(
+      0.0,
+      (sum, item) => sum + item.totalPrice,
+    );
+
+    // Create a Sale object for the bill
+    final sale = Sale(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      vendorId: user.id,
+      items: tableOrderItems.map((item) {
+        return SaleItem(
+          productId: item.product.id,
+          productName: item.displayName,
+          quantity: item.quantity,
+          price: item.unitPrice,
+        );
+      }).toList(),
+      total: total,
+      tableNumber: table.tableNumber,
+      createdAt: DateTime.now(),
+    );
+
+    try {
+      // Use the PDF service to create and print bill
+      final pdf = await PdfService.createBillReceipt(sale: sale, user: user);
+
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+      );
+
+      // Clear table order after successful printing
+      await tableOrderProvider.clearTableOrder(table.id);
+
+      // Reset table status to empty
+      await tableProvider.updateTableStatus(table.id, TableStatus.empty);
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Bill printed for Table ${table.tableNumber}. Table cleared.',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error printing bill: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -101,7 +337,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
+                  horizontal: AppSpacing.sm,
                   vertical: AppSpacing.sm,
                 ),
                 decoration: BoxDecoration(
@@ -301,16 +537,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             childAspectRatio: 1.3,
                             children: [
                               _buildQuickActionButton(
-                                'Dine In',
+                                'Add Table',
                                 Icons.table_chart,
                                 Colors.teal,
-                                _showTableOrderDialog,
+                                _showAddTableDialog,
                               ),
                               _buildQuickActionButton(
                                 l10n.sales,
                                 Icons.shopping_cart,
                                 const Color(0xFF8B5CF6),
-                                () => context.go(AppRouter.salesRecord),
+                                () => context.go(AppRouter.sales),
                               ),
                               _buildQuickActionButton(
                                 l10n.products,
@@ -383,7 +619,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildCategoriesContent() {
     return Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       child: Consumer<CategoryProvider>(
         builder: (context, categoryProvider, child) {
           if (categoryProvider.isLoading &&
@@ -457,7 +693,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildTablesContent() {
     return Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       child: Column(
         children: [
           Expanded(
@@ -522,21 +758,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   onTableTap: _handleTableTap,
                   onEditTable: _handleEditTable,
                   onDeleteTable: _handleDeleteTable,
+                  onPrintBill: _printBillForTable,
+                  onViewItems: _handleViewItems,
+                  onUpdateStatus: _handleUpdateTableStatus, // Add this callback
                 );
               },
             ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              CustomButton(
-                text: 'Add Table',
-                onPressed: _showAddTableDialog,
-                icon: Icons.add,
-                variant: ButtonVariant.filled,
-                color: AppColors.primary,
-              ),
-            ],
           ),
         ],
       ),
@@ -631,10 +858,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 label: 'Number of Seats',
                 keyboardType: TextInputType.number,
               ),
-              const SizedBox(height: AppSpacing.md),
-              const Text('Status:'),
-              const SizedBox(height: AppSpacing.sm),
-              ..._buildStatusButtons(table),
             ],
           ),
         ),
@@ -678,58 +901,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  List<Widget> _buildStatusButtons(RestaurantTable table) {
-    return [
-      Wrap(
-        spacing: AppSpacing.sm,
-        runSpacing: AppSpacing.sm,
-        children: [
-          FilterChip(
-            label: const Text('Empty'),
-            selected: table.status == TableStatus.empty,
-            onSelected: (_) async {
-              final provider = Provider.of<TableProvider>(
-                context,
-                listen: false,
-              );
-              await provider.updateTableStatus(table.id, TableStatus.empty);
-              if (mounted) Navigator.pop(context);
-            },
-            backgroundColor: Colors.grey.shade300,
-            selectedColor: Colors.grey.shade400,
-          ),
-          FilterChip(
-            label: const Text('Occupied'),
-            selected: table.status == TableStatus.occupied,
-            onSelected: (_) async {
-              final provider = Provider.of<TableProvider>(
-                context,
-                listen: false,
-              );
-              await provider.updateTableStatus(table.id, TableStatus.occupied);
-              if (mounted) Navigator.pop(context);
-            },
-            backgroundColor: AppColors.success.withOpacity(0.3),
-            selectedColor: AppColors.success,
-          ),
-          FilterChip(
-            label: const Text('Served'),
-            selected: table.status == TableStatus.served,
-            onSelected: (_) async {
-              final provider = Provider.of<TableProvider>(
-                context,
-                listen: false,
-              );
-              await provider.updateTableStatus(table.id, TableStatus.served);
-              if (mounted) Navigator.pop(context);
-            },
-            backgroundColor: Colors.orange.withOpacity(0.3),
-            selectedColor: Colors.orange.shade300,
-          ),
-        ],
-      ),
-    ];
-  }
 
   void _handleDeleteTable(RestaurantTable table) {
     showDialog(
@@ -877,24 +1048,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .toList();
   }
 
-  void _showTableOrderDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => TableOrderDialog(
-        onTableSelected: (table) {
-          setState(() {
-            _selectedOrderType = 'Dine In';
-          });
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Table ${table.tableNumber} selected'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        },
-      ),
-    );
+  void _handleUpdateTableStatus(
+    RestaurantTable table,
+    TableStatus newStatus,
+  ) async {
+    final tableProvider = Provider.of<TableProvider>(context, listen: false);
+
+    try {
+      await tableProvider.updateTableStatus(table.id, newStatus);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Table ${table.tableNumber} marked as ${newStatus.toString().split('.').last}',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating status: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }
 
@@ -939,26 +1118,32 @@ class _TablesGrid extends StatelessWidget {
   final Function(RestaurantTable) onTableTap;
   final Function(RestaurantTable) onEditTable;
   final Function(RestaurantTable) onDeleteTable;
+  final Function(RestaurantTable) onPrintBill;
+  final Function(RestaurantTable) onViewItems;
+  final Function(RestaurantTable, TableStatus)? onUpdateStatus; // Add this
 
   const _TablesGrid({
     required this.tables,
     required this.onTableTap,
     required this.onEditTable,
     required this.onDeleteTable,
+    required this.onPrintBill,
+    required this.onViewItems,
+    this.onUpdateStatus, // Add this
   });
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = Responsive.isDesktop(context);
     final isTablet = Responsive.isTablet(context);
-    final crossAxisCount = isDesktop ? 6 : (isTablet ? 4 : 3);
+    final crossAxisCount = isDesktop ? 5 : (isTablet ? 4 : 3);
 
     return GridView.builder(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: .8,
+        childAspectRatio: .9, // Slightly taller aspect ratio
       ),
       padding: const EdgeInsets.all(0),
       itemCount: tables.length,
@@ -969,6 +1154,9 @@ class _TablesGrid extends StatelessWidget {
           onTap: () => onTableTap(table),
           onEdit: () => onEditTable(table),
           onDelete: () => onDeleteTable(table),
+          onPrintBill: () => onPrintBill(table),
+          onViewItems: () => onViewItems(table),
+          onUpdateStatus: onUpdateStatus, // Pass the callback
         );
       },
     );
@@ -980,13 +1168,19 @@ class HoverableTableCard extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onPrintBill;
+  final VoidCallback onViewItems;
+  final Function(RestaurantTable, TableStatus)? onUpdateStatus;
 
   const HoverableTableCard({
+    super.key,
     required this.table,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
-    super.key,
+    required this.onPrintBill,
+    required this.onViewItems,
+    this.onUpdateStatus,
   });
 
   @override
@@ -999,11 +1193,13 @@ class _HoverableTableCardState extends State<HoverableTableCard> {
   Color _getStatusColor(TableStatus status) {
     switch (status) {
       case TableStatus.empty:
-        return Colors.grey.shade400; // Silver for empty
+        return Colors.grey.shade400;
       case TableStatus.occupied:
         return Colors.orange.shade400;
       case TableStatus.served:
-        return Colors.green.shade500; // Green for served
+        return Colors.green.shade500;
+      case TableStatus.cleared:
+        return Colors.blue.shade500;
     }
   }
 
@@ -1015,246 +1211,203 @@ class _HoverableTableCardState extends State<HoverableTableCard> {
         return 'Occupied';
       case TableStatus.served:
         return 'Served';
+      case TableStatus.cleared:
+        return 'Cleared';
     }
   }
 
-  LinearGradient _getCardGradient(TableStatus status) {
-    switch (status) {
+  // Get next status in the flow
+  TableStatus? _getNextStatus(TableStatus current) {
+    switch (current) {
       case TableStatus.empty:
-        return LinearGradient(
-          colors: [Colors.grey.shade50, Colors.grey.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
+        return TableStatus.occupied;
       case TableStatus.occupied:
-        return LinearGradient(
-          colors: [Colors.orange.shade50, Colors.orange.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
+        return TableStatus.served;
       case TableStatus.served:
-        return LinearGradient(
-          colors: [Colors.green.shade50, Colors.green.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
+        return TableStatus.cleared;
+      case TableStatus.cleared:
+        return null;
+    }
+  }
+
+  // Get status button text and color
+  Map<String, dynamic> _getStatusButtonInfo(TableStatus current) {
+    final nextStatus = _getNextStatus(current);
+
+    if (nextStatus == null) {
+      return {
+        'text': 'Print Bill',
+        'color': AppColors.success,
+        'icon': Icons.print,
+      };
+    }
+
+    switch (nextStatus) {
+      case TableStatus.occupied:
+        return {
+          'text': 'Occupie',
+          'color': Colors.orange.shade400,
+          'icon': Icons.person,
+        };
+      case TableStatus.served:
+        return {
+          'text': 'Serve',
+          'color': Colors.green.shade400,
+          'icon': Icons.check_circle,
+        };
+      case TableStatus.cleared:
+        return {
+          'text': 'Clear',
+          'color': Colors.blue.shade400,
+          'icon': Icons.cleaning_services,
+        };
+      default:
+        return {
+          'text': 'Update',
+          'color': AppColors.primary,
+          'icon': Icons.edit,
+        };
+    }
+  }
+
+  // Handle status update
+  void _handleStatusUpdate() {
+    final currentStatus = widget.table.status;
+    final nextStatus = _getNextStatus(currentStatus);
+
+    if (nextStatus != null && widget.onUpdateStatus != null) {
+      widget.onUpdateStatus!(widget.table, nextStatus);
+    } else if (currentStatus == TableStatus.cleared) {
+      widget.onPrintBill();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final statusColor = _getStatusColor(widget.table.status);
-    final statusLabel = _getStatusLabel(widget.table.status);
-    final cardGradient = _getCardGradient(widget.table.status);
     final tableOrderProvider = Provider.of<TableOrderProvider>(context);
-    final hasActiveOrder = tableOrderProvider.hasActiveOrder(widget.table.id);
-    final orderCount = hasActiveOrder
-        ? tableOrderProvider.getOrderForTable(widget.table.id).length
-        : 0;
+    final orderItems = tableOrderProvider.getOrderForTable(widget.table.id);
+    final orderCount = orderItems.length;
+    final totalAmount = orderItems.fold(
+      0.0,
+      (sum, item) => sum + item.totalPrice,
+    );
+    final statusButtonInfo = _getStatusButtonInfo(widget.table.status);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Stack(
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOut,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                gradient: cardGradient,
-                border: Border.all(
-                  color: _isHovered ? statusColor : Colors.grey.shade300,
-                  width: _isHovered ? 3 : 2,
-                ),
-                boxShadow: [
-                  if (_isHovered)
-                    BoxShadow(
-                      color: statusColor.withOpacity(0.3),
-                      blurRadius: 15,
-                      spreadRadius: 3,
-                      offset: const Offset(0, 5),
-                    ),
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+          border: Border.all(color: Colors.grey.shade300, width: 1),
+          boxShadow: [
+            if (_isHovered)
+              BoxShadow(
+                color: statusColor.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
               ),
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // 1. HEADER: Table number + Edit/Delete buttons
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Status Badge
+                  // Table number with status badge
+                  Text(
+                    widget.table.tableNumber,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      // color: statusColor.withOpacity(0.2),
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: statusColor.withOpacity(0.4),
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: statusColor.withOpacity(0.1),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      color: statusColor,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: statusColor, width: 1),
                     ),
                     child: Text(
-                      statusLabel,
+                      _getStatusLabel(widget.table.status),
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        // color: statusColor,
-                        letterSpacing: 0.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
 
-                  // Table Number Circle
-                  Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      color: Colors.white, // White circle background
-                      borderRadius: BorderRadius.circular(40),
-                      border: Border.all(
-                        color: statusColor,
-                        width: _isHovered ? 4 : 3,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: statusColor.withOpacity(0.3),
-                          blurRadius: _isHovered ? 12 : 6,
-                          spreadRadius: _isHovered ? 2 : 1,
-                          offset: const Offset(0, 3),
-                        ),
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 6,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        widget.table.tableNumber,
-                        style: TextStyle(
-                          fontSize: _isHovered ? 26 : 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                          shadows: _isHovered
-                              ? [
-                                  Shadow(
-                                    color: statusColor.withOpacity(0.3),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Number of seats
-                  Text(
-                    '${widget.table.numberOfSeats} Seats',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Action Buttons
+                  // Edit and Delete buttons
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Edit Button
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        transform: _isHovered
-                            ? Matrix4.translationValues(0, -2, 0)
-                            : Matrix4.identity(),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: widget.onEdit,
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Colors.blue.shade200,
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.blue.shade100,
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                Icons.edit,
-                                color: Colors.blue.shade600,
-                                size: 18,
-                              ),
+                      // Edit button
+                      InkWell(
+                        onTap: widget.onEdit,
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: Colors.blue.shade300,
+                              width: 1,
                             ),
+                          ),
+                          child: Icon(
+                            Icons.edit,
+                            size: 16,
+                            color: Colors.blue.shade600,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
 
-                      // Delete Button
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        transform: _isHovered
-                            ? Matrix4.translationValues(0, -2, 0)
-                            : Matrix4.identity(),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: widget.onDelete,
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Colors.red.shade200,
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.red.shade100,
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                Icons.delete,
-                                color: Colors.red.shade600,
-                                size: 18,
-                              ),
+                      // Delete button
+                      InkWell(
+                        onTap: widget.onDelete,
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: Colors.red.shade300,
+                              width: 1,
                             ),
+                          ),
+                          child: Icon(
+                            Icons.delete,
+                            size: 16,
+                            color: Colors.red.shade600,
                           ),
                         ),
                       ),
@@ -1264,39 +1417,185 @@ class _HoverableTableCardState extends State<HoverableTableCard> {
               ),
             ),
 
-            // Order Count Badge
-            if (hasActiveOrder && orderCount > 0)
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      '$orderCount',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
+            // Main content area
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // 3. Total Items row
+                    _buildInfoRow(
+                      label: 'Total Items',
+                      value: orderCount.toString(),
+                      valueColor: AppColors.primary,
                     ),
-                  ),
+
+                    // 4. View Items row
+                    _buildActionRow(
+                      label: 'View Items',
+                      onPressed: orderCount > 0 ? widget.onViewItems : null,
+                      icon: Icons.visibility,
+                      color: orderCount > 0 ? Colors.blue : Colors.grey,
+                    ),
+
+                    // 5. Add Items row
+                    _buildActionRow(
+                      label: 'Add Items',
+                      onPressed: widget.onTap,
+                      icon: Icons.add,
+                      color: AppColors.success,
+                    ),
+                  ],
                 ),
               ),
+            ),
+
+            // 7. FOOTER: Total Amount + Status button
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+                border: Border(
+                  top: BorderSide(color: Colors.grey.shade300, width: 1),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Total Amount
+                  Text(
+                    totalAmount.toStringAsFixed(0),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.success,
+                    ),
+                  ),
+
+                  // Status Update button
+                  ElevatedButton(
+                    onPressed: _handleStatusUpdate,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: statusButtonInfo['color'] as Color,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 1,
+                      shadowColor: Colors.transparent,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(statusButtonInfo['icon'] as IconData, size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          statusButtonInfo['text'] as String,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow({
+    required String label,
+    required String value,
+    required Color valueColor,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: valueColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: valueColor.withOpacity(0.3), width: 1),
+          ),
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: valueColor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionRow({
+    required String label,
+    required VoidCallback? onPressed,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          decoration: BoxDecoration(
+            color: onPressed != null
+                ? color.withOpacity(0.05)
+                : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: onPressed != null
+                  ? color.withOpacity(0.2)
+                  : Colors.grey.shade300,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: onPressed != null ? color : Colors.grey.shade500,
+                ),
+              ),
+              Icon(
+                icon,
+                size: 18,
+                color: onPressed != null ? color : Colors.grey.shade400,
+              ),
+            ],
+          ),
         ),
       ),
     );

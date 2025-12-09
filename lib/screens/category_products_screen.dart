@@ -1,10 +1,7 @@
-import 'dart:typed_data';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import for FirebaseFirestore
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/models/product.dart';
 import 'package:pos/models/category.dart';
@@ -14,6 +11,7 @@ import 'package:pos/providers/product_provider.dart';
 import 'package:pos/providers/cart_provider.dart';
 import 'package:pos/providers/table_order_provider.dart';
 import 'package:pos/providers/table_provider.dart';
+import 'package:pos/services/pdf_service.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
@@ -21,7 +19,6 @@ import '../components/ui/custom_card.dart';
 import '../components/ui/custom_button.dart';
 import '../components/ui/search_bar_widget.dart';
 import 'package:printing/printing.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
 import '../models/sale.dart';
 import '../services/sale_service.dart';
@@ -368,383 +365,46 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     );
   }
 
-  // Future<void> _printKitchenTicket(Sale sale) async {
-  //   final pdf = pw.Document();
-
-  //   pdf.addPage(
-  //     pw.Page(
-  //       pageFormat: PdfPageFormat.roll80,
-  //       build: (_) {
-  //         return pw.Column(
-  //           crossAxisAlignment: pw.CrossAxisAlignment.start,
-  //           children: [
-  //             pw.Center(
-  //               child: pw.Text(
-  //                 'KITCHEN ORDER TICKET',
-  //                 style: pw.TextStyle(
-  //                   fontSize: 16,
-  //                   fontWeight: pw.FontWeight.bold,
-  //                 ),
-  //                 textAlign: pw.TextAlign.center,
-  //               ),
-  //             ),
-  //             pw.SizedBox(height: 6),
-  //             pw.Divider(),
-  //             if (sale.tableNumber != null && sale.tableNumber!.isNotEmpty) ...[
-  //               pw.Text(
-  //                 'TABLE: ${sale.tableNumber}',
-  //                 style: pw.TextStyle(
-  //                   fontSize: 14,
-  //                   fontWeight: pw.FontWeight.bold,
-  //                 ),
-  //               ),
-  //               pw.SizedBox(height: 4),
-  //             ],
-  //             pw.Text('Order: ${sale.id.substring(0, 6)}'),
-  //             pw.Text('Time: ${sale.createdAt}'),
-  //             pw.SizedBox(height: 6),
-  //             pw.Text(
-  //               'ITEMS:',
-  //               style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-  //             ),
-  //             pw.SizedBox(height: 4),
-  //             ...sale.items.map(
-  //               (item) => pw.Padding(
-  //                 padding: const pw.EdgeInsets.symmetric(vertical: 2),
-  //                 child: pw.Row(
-  //                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-  //                   children: [
-  //                     pw.Expanded(
-  //                       child: pw.Text(
-  //                         item.productName,
-  //                         style: const pw.TextStyle(fontSize: 12),
-  //                       ),
-  //                     ),
-  //                     pw.Text(
-  //                       'x${item.quantity}',
-  //                       style: const pw.TextStyle(fontSize: 12),
-  //                     ),
-  //                   ],
-  //                 ),
-  //               ),
-  //             ),
-  //             pw.SizedBox(height: 8),
-  //             pw.Center(
-  //               child: pw.Text(
-  //                 'Send to kitchen',
-  //                 style: const pw.TextStyle(fontSize: 10),
-  //               ),
-  //             ),
-  //           ],
-  //         );
-  //       },
-  //     ),
-  //   );
-
-  //   await Printing.layoutPdf(onLayout: (format) async => pdf.save());
-  // }
-
   Future<void> _printBill(Sale sale) async {
-    final pdf = pw.Document();
     final authProvider = _categoryProvider.authProvider;
     final user = authProvider?.currentUser;
 
-    // ✅ Fetch logo before building PDF
-    Uint8List? logoBytes;
-    if (user?.restaurantLogoUrl != null &&
-        user!.restaurantLogoUrl!.isNotEmpty) {
-      logoBytes = await _getImageData(user.restaurantLogoUrl!);
-    }
-
-    // ✅ Format receipt ID as ddMMyyHHmm (e.g. 0311251847)
-    final now = DateTime.now();
-    final formattedReceiptId = DateFormat('ddMMyyHHmm').format(now);
-    final formattedDateTime = DateFormat(
-      'dd MMM yyyy hh:mm a',
-    ).format(sale.createdAt);
-
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.roll80,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        build: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            children: [
-              // ===== HEADER =====
-              pw.Center(
-                child: pw.Column(
-                  children: [
-                    if (logoBytes != null && logoBytes.isNotEmpty)
-                      pw.Container(
-                        width: 60,
-                        height: 60,
-                        child: pw.Image(
-                          pw.MemoryImage(logoBytes),
-                          fit: pw.BoxFit.contain,
-                        ),
-                      ),
-                    pw.SizedBox(height: 6),
-                    pw.Text(
-                      user?.restaurantName.isNotEmpty == true
-                          ? user!.restaurantName
-                          : 'My Restaurant',
-                      style: pw.TextStyle(
-                        fontSize: 18,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                      textAlign: pw.TextAlign.center,
-                    ),
-                    if (user?.location.isNotEmpty == true) ...[
-                      pw.SizedBox(height: 2),
-                      pw.Text(
-                        user!.location,
-                        style: const pw.TextStyle(fontSize: 10),
-                        textAlign: pw.TextAlign.center,
-                      ),
-                    ],
-                    if (user?.phoneNo.isNotEmpty == true) ...[
-                      pw.Text(
-                        'Phone: ${user!.phoneNo}',
-                        style: const pw.TextStyle(fontSize: 10),
-                        textAlign: pw.TextAlign.center,
-                      ),
-                    ],
-                    pw.SizedBox(height: 8),
-                    pw.Text(
-                      'CUSTOMER RECEIPT',
-                      style: pw.TextStyle(
-                        fontSize: 14,
-                        fontWeight: pw.FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 12),
-
-              // ===== RECEIPT INFO =====
-              pw.Container(
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.grey600, width: 0.5),
-                  borderRadius: pw.BorderRadius.circular(4),
-                ),
-                child: pw.Table(
-                  border: pw.TableBorder(
-                    horizontalInside: pw.BorderSide(
-                      color: PdfColors.grey600,
-                      width: 0.3,
-                    ),
-                    verticalInside: pw.BorderSide(
-                      color: PdfColors.grey600,
-                      width: 0.5,
-                    ),
-                  ),
-                  children: [
-                    pw.TableRow(
-                      children: [
-                        _infoCell('Receipt:', isLabel: true),
-                        _infoCell(formattedReceiptId),
-                      ],
-                    ),
-                    pw.TableRow(
-                      children: [
-                        _infoCell('Date:', isLabel: true),
-                        _infoCell(formattedDateTime),
-                      ],
-                    ),
-                    if (sale.tableNumber != null &&
-                        sale.tableNumber!.isNotEmpty)
-                      pw.TableRow(
-                        children: [
-                          _infoCell('Table:', isLabel: true),
-                          _infoCell(sale.tableNumber!),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 10),
-
-              // ===== ITEMS TABLE =====
-              pw.Text(
-                'ITEMS',
-                style: pw.TextStyle(
-                  fontSize: 11,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 4),
-              pw.Table(
-                border: pw.TableBorder.all(
-                  color: PdfColors.grey600,
-                  width: 0.5,
-                ),
-                children: [
-                  // Table Header
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(
-                      color: PdfColors.grey300,
-                    ),
-                    children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Product',
-                          style: pw.TextStyle(
-                            fontWeight: pw.FontWeight.bold,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Align(
-                          alignment: pw.Alignment.centerRight,
-                          child: pw.Text(
-                            'Amount',
-                            style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  ...sale.items.map((item) {
-                    return pw.TableRow(
-                      children: [
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            '${item.productName} x${item.quantity}',
-                            style: const pw.TextStyle(fontSize: 10),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Align(
-                            alignment: pw.Alignment.centerRight,
-                            child: pw.Text(
-                              (item.price * item.quantity).toStringAsFixed(0),
-                              style: const pw.TextStyle(fontSize: 10),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }).toList(),
-                ],
-              ),
-              pw.SizedBox(height: 6),
-
-              // ===== TOTAL =====
-              pw.Container(
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.black, width: 0.8),
-                  color: PdfColors.grey300,
-                  borderRadius: pw.BorderRadius.circular(4),
-                ),
-                padding: const pw.EdgeInsets.symmetric(
-                  vertical: 6,
-                  horizontal: 8,
-                ),
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text(
-                      'TOTAL:',
-                      style: pw.TextStyle(
-                        fontSize: 12,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.Text(
-                      sale.total.toStringAsFixed(0),
-                      style: pw.TextStyle(
-                        fontSize: 12,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 12),
-
-              // ===== FOOTER =====
-              pw.Divider(thickness: 1),
-              pw.Center(
-                child: pw.Column(
-                  children: [
-                    pw.Text(
-                      'Thank you for your purchase!',
-                      style: pw.TextStyle(
-                        fontSize: 10,
-                        fontStyle: pw.FontStyle.italic,
-                      ),
-                    ),
-                    pw.SizedBox(height: 2),
-                    pw.Text(
-                      'Please visit again.',
-                      style: pw.TextStyle(fontSize: 9),
-                    ),
-                    pw.SizedBox(height: 6),
-                    pw.Text(
-                      'Developed by Tycoon Technologies Pvt. Ltd',
-                      style: pw.TextStyle(
-                        fontSize: 8,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.Text(
-                      '03060626699',
-                      style: const pw.TextStyle(fontSize: 8),
-                    ),
-                    pw.Text(
-                      'www.tycoon.technology',
-                      style: const pw.TextStyle(fontSize: 8),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+    // Use the reusable PDF service
+    final pdf = await PdfService.createBillReceipt(sale: sale, user: user);
 
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
     );
   }
 
-  // ===== Helper for Info Table Cells =====
-  pw.Widget _infoCell(String text, {bool isLabel = false}) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.all(4),
-      child: pw.Text(
-        text,
-        style: pw.TextStyle(
-          fontSize: 10,
-          fontWeight: isLabel ? pw.FontWeight.bold : pw.FontWeight.normal,
-        ),
-      ),
-    );
-  }
+  // Add KOT printing method
+  Future<void> _printKOT() async {
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    final authProvider = _categoryProvider.authProvider;
+    final user = authProvider?.currentUser;
 
-  // ===== Helper: Load Image Data =====
-  Future<Uint8List> _getImageData(String imageUrl) async {
-    try {
-      final response = await http.get(Uri.parse(imageUrl));
-      if (response.statusCode == 200) {
-        return response.bodyBytes;
-      }
-    } catch (e) {
-      print('Error loading image: $e');
+    if (cartProvider.isCartEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Cart is empty')));
+      return;
     }
-    return Uint8List(0);
+
+    String orderType = 'Takeaway/Delivery';
+    if (cartProvider.selectedTable != null) {
+      orderType = 'Dine-In';
+    }
+
+    final pdf = await PdfService.createKOT(
+      items: cartProvider.cartItems,
+      table: cartProvider.selectedTable,
+      user: user,
+      orderType: orderType,
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+    );
   }
 
   Future<void> _addToTable() async {
@@ -1329,9 +989,10 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                     children: [
                       const Icon(Icons.add_shopping_cart, size: 14),
                       const SizedBox(width: 4),
-                      Text(
-                        product.hasVariants ? 'Select Variant' : 'Add to Cart',
-                      ),
+                      // Text(
+                      //   product.hasVariants ? 'Select Variant' : 'Add to Cart',
+                      // ),
+                      Text('Add to Cart'),
                     ],
                   ),
                 ),
@@ -1573,18 +1234,33 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     final cartProvider = Provider.of<CartProvider>(context);
     final isTableSelected = cartProvider.selectedTable != null;
 
-    return CustomButton(
-      text: _isProcessing
-          ? 'Processing...'
-          : isTableSelected
-          ? 'Add to Table'
-          : 'Checkout',
-      icon: isTableSelected ? Icons.table_restaurant : Icons.payment,
-      onPressed: _isProcessing
-          ? null
-          : isTableSelected
-          ? _addToTable
-          : _checkout,
+    return Row(
+      children: [
+        Expanded(
+          child: CustomButton(
+            text: _isProcessing
+                ? 'Processing...'
+                : isTableSelected
+                ? 'Add to Table'
+                : 'Checkout',
+            icon: isTableSelected ? Icons.table_restaurant : Icons.payment,
+            onPressed: _isProcessing
+                ? null
+                : isTableSelected
+                ? _addToTable
+                : _checkout,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: CustomButton(
+            text: 'Print KOT',
+            variant: ButtonVariant.filled,
+            color: AppColors.success,
+            onPressed: _printKOT, // Use the new KOT method
+          ),
+        ),
+      ],
     );
   }
 

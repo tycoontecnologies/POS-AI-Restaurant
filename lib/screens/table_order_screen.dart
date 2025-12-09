@@ -1,12 +1,10 @@
-import 'dart:typed_data';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pos/components/ui/custom_button.dart';
-import 'package:pos/components/ui/product_card.dart'; // ✅ ADD THIS
+import 'package:pos/components/ui/product_card.dart';
 import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/components/ui/simple_variant_selector.dart';
 import 'package:pos/models/product.dart';
@@ -18,13 +16,13 @@ import 'package:pos/providers/cart_provider.dart';
 import 'package:pos/providers/sale_provider.dart';
 import 'package:pos/providers/table_order_provider.dart';
 import 'package:pos/providers/table_provider.dart';
+import 'package:pos/services/pdf_service.dart';
 import 'package:pos/services/sale_service.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_spacing.dart';
 import '../components/ui/search_bar_widget.dart';
-import 'package:pdf/widgets.dart' as pw;
 
 class TableOrderScreen extends StatefulWidget {
   final RestaurantTable table;
@@ -53,12 +51,10 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // ✅ PROVIDERS KO INITIALIZE KARO
     _productProvider = Provider.of<ProductProvider>(context);
     _categoryProvider = Provider.of<CategoryProvider>(context);
     _tableOrderProvider = Provider.of<TableOrderProvider>(context);
 
-    // ✅ PRODUCTS LOAD KARO
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final vendorId = _categoryProvider.authProvider?.currentUser?.id;
 
@@ -68,7 +64,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
         _productProvider.loadProducts(vendorId);
       }
 
-      // Table order load karo
       _tableOrderProvider.loadTableOrder(widget.table.id);
     });
   }
@@ -86,7 +81,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
     );
     final tableProvider = Provider.of<TableProvider>(context, listen: false);
 
-    // Get all items for this table
     final tableOrderItems = tableOrderProvider.getOrderForTable(
       widget.table.id,
     );
@@ -98,320 +92,72 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
     final allItems = [...tableOrderItems, ...cartItems];
     final hasItems = allItems.isNotEmpty;
 
-    // Determine current status
     final currentStatus = widget.table.status;
 
-    // Update status based on conditions
-    if (hasItems && currentStatus != TableStatus.occupied) {
-      // If table has items and is not already occupied, set to occupied
+    // Only update to occupied if not already served or cleared
+    if (hasItems &&
+        currentStatus != TableStatus.occupied &&
+        currentStatus != TableStatus.served &&
+        currentStatus != TableStatus.cleared) {
       tableProvider.updateTableStatus(widget.table.id, TableStatus.occupied);
-    } else if (!hasItems && currentStatus != TableStatus.empty) {
-      // If table has no items and is not empty, set to empty
+    }
+    // Only update to empty if no items and not served/cleared
+    else if (!hasItems &&
+        currentStatus != TableStatus.served &&
+        currentStatus != TableStatus.cleared) {
       tableProvider.updateTableStatus(widget.table.id, TableStatus.empty);
     }
   }
 
   Future<void> _printBill(Sale sale) async {
-    final pdf = pw.Document();
     final authProvider = _categoryProvider.authProvider;
     final user = authProvider?.currentUser;
 
-    // ✅ Fetch logo before building PDF
-    Uint8List? logoBytes;
-    if (user?.restaurantLogoUrl != null &&
-        user!.restaurantLogoUrl!.isNotEmpty) {
-      logoBytes = await _getImageData(user.restaurantLogoUrl!);
-    }
-
-    // ✅ Format receipt ID as ddMMyyHHmm (e.g. 0311251847)
-    final now = DateTime.now();
-    final formattedReceiptId = DateFormat('ddMMyyHHmm').format(now);
-    final formattedDateTime = DateFormat(
-      'dd MMM yyyy hh:mm a',
-    ).format(sale.createdAt);
-
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.roll80,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        build: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            children: [
-              // ===== HEADER =====
-              pw.Center(
-                child: pw.Column(
-                  children: [
-                    if (logoBytes != null && logoBytes.isNotEmpty)
-                      pw.Container(
-                        width: 60,
-                        height: 60,
-                        child: pw.Image(
-                          pw.MemoryImage(logoBytes),
-                          fit: pw.BoxFit.contain,
-                        ),
-                      ),
-                    pw.SizedBox(height: 6),
-                    pw.Text(
-                      user?.restaurantName.isNotEmpty == true
-                          ? user!.restaurantName
-                          : 'My Restaurant',
-                      style: pw.TextStyle(
-                        fontSize: 18,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                      textAlign: pw.TextAlign.center,
-                    ),
-                    if (user?.location.isNotEmpty == true) ...[
-                      pw.SizedBox(height: 2),
-                      pw.Text(
-                        user!.location,
-                        style: const pw.TextStyle(fontSize: 10),
-                        textAlign: pw.TextAlign.center,
-                      ),
-                    ],
-                    if (user?.phoneNo.isNotEmpty == true) ...[
-                      pw.Text(
-                        'Phone: ${user!.phoneNo}',
-                        style: const pw.TextStyle(fontSize: 10),
-                        textAlign: pw.TextAlign.center,
-                      ),
-                    ],
-                    pw.SizedBox(height: 8),
-                    pw.Text(
-                      'CUSTOMER RECEIPT',
-                      style: pw.TextStyle(
-                        fontSize: 14,
-                        fontWeight: pw.FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 12),
-
-              // ===== RECEIPT INFO =====
-              pw.Container(
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.grey600, width: 0.5),
-                  borderRadius: pw.BorderRadius.circular(4),
-                ),
-                child: pw.Table(
-                  border: pw.TableBorder(
-                    horizontalInside: pw.BorderSide(
-                      color: PdfColors.grey600,
-                      width: 0.3,
-                    ),
-                    verticalInside: pw.BorderSide(
-                      color: PdfColors.grey600,
-                      width: 0.5,
-                    ),
-                  ),
-                  children: [
-                    pw.TableRow(
-                      children: [
-                        _infoCell('Receipt:', isLabel: true),
-                        _infoCell(formattedReceiptId),
-                      ],
-                    ),
-                    pw.TableRow(
-                      children: [
-                        _infoCell('Date:', isLabel: true),
-                        _infoCell(formattedDateTime),
-                      ],
-                    ),
-                    if (sale.tableNumber != null &&
-                        sale.tableNumber!.isNotEmpty)
-                      pw.TableRow(
-                        children: [
-                          _infoCell('Table:', isLabel: true),
-                          _infoCell(sale.tableNumber!),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 10),
-
-              // ===== ITEMS TABLE =====
-              pw.Text(
-                'ITEMS',
-                style: pw.TextStyle(
-                  fontSize: 11,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 4),
-              pw.Table(
-                border: pw.TableBorder.all(
-                  color: PdfColors.grey600,
-                  width: 0.5,
-                ),
-                children: [
-                  // Table Header
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(
-                      color: PdfColors.grey300,
-                    ),
-                    children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Product',
-                          style: pw.TextStyle(
-                            fontWeight: pw.FontWeight.bold,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Align(
-                          alignment: pw.Alignment.centerRight,
-                          child: pw.Text(
-                            'Amount',
-                            style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  ...sale.items.map((item) {
-                    return pw.TableRow(
-                      children: [
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            '${item.productName} x${item.quantity}',
-                            style: const pw.TextStyle(fontSize: 10),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Align(
-                            alignment: pw.Alignment.centerRight,
-                            child: pw.Text(
-                              (item.price * item.quantity).toStringAsFixed(0),
-                              style: const pw.TextStyle(fontSize: 10),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }).toList(),
-                ],
-              ),
-              pw.SizedBox(height: 6),
-
-              // ===== TOTAL =====
-              pw.Container(
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.black, width: 0.8),
-                  color: PdfColors.grey300,
-                  borderRadius: pw.BorderRadius.circular(4),
-                ),
-                padding: const pw.EdgeInsets.symmetric(
-                  vertical: 6,
-                  horizontal: 8,
-                ),
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text(
-                      'TOTAL:',
-                      style: pw.TextStyle(
-                        fontSize: 12,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.Text(
-                      sale.total.toStringAsFixed(0),
-                      style: pw.TextStyle(
-                        fontSize: 12,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 12),
-
-              // ===== FOOTER =====
-              pw.Divider(thickness: 1),
-              pw.Center(
-                child: pw.Column(
-                  children: [
-                    pw.Text(
-                      'Thank you for your purchase!',
-                      style: pw.TextStyle(
-                        fontSize: 10,
-                        fontStyle: pw.FontStyle.italic,
-                      ),
-                    ),
-                    pw.SizedBox(height: 2),
-                    pw.Text(
-                      'Please visit again.',
-                      style: pw.TextStyle(fontSize: 9),
-                    ),
-                    pw.SizedBox(height: 6),
-                    pw.Text(
-                      'Developed by Tycoon Technologies Pvt. Ltd',
-                      style: pw.TextStyle(
-                        fontSize: 8,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.Text(
-                      '03060626699',
-                      style: const pw.TextStyle(fontSize: 8),
-                    ),
-                    pw.Text(
-                      'www.tycoon.technology',
-                      style: const pw.TextStyle(fontSize: 8),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+    // Use the reusable PDF service
+    final pdf = await PdfService.createBillReceipt(sale: sale, user: user);
 
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
     );
   }
 
-  // ===== Helper for Info Table Cells =====
-  pw.Widget _infoCell(String text, {bool isLabel = false}) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.all(4),
-      child: pw.Text(
-        text,
-        style: pw.TextStyle(
-          fontSize: 10,
-          fontWeight: isLabel ? pw.FontWeight.bold : pw.FontWeight.normal,
-        ),
-      ),
+  // Add KOT printing method for TableOrderScreen
+  Future<void> _printKOT() async {
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    final tableOrderProvider = Provider.of<TableOrderProvider>(
+      context,
+      listen: false,
     );
-  }
+    final authProvider = _categoryProvider.authProvider;
+    final user = authProvider?.currentUser;
 
-  // ===== Helper: Load Image Data =====
-  Future<Uint8List> _getImageData(String imageUrl) async {
-    try {
-      final response = await http.get(Uri.parse(imageUrl));
-      if (response.statusCode == 200) {
-        return response.bodyBytes;
-      }
-    } catch (e) {
-      print('Error loading image: $e');
+    // Get all items for this table
+    final tableOrderItems = tableOrderProvider.getOrderForTable(
+      widget.table.id,
+    );
+    final cartItems = cartProvider.cartItems
+        .where((item) => cartProvider.selectedTable?.id == widget.table.id)
+        .toList();
+
+    final allItems = [...tableOrderItems, ...cartItems];
+
+    if (allItems.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No items to print KOT')));
+      return;
     }
-    return Uint8List(0);
+
+    final pdf = await PdfService.createKOT(
+      items: allItems,
+      table: widget.table,
+      user: user,
+      orderType: 'Table Order',
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+    );
   }
 
   Future<void> _checkout() async {
@@ -437,7 +183,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
     });
 
     try {
-      // Get all items from table order and current cart
       final tableOrderItems = tableOrderProvider.getOrderForTable(
         widget.table.id,
       );
@@ -446,7 +191,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
           .where((item) => cartProvider.selectedTable?.id == widget.table.id)
           .toList();
 
-      // Combine both: persistent table order + current session cart
       final allItems = [...tableOrderItems, ...cartItems];
 
       if (allItems.isEmpty) {
@@ -456,11 +200,9 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
         return;
       }
 
-      // Create sale from combined items
       final vendorId = authProvider!.currentUser!.id;
       final tableNumber = widget.table.tableNumber;
 
-      // Create Sale object
       final sale = Sale(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         vendorId: vendorId,
@@ -480,20 +222,20 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
         createdAt: DateTime.now(),
       );
 
-      // Save to sales collection
       await _saleService.createSale(vendorId, sale);
       await saleProvider.createSale(vendorId, sale);
 
-      // Clear table order (both persistent and cart)
       await tableOrderProvider.clearTableOrder(widget.table.id);
 
-      // Clear cart items for this table
       for (final cartItem in cartItems) {
         cartProvider.removeFromCart(cartItem);
       }
 
-      await tableProvider.updateTableStatus(widget.table.id, TableStatus.empty);
-      // Print receipt
+      await tableProvider.updateTableStatus(
+        widget.table.id,
+        TableStatus.served,
+      );
+
       await _printBill(sale);
 
       if (mounted) {
@@ -504,7 +246,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
           ),
         );
 
-        // Navigate back to dashboard
         context.go('/dashboard');
       }
     } catch (e) {
@@ -528,10 +269,8 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
   }
 
   void _setupCategories() {
-    // ✅ PEHLE CHECK KARO KI PRODUCTS LOAD HUE HAIN
     if (_productProvider.products.isEmpty) return;
 
-    // Get unique categories from products
     final uniqueCategories = _productProvider.products
         .map((product) => product.category)
         .toSet()
@@ -539,7 +278,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
 
     _categories = ['All', ...uniqueCategories];
 
-    // Categorize products
     _categorizedProducts.clear();
     for (final category in _categories) {
       if (category == 'All') {
@@ -559,7 +297,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
   }
 
   List<Product> _getFilteredProducts() {
-    // ✅ PEHLE SETUP CALL KARO AGAR CATEGORIES EMPTY HAIN
     if (_categories.length == 1) {
       _setupCategories();
     }
@@ -587,7 +324,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
       listen: false,
     );
 
-    // ✅ AGAR PRODUCT ME VARIANTS HAIN TOH VARIANT SELECTOR DIKHAO
     if (product.hasVariants && product.activeVariants.isNotEmpty) {
       showDialog(
         context: context,
@@ -596,7 +332,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
           onAddToCart: (variant, quantity) {
             try {
               if (cartProvider.selectedTable?.id == widget.table.id) {
-                // Check if same product with same variant already exists in cart
                 final existingItem = cartProvider.cartItems.firstWhere(
                   (item) =>
                       item.product.id == product.id &&
@@ -606,13 +341,11 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
                 );
 
                 if (existingItem.quantity > 0) {
-                  // Update quantity of existing item
                   cartProvider.updateQuantity(
                     existingItem,
                     existingItem.quantity + quantity,
                   );
                 } else {
-                  // Add new item to cart
                   cartProvider.addToCart(
                     product,
                     variant: variant,
@@ -620,7 +353,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
                   );
                 }
               } else {
-                // For table order, we need to check existing items
                 final tableOrderItems = tableOrderProvider.getOrderForTable(
                   widget.table.id,
                 );
@@ -631,7 +363,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
                 );
 
                 if (existingItemIndex >= 0) {
-                  // Update quantity of existing item in table order
                   final currentQuantity =
                       tableOrderItems[existingItemIndex].quantity;
                   tableOrderProvider.updateTableOrderQuantity(
@@ -640,7 +371,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
                     quantity: currentQuantity + quantity,
                   );
                 } else {
-                  // Add new item to table order
                   tableOrderProvider.addToTableOrder(
                     tableId: widget.table.id,
                     product: product,
@@ -665,41 +395,31 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
         ),
       );
     } else {
-      // ✅ SIMPLE PRODUCT KO DIRECT ADD KARO
       try {
         if (cartProvider.selectedTable?.id == widget.table.id) {
-          // Check if same product already exists in cart
           final existingItem = cartProvider.cartItems.firstWhere(
-            (item) =>
-                item.product.id == product.id &&
-                item.variant == null, // Simple product has no variant
+            (item) => item.product.id == product.id && item.variant == null,
             orElse: () =>
                 CartItem(product: product, variant: null, quantity: 0),
           );
 
           if (existingItem.quantity > 0) {
-            // Update quantity of existing item
             cartProvider.updateQuantity(
               existingItem,
               existingItem.quantity + 1,
             );
           } else {
-            // Add new item to cart
             cartProvider.addToCart(product);
           }
         } else {
-          // For table order, we need to check existing items
           final tableOrderItems = tableOrderProvider.getOrderForTable(
             widget.table.id,
           );
           final existingItemIndex = tableOrderItems.indexWhere(
-            (item) =>
-                item.product.id == product.id &&
-                item.variant == null, // Simple product has no variant
+            (item) => item.product.id == product.id && item.variant == null,
           );
 
           if (existingItemIndex >= 0) {
-            // Update quantity of existing item in table order
             final currentQuantity = tableOrderItems[existingItemIndex].quantity;
             tableOrderProvider.updateTableOrderQuantity(
               tableId: widget.table.id,
@@ -707,7 +427,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
               quantity: currentQuantity + 1,
             );
           } else {
-            // Add new item to table order
             tableOrderProvider.addToTableOrder(
               tableId: widget.table.id,
               product: product,
@@ -739,6 +458,8 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
         return 'Occupied';
       case TableStatus.served:
         return 'Served';
+      case TableStatus.cleared:
+        return 'Cleared';
     }
   }
 
@@ -750,6 +471,8 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
         return Colors.orange.shade400;
       case TableStatus.served:
         return Colors.red.shade400;
+      case TableStatus.cleared:
+        return Colors.blue.shade400;
     }
   }
 
@@ -770,10 +493,8 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Left Panel - Products
           Expanded(child: _buildProductsPanel()),
 
-          // Right Panel - Order Summary
           Container(
             width: 400,
             decoration: BoxDecoration(
@@ -823,7 +544,7 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
             const SizedBox(height: 4),
             Text(
               '${widget.table.numberOfSeats} seats • $statusLabel',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: Colors.white70),
             ),
           ],
         ),
@@ -834,12 +555,10 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
   Widget _buildProductsPanel() {
     return Column(
       children: [
-        // Search and Filters - Single Row
         Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
-              // Search Input Field (Left side)
               Expanded(
                 child: SearchBarWidget(
                   hint: 'Search products or categories',
@@ -851,7 +570,7 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
-              // Category Dropdown (Right side)
+
               Container(
                 width: 200,
                 height: 40,
@@ -879,7 +598,7 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
                     onChanged: (value) {
                       setState(() {
                         _selectedCategory = value!;
-                        // ✅ CATEGORIES REFRESH KARO
+
                         _setupCategories();
                       });
                     },
@@ -890,11 +609,9 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
           ),
         ),
 
-        // ✅ PRODUCTS GRID WITH CONSUMER - USING ProductCard COMPONENT
         Expanded(
           child: Consumer<ProductProvider>(
             builder: (context, productProvider, child) {
-              // ✅ AGAR PRODUCTS LOAD HO RAHE HAIN TOH SHIMMER DIKHAO
               if (productProvider.isLoading &&
                   productProvider.products.isEmpty) {
                 return Padding(
@@ -903,7 +620,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
                 );
               }
 
-              // ✅ PRODUCTS LOAD HONE KE BAAD CATEGORIES SETUP KARO
               if (_categories.length == 1 &&
                   productProvider.products.isNotEmpty) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -983,7 +699,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Product Image
                   if (product.imageUrl.isNotEmpty)
                     Container(
                       width: double.infinity,
@@ -1025,7 +740,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
                   Divider(color: Colors.grey.shade300),
                   const SizedBox(height: AppSpacing.xs),
 
-                  // Detail rows
                   _buildDetailRow("Category:", product.category),
                   _buildDetailRow("Unit:", product.unit),
                   if (product.hasVariants) ...[
@@ -1050,7 +764,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
 
                   const SizedBox(height: AppSpacing.sm),
 
-                  // Stock indicator
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -1074,7 +787,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
                     ),
                   ),
 
-                  // Show variants if available
                   if (product.hasVariants && product.variants.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.lg),
                     const Text(
@@ -1134,7 +846,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
 
                   const SizedBox(height: AppSpacing.lg),
 
-                  // Actions
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
@@ -1210,17 +921,14 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
   Widget _buildOrderPanel() {
     return Consumer2<CartProvider, TableOrderProvider>(
       builder: (context, cartProvider, tableOrderProvider, child) {
-        // ✅ TABLE ORDER ITEMS LOAD KARO
         final tableOrderItems = tableOrderProvider.getOrderForTable(
           widget.table.id,
         );
 
-        // ✅ CART ITEMS FILTER KARO
         final cartItems = cartProvider.cartItems
             .where((item) => cartProvider.selectedTable?.id == widget.table.id)
             .toList();
 
-        // Combine both: persistent table order + current session cart
         final allItems = [...tableOrderItems, ...cartItems];
 
         final total = allItems.fold(0.0, (sum, item) => sum + item.totalPrice);
@@ -1228,7 +936,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Order Header
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
@@ -1254,7 +961,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
               ),
             ),
 
-            // Order Items
             Expanded(
               child: allItems.isEmpty
                   ? _buildEmptyOrder()
@@ -1274,7 +980,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
                     ),
             ),
 
-            // Order Summary
             if (allItems.isNotEmpty)
               Container(
                 padding: const EdgeInsets.all(AppSpacing.lg),
@@ -1299,60 +1004,10 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
                         const SizedBox(width: AppSpacing.md),
                         Expanded(
                           child: CustomButton(
-                            text: 'Clear Table',
-                            variant: ButtonVariant.outlined,
-                            color: AppColors.error,
-                            onPressed: () async {
-                              final tableOrderProvider =
-                                  Provider.of<TableOrderProvider>(
-                                    context,
-                                    listen: false,
-                                  );
-                              final cartProvider = Provider.of<CartProvider>(
-                                context,
-                                listen: false,
-                              );
-
-                              // Clear table order
-                              await tableOrderProvider.clearTableOrder(
-                                widget.table.id,
-                              );
-
-                              // Clear cart items for this table
-                              final cartItems = cartProvider.cartItems
-                                  .where(
-                                    (item) =>
-                                        cartProvider.selectedTable?.id ==
-                                        widget.table.id,
-                                  )
-                                  .toList();
-
-                              for (final cartItem in cartItems) {
-                                cartProvider.removeFromCart(cartItem);
-                              }
-
-                              // Update table status
-                              final tableProvider = Provider.of<TableProvider>(
-                                context,
-                                listen: false,
-                              );
-                              await tableProvider.updateTableStatus(
-                                widget.table.id,
-                                TableStatus.empty,
-                              );
-
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Table cleared successfully'),
-                                    backgroundColor: AppColors.success,
-                                  ),
-                                );
-
-                                // Refresh the screen
-                                setState(() {});
-                              }
-                            },
+                            text: 'Print KOT',
+                            variant: ButtonVariant.filled,
+                            color: AppColors.success,
+                            onPressed: _printKOT, // Use the new KOT method
                           ),
                         ),
                       ],
@@ -1566,7 +1221,7 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
 
   Widget _buildCheckoutButton() {
     return CustomButton(
-      text: _isProcessing ? 'Processing...' : 'Checkout',
+      text: _isProcessing ? 'Processing...' : 'Print Bill',
       onPressed: _isProcessing ? null : _checkout,
     );
   }

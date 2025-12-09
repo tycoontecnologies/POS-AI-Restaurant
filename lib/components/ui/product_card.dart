@@ -231,11 +231,12 @@ class _ProductCardState extends State<ProductCard> {
                     children: [
                       const Icon(Icons.add_shopping_cart, size: 14),
                       const SizedBox(width: 4),
-                      Text(
-                        widget.product.hasVariants
-                            ? 'Select Variant'
-                            : 'Add to Cart',
-                      ),
+                      // Text(
+                      //   widget.product.hasVariants
+                      //       ? 'Select Variant'
+                      //       : 'Add to Table',
+                      // ),
+                      Text('Add to Table'),
                     ],
                   ),
                 ),

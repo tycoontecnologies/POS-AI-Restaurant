@@ -11,7 +11,7 @@ import 'package:pos/screens/payment_screen.dart';
 import 'package:pos/screens/payment_success_screen.dart';
 import 'package:pos/screens/pricing_screen.dart';
 import 'package:pos/screens/purchase_return_screen.dart';
-import 'package:pos/screens/sale_record_screen.dart';
+import 'package:pos/screens/sale_screen.dart';
 import 'package:pos/screens/sale_return_screen.dart';
 import 'package:pos/screens/table_order_screen.dart';
 import 'package:provider/provider.dart';
@@ -42,8 +42,7 @@ class AppRouter {
   static const String suppliers = '/suppliers';
   static const String purchases = '/purchases';
   static const String purchasesReturn = '/purchases-return';
-  // static const String sales = '/sales';
-  static const String salesRecord = '/sales-record';
+  static const String sales = '/sales';
   static const String categoryProducts = '/category-products';
   static const String pricing = '/pricing';
   static const String payment = '/payment';
@@ -146,16 +145,10 @@ class AppRouter {
             builder: (context, state) => const PurchaseReturnScreen(),
             redirect: (context, state) => _checkSubscription(context, state),
           ),
-          // GoRoute(
-          //   path: sales,
-          //   name: 'sales',
-          //   builder: (context, state) => const SalesScreen(),
-          //   redirect: (context, state) => _checkSubscription(context, state),
-          // ),
           GoRoute(
-            path: salesRecord,
-            name: 'sales-record',
-            builder: (context, state) => const SalesTableScreen(),
+            path: sales,
+            name: 'sales',
+            builder: (context, state) => const SaleScreen(),
             redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
@@ -341,16 +334,10 @@ class AppRouter {
         route: purchasesReturn,
         roles: [UserRole.admin, UserRole.staff],
       ),
-      // NavigationItem(
-      //   icon: Icons.point_of_sale,
-      //   label: 'sales',
-      //   route: sales,
-      //   roles: [UserRole.admin, UserRole.staff, UserRole.user],
-      // ),
       NavigationItem(
         icon: Icons.point_of_sale,
-        label: 'Sales',
-        route: salesRecord,
+        label: 'sales',
+        route: sales,
         roles: [UserRole.admin, UserRole.staff, UserRole.user],
       ),
       NavigationItem(

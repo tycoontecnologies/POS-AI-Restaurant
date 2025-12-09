@@ -223,6 +223,8 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
         return Colors.green.shade300;
       case TableStatus.served:
         return Colors.orange.shade300;
+      case TableStatus.cleared:
+        return Colors.blue.shade400;
     }
   }
 
@@ -234,6 +236,8 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
         return 'Occupied';
       case TableStatus.served:
         return 'Served';
+      case TableStatus.cleared:
+        return 'Cleared';
     }
   }
 

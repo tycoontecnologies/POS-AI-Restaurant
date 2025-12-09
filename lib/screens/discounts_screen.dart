@@ -410,7 +410,7 @@ class _DiscountsScreenState extends State<DiscountsScreen> {
                             child: Text(
                               discount.type == 'percentage'
                                   ? '${discount.value.toStringAsFixed(0)}% OFF'
-                                  : '\$${discount.value.toStringAsFixed(0)} OFF',
+                                  : '${discount.value.toStringAsFixed(0)} OFF',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -823,7 +823,7 @@ class _DiscountDialogState extends State<_DiscountDialog> {
                                       ),
                                       DropdownMenuItem(
                                         value: 'fixed',
-                                        child: Text('Fixed Amount (\$)'),
+                                        child: Text('Fixed Amount'),
                                       ),
                                     ],
                                     onChanged: (value) {
@@ -866,7 +866,7 @@ class _DiscountDialogState extends State<_DiscountDialog> {
                                     ),
                                     DropdownMenuItem(
                                       value: 'fixed',
-                                      child: Text('Fixed Amount (\$)'),
+                                      child: Text('Fixed Amount'),
                                     ),
                                   ],
                                   onChanged: (value) {
