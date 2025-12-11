@@ -901,7 +901,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-
   void _handleDeleteTable(RestaurantTable table) {
     showDialog(
       context: context,
@@ -1047,7 +1046,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         )
         .toList();
   }
-
 
   void _handleUpdateTableStatus(
     RestaurantTable table,
@@ -1245,7 +1243,7 @@ class _HoverableTableCardState extends State<HoverableTableCard> {
     switch (nextStatus) {
       case TableStatus.occupied:
         return {
-          'text': 'Occupie',
+          'text': 'Occupy',
           'color': Colors.orange.shade400,
           'icon': Icons.person,
         };
@@ -1424,20 +1422,22 @@ class _HoverableTableCardState extends State<HoverableTableCard> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // 3. Total Items row
-                    _buildInfoRow(
-                      label: 'Total Items',
-                      value: orderCount.toString(),
-                      valueColor: AppColors.primary,
-                    ),
+                    if (widget.table.status != TableStatus.empty) ...[
+                      // 3. Total Items row
+                      _buildInfoRow(
+                        label: 'Total Items',
+                        value: orderCount.toString(),
+                        valueColor: AppColors.primary,
+                      ),
 
-                    // 4. View Items row
-                    _buildActionRow(
-                      label: 'View Items',
-                      onPressed: orderCount > 0 ? widget.onViewItems : null,
-                      icon: Icons.visibility,
-                      color: orderCount > 0 ? Colors.blue : Colors.grey,
-                    ),
+                      // 4. View Items row
+                      _buildActionRow(
+                        label: 'View Items',
+                        onPressed: orderCount > 0 ? widget.onViewItems : null,
+                        icon: Icons.visibility,
+                        color: orderCount > 0 ? Colors.blue : Colors.grey,
+                      ),
+                    ],
 
                     // 5. Add Items row
                     _buildActionRow(
