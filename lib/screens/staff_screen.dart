@@ -1,4 +1,4 @@
-// staff_screen.dart - UPDATED VERSION WITH FORM VALIDATION
+// staff_screen.dart - COMBINED VERSION WITH STAFF AND ATTENDANCE
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,13 +10,15 @@ import 'package:pos/components/ui/shimmer_effect.dart';
 import 'package:pos/utils/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/l10n/app_localizations.dart';
-// import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import '../components/ui/custom_button.dart';
 import '../components/ui/custom_card.dart';
 import '../components/ui/search_bar_widget.dart';
 import '../components/ui/data_table_widget.dart';
 import '../models/staff.dart';
+import '../models/attendance.dart';
 import '../providers/staff_provider.dart';
+import '../providers/attendance_provider.dart';
+import '../providers/auth_provider.dart';
 import '../utils/app_spacing.dart';
 
 class StaffScreen extends StatefulWidget {
@@ -26,15 +28,22 @@ class StaffScreen extends StatefulWidget {
   State<StaffScreen> createState() => _StaffScreenState();
 }
 
-class _StaffScreenState extends State<StaffScreen> {
+class _StaffScreenState extends State<StaffScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingMore = false;
   bool _initialLoadComplete = false;
   bool _isProcessing = false;
 
-  // Tutorial coach mark controller and targets
-  // TutorialCoachMark? tutorialCoachMark;
+  // For attendance tab
+  DateTime _selectedDate = DateTime.now();
+  String? _vendorId;
+  late TabController _tabController;
+  List<Staff> _filteredStaff = [];
+  String _searchQuery = '';
+
+  // Tutorial keys
   final GlobalKey _addButtonKey = GlobalKey();
   final GlobalKey _searchBarKey = GlobalKey();
   final GlobalKey _staffTableKey = GlobalKey();
@@ -42,156 +51,24 @@ class _StaffScreenState extends State<StaffScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _searchController.addListener(_onSearchChanged);
     _scrollController.addListener(_onScroll);
-    // _checkAndShowTutorial();
+    _selectedDate = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
 
-    // Load initial data after the first frame is built
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    _vendorId = authProvider.currentUser?.id;
+
+    // Load initial data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkIfHasData();
+      _loadAttendanceData();
     });
   }
-
-  // Future<void> _checkAndShowTutorial() async {
-  //   final prefs = await SharedPreferences.getInstance();
-  //   final hasSeenTutorial = prefs.getBool('staff_tutorial_seen') ?? false;
-
-  //   if (!hasSeenTutorial) {
-  //     // Wait for the UI to build before showing the tutorial
-  //     WidgetsBinding.instance.addPostFrameCallback((_) {
-  //       Future.delayed(const Duration(milliseconds: 500), () {
-  //         _showTutorial(context);
-  //         prefs.setBool('staff_tutorial_seen', true);
-  //       });
-  //     });
-  //   }
-  // }
-
-  // void _showTutorial(BuildContext context) {
-  //   tutorialCoachMark = TutorialCoachMark(
-  //     targets: _createTargets(),
-  //     colorShadow: Colors.black38,
-  //     textSkip: "SKIP",
-  //     paddingFocus: 10,
-  //     opacityShadow: 0.8,
-  //     onFinish: () {
-  //       print("Staff tutorial completed");
-  //     },
-  //     onClickTarget: (target) {
-  //       print(target);
-  //     },
-  //     onSkip: () {
-  //       print("Staff tutorial skipped");
-  //       return true;
-  //     },
-  //   );
-
-  //   tutorialCoachMark!.show(context: context);
-  // }
-
-  // List<TargetFocus> _createTargets() {
-  //   return [
-  //     TargetFocus(
-  //       identify: "add_button",
-  //       keyTarget: _addButtonKey,
-  //       contents: [
-  //         TargetContent(
-  //           align: ContentAlign.bottom,
-  //           builder: (context, controller) {
-  //             return Column(
-  //               mainAxisSize: MainAxisSize.min,
-  //               crossAxisAlignment: CrossAxisAlignment.end,
-  //               children: [
-  //                 Text(
-  //                   "Add Employee",
-  //                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-  //                     color: Colors.white,
-  //                     fontWeight: FontWeight.bold,
-  //                   ),
-  //                 ),
-  //                 const SizedBox(height: 8),
-  //                 Text(
-  //                   "Tap here to add new employees to your team.",
-  //                   style: Theme.of(
-  //                     context,
-  //                   ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-  //                 ),
-  //               ],
-  //             );
-  //           },
-  //         ),
-  //       ],
-  //       shape: ShapeLightFocus.RRect,
-  //       radius: 8,
-  //     ),
-  //     TargetFocus(
-  //       identify: "search_bar",
-  //       keyTarget: _searchBarKey,
-  //       contents: [
-  //         TargetContent(
-  //           align: ContentAlign.bottom,
-  //           builder: (context, controller) {
-  //             return Column(
-  //               mainAxisSize: MainAxisSize.min,
-  //               crossAxisAlignment: CrossAxisAlignment.start,
-  //               children: [
-  //                 Text(
-  //                   "Search Employees",
-  //                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-  //                     color: Colors.white,
-  //                     fontWeight: FontWeight.bold,
-  //                   ),
-  //                 ),
-  //                 const SizedBox(height: 8),
-  //                 Text(
-  //                   "Search for employees by name, role, or other details.",
-  //                   style: Theme.of(
-  //                     context,
-  //                   ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-  //                 ),
-  //               ],
-  //             );
-  //           },
-  //         ),
-  //       ],
-  //       shape: ShapeLightFocus.RRect,
-  //       radius: 8,
-  //     ),
-  //     TargetFocus(
-  //       identify: "staff_table",
-  //       keyTarget: _staffTableKey,
-  //       contents: [
-  //         TargetContent(
-  //           align: ContentAlign.top,
-  //           builder: (context, controller) {
-  //             return Column(
-  //               mainAxisSize: MainAxisSize.min,
-  //               crossAxisAlignment: CrossAxisAlignment.start,
-  //               children: [
-  //                 Text(
-  //                   "Employee List",
-  //                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-  //                     color: Colors.white,
-  //                     fontWeight: FontWeight.bold,
-  //                   ),
-  //                 ),
-  //                 const SizedBox(height: 8),
-  //                 Text(
-  //                   "View all your employees here. Use the action buttons to edit or delete employee records.",
-  //                   style: Theme.of(
-  //                     context,
-  //                   ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-  //                 ),
-  //               ],
-  //             );
-  //           },
-  //         ),
-  //       ],
-  //       shape: ShapeLightFocus.RRect,
-  //       radius: 8,
-  //     ),
-  //   ];
-  // }
 
   Future<void> _checkIfHasData() async {
     final provider = Provider.of<StaffProvider>(context, listen: false);
@@ -201,17 +78,54 @@ class _StaffScreenState extends State<StaffScreen> {
     });
   }
 
+  void _loadAttendanceData() {
+    final staffProvider = Provider.of<StaffProvider>(context, listen: false);
+    final attendanceProvider = Provider.of<AttendanceProvider>(
+      context,
+      listen: false,
+    );
+
+    // Load staff data
+    staffProvider.loadStaff(refresh: true);
+
+    // Pre-load today's attendance
+    attendanceProvider.getAttendanceByDate(_selectedDate).first.then((_) {
+      // Data loaded
+    });
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
     _scrollController.dispose();
-    // tutorialCoachMark?.finish();
+    _tabController.dispose();
     super.dispose();
   }
 
   void _onSearchChanged() {
-    final provider = Provider.of<StaffProvider>(context, listen: false);
-    provider.filterStaff(_searchController.text);
+    if (_tabController.index == 0) {
+      // Staff tab search
+      final provider = Provider.of<StaffProvider>(context, listen: false);
+      provider.filterStaff(_searchController.text);
+    } else {
+      // Attendance tab search
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+        _filterStaff();
+      });
+    }
+  }
+
+  void _filterStaff() {
+    final staffProvider = context.read<StaffProvider>();
+    if (_searchQuery.isEmpty) {
+      _filteredStaff = List.from(staffProvider.staff);
+    } else {
+      _filteredStaff = staffProvider.staff.where((staff) {
+        return staff.name.toLowerCase().contains(_searchQuery) ||
+            staff.role.toLowerCase().contains(_searchQuery);
+      }).toList();
+    }
   }
 
   void _onScroll() {
@@ -234,6 +148,83 @@ class _StaffScreenState extends State<StaffScreen> {
     }
   }
 
+  bool _getAttendanceStatus(String staffId, List<Attendance> todayAttendance) {
+    final attendance = todayAttendance.firstWhere(
+      (a) => a.staffId == staffId,
+      orElse: () =>
+          Attendance.create(staffId: staffId, staffName: '', dailyWage: 0),
+    );
+    return attendance.isPresent;
+  }
+
+  Future<void> _markAttendance(
+    Staff staff,
+    bool isPresent,
+    AttendanceProvider attendanceProvider,
+  ) async {
+    try {
+      final existingAttendance = await attendanceProvider
+          .getAttendanceByStaffAndDate(staff.id, _selectedDate);
+
+      if (existingAttendance != null) {
+        // Update existing attendance
+        final updatedAttendance = existingAttendance.copyWith(
+          isPresent: isPresent,
+          updatedAt: DateTime.now(),
+        );
+        await attendanceProvider.markAttendance(updatedAttendance);
+      } else {
+        // Create new attendance record
+        final newAttendance = Attendance.create(
+          staffId: staff.id,
+          staffName: staff.name,
+          dailyWage: staff.dailyWage,
+          date: _selectedDate,
+          isPresent: isPresent,
+        ).copyWith(vendorId: _vendorId);
+        await attendanceProvider.markAttendance(newAttendance);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: Duration(seconds: 1),
+            content: Text(
+              '${staff.name} marked as ${isPresent ? 'Present' : 'Absent'}',
+            ),
+            backgroundColor: isPresent ? Colors.green : Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: Duration(seconds: 1),
+            content: Text('Error updating attendance: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _selectDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 30)),
+    );
+
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  // Staff CRUD methods (same as before)
   void _createOrEdit({Staff? item}) async {
     if (_isProcessing) return;
     setState(() => _isProcessing = true);
@@ -356,7 +347,6 @@ class _StaffScreenState extends State<StaffScreen> {
                             );
 
                             // Check if we have a reasonable number of digits
-                            // (country code + phone number, typically at least 8 digits)
                             if (digitsOnly.length < 8) {
                               return 'Please enter a valid phone number';
                             }
@@ -370,18 +360,12 @@ class _StaffScreenState extends State<StaffScreen> {
                               labelText: 'Phone Number',
                             ),
                             initialCountryCode: 'PK',
-                            // disableLengthCheck: true,
-                            keyboardType:
-                                TextInputType.phone, // Numeric keyboard
+                            keyboardType: TextInputType.phone,
                             inputFormatters: [
-                              FilteringTextInputFormatter
-                                  .digitsOnly, // Only allow digits
+                              FilteringTextInputFormatter.digitsOnly,
                             ],
                             onChanged: (phone) {
-                              // Set full number for backend use
                               phoneCtrl.text = phone.completeNumber;
-
-                              // Notify FormField about the change
                               field.didChange(phone.completeNumber);
                             },
                           ),
@@ -488,7 +472,7 @@ class _StaffScreenState extends State<StaffScreen> {
     try {
       if (item == null) {
         final newStaff = Staff(
-          id: '', // Will be auto-generated by Firebase
+          id: '',
           name: result.name,
           role: result.role,
           dailyWage: result.dailyWage,
@@ -521,23 +505,6 @@ class _StaffScreenState extends State<StaffScreen> {
             backgroundColor: Colors.green,
           ),
         );
-
-        // Check if this was the first staff added
-        // if (item == null) {
-        //   final prefs = await SharedPreferences.getInstance();
-        //   final hasSeenSuppliers =
-        //       prefs.getBool('onboarding_suppliers_seen') ?? false;
-
-        //   if (!hasSeenSuppliers) {
-        //     // ADD DELAY AND SAFETY CHECK
-        //     await Future.delayed(const Duration(milliseconds: 1000));
-        //     if (mounted && context.mounted) {
-        //       // MARK AS SEEN BEFORE NAVIGATING
-        //       await prefs.setBool('onboarding_suppliers_seen', true);
-        //       context.go(AppRouter.suppliers);
-        //     }
-        //   }
-        // }
       }
     } catch (e) {
       if (mounted) {
@@ -613,16 +580,15 @@ class _StaffScreenState extends State<StaffScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final provider = Provider.of<StaffProvider>(context);
+    final staffProvider = Provider.of<StaffProvider>(context);
 
     if (!_initialLoadComplete) {
-      if (provider.errorMessage != null) {
+      if (staffProvider.errorMessage != null) {
         return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Error: ${provider.errorMessage}'),
+              Text('Error: ${staffProvider.errorMessage}'),
               ElevatedButton(
                 onPressed: () => _checkIfHasData(),
                 child: Text('Retry'),
@@ -634,117 +600,114 @@ class _StaffScreenState extends State<StaffScreen> {
       return _buildShimmerTable();
     }
 
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.staff,
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      'Manage your team members',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).textTheme.bodyMedium?.color?.withOpacity(0.8),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              CustomButton(
-                key: _addButtonKey,
-                text: 'Add Employee',
-                icon: Icons.person_add,
-                onPressed: (provider.isLoading || _isProcessing)
-                    ? null
-                    : () => _createOrEdit(),
-              ),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: AppColors.secondaryDark,
+        toolbarHeight: 0,
+        elevation: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          labelStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          unselectedLabelStyle: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
           ),
-          const SizedBox(height: AppSpacing.md),
-          SearchBarWidget(
-            key: _searchBarKey,
-
-            controller: _searchController,
-            hint: 'Search employees...',
-            onChanged: (_) => _onSearchChanged(),
-            onClear: () {
+          // indicator: BoxDecoration(color: Colors.white),
+          indicatorColor: AppColors.white,
+          labelColor: AppColors.white,
+          unselectedLabelColor: Colors.white,
+          tabs: const [
+            Tab(text: 'Staff Management'),
+            Tab(text: 'Attendance'),
+          ],
+          onTap: (index) {
+            setState(() {
               _searchController.clear();
-              _onSearchChanged();
-            },
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Expanded(
-            key: _staffTableKey,
-            child: provider.isLoading && provider.staff.isEmpty
-                ? _buildShimmerTable()
-                : provider.errorMessage != null
-                ? CustomCard(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: 64,
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          Text(
-                            'Error loading staff data',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            provider.errorMessage!,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-                          CustomButton(
-                            text: 'Retry',
-                            onPressed: () {
-                              provider.clearError();
-                              provider.loadStaff(refresh: true);
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : NotificationListener<ScrollNotification>(
-                    onNotification: (scrollNotification) {
-                      if (scrollNotification is ScrollEndNotification &&
-                          _scrollController.position.pixels ==
-                              _scrollController.position.maxScrollExtent) {
-                        _loadMore();
-                      }
-                      return false;
-                    },
-                    child: SingleChildScrollView(
-                      controller: _scrollController,
-                      child: _buildStaffContent(provider),
+              if (index == 1) {
+                _filteredStaff = List.from(staffProvider.staff);
+              }
+            });
+          },
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Tab Content
+            // Search Bar and Add Button Row
+            Row(
+              children: [
+                // Search Bar (only for current tab)
+                if (_tabController.index == 0 || _tabController.index == 1)
+                  Expanded(
+                    child: SearchBarWidget(
+                      key: _searchBarKey,
+                      controller: _searchController,
+                      hint: _tabController.index == 0
+                          ? 'Search employees...'
+                          : 'Search for attendance...',
+                      onChanged: (_) => _onSearchChanged(),
+                      onClear: () {
+                        _searchController.clear();
+                        _onSearchChanged();
+                      },
                     ),
                   ),
-          ),
-        ],
+
+                // Add Button (only for Staff Management tab)
+                if (_tabController.index == 0)
+                  Padding(
+                    padding: const EdgeInsets.only(left: AppSpacing.md),
+                    child: CustomButton(
+                      key: _addButtonKey,
+                      text: 'Add Employee',
+                      icon: Icons.person_add,
+                      onPressed: (staffProvider.isLoading || _isProcessing)
+                          ? null
+                          : () => _createOrEdit(),
+                    ),
+                  ),
+
+                // Date Picker for Attendance Tab
+                if (_tabController.index == 1)
+                  Padding(
+                    padding: const EdgeInsets.only(left: AppSpacing.md),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Date: ${DateFormat('dd MMM yyyy').format(_selectedDate)}',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        CustomButton(
+                          text: 'Change Date',
+                          icon: Icons.calendar_today,
+                          variant: ButtonVariant.outlined,
+                          onPressed: _selectDate,
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            SizedBox(height: 10),
+            Expanded(
+              key: _staffTableKey,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  // Staff Management Tab
+                  _buildStaffContent(staffProvider),
+
+                  // Attendance Tab
+                  _buildAttendanceContent(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -820,61 +783,252 @@ class _StaffScreenState extends State<StaffScreen> {
       );
     }
 
-    return SizedBox(
-      width: double.infinity,
-      child: DataTableWidget(
-        columns: const [
-          DataColumn(label: Text('#')),
-          DataColumn(label: Text('Employee Role')),
-          DataColumn(label: Text('Name')),
-          DataColumn(label: Text('Daily Wage')),
-          DataColumn(label: Text('Contact Number')),
-          DataColumn(label: Text('Join Date')),
-          DataColumn(label: Text('Actions')),
-        ],
-        rows: staffList.asMap().entries.map((entry) {
-          final index = entry.key;
-          final e = entry.value;
+    return SingleChildScrollView(
+      controller: _scrollController,
+      child: SizedBox(
+        width: double.infinity,
+        child: DataTableWidget(
+          columns: const [
+            DataColumn(label: Text('#')),
+            DataColumn(label: Text('Employee Role')),
+            DataColumn(label: Text('Name')),
+            DataColumn(label: Text('Daily Wage')),
+            DataColumn(label: Text('Contact Number')),
+            DataColumn(label: Text('Join Date')),
+            DataColumn(label: Text('Actions')),
+          ],
+          rows: staffList.asMap().entries.map((entry) {
+            final index = entry.key;
+            final e = entry.value;
 
-          return DataRow(
-            cells: [
-              DataCell(Text('${index + 1}')),
-              DataCell(Text(e.role)),
-              DataCell(Text(e.name)),
-              DataCell(Text(e.dailyWage.toStringAsFixed(0))),
-              DataCell(Text(e.phone)),
-              DataCell(
-                Text(DateFormat('d MMM yyyy').format(e.joinDate.toLocal())),
-              ),
-              DataCell(
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, size: 18),
-                      onPressed: _isProcessing
-                          ? null
-                          : () => _createOrEdit(item: e),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.primary.withOpacity(0.1),
-                        foregroundColor: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    IconButton(
-                      icon: const Icon(Icons.delete, size: 18),
-                      onPressed: _isProcessing ? null : () => _delete(e),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.error.withOpacity(0.1),
-                        foregroundColor: AppColors.error,
-                      ),
-                    ),
-                  ],
+            return DataRow(
+              cells: [
+                DataCell(Text('${index + 1}')),
+                DataCell(Text(e.role)),
+                DataCell(Text(e.name)),
+                DataCell(Text(e.dailyWage.toStringAsFixed(0))),
+                DataCell(Text(e.phone)),
+                DataCell(
+                  Text(DateFormat('d MMM yyyy').format(e.joinDate.toLocal())),
                 ),
-              ),
-            ],
-          );
-        }).toList(),
+                DataCell(
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, size: 18),
+                        onPressed: _isProcessing
+                            ? null
+                            : () => _createOrEdit(item: e),
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.primary.withOpacity(0.1),
+                          foregroundColor: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      IconButton(
+                        icon: const Icon(Icons.delete, size: 18),
+                        onPressed: _isProcessing ? null : () => _delete(e),
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.error.withOpacity(0.1),
+                          foregroundColor: AppColors.error,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
       ),
+    );
+  }
+
+  Widget _buildAttendanceContent() {
+    final attendanceProvider = Provider.of<AttendanceProvider>(context);
+    final staffProvider = Provider.of<StaffProvider>(context);
+
+    // Update filtered staff when staff data changes
+    if (_filteredStaff.isEmpty && staffProvider.staff.isNotEmpty) {
+      _filteredStaff = List.from(staffProvider.staff);
+    }
+
+    if (staffProvider.isLoading && staffProvider.staff.isEmpty) {
+      return _buildShimmerAttendanceTable();
+    }
+
+    if (staffProvider.errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Error loading staff data',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(staffProvider.errorMessage!),
+            const SizedBox(height: AppSpacing.md),
+            CustomButton(
+              text: 'Retry',
+              onPressed: () => staffProvider.loadStaff(refresh: true),
+              variant: ButtonVariant.filled,
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (staffProvider.staff.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.people_outline,
+              size: 64,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'No staff members found',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Add staff members to manage attendance',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_filteredStaff.isEmpty && _searchQuery.isNotEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 64,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'No staff members found',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'No results for "$_searchQuery"',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            CustomButton(
+              text: 'Clear Search',
+              onPressed: () {
+                _searchController.clear();
+                _onSearchChanged();
+              },
+              variant: ButtonVariant.outlined,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return StreamBuilder<List<Attendance>>(
+      stream: attendanceProvider.getAttendanceByDate(_selectedDate),
+      builder: (context, attendanceSnapshot) {
+        if (attendanceSnapshot.connectionState == ConnectionState.waiting) {
+          return _buildShimmerAttendanceTable();
+        }
+
+        if (attendanceSnapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text('Error loading attendance: ${attendanceSnapshot.error}'),
+              ],
+            ),
+          );
+        }
+
+        final todayAttendance = attendanceSnapshot.data ?? [];
+        attendanceProvider.updateAttendanceList(todayAttendance);
+
+        return SingleChildScrollView(
+          child: DataTableWidget(
+            columns: const [
+              DataColumn(label: Text('No')),
+              DataColumn(label: Text('Employee Role')),
+              DataColumn(label: Text('Name')),
+              DataColumn(label: Text('Daily Wage')),
+              DataColumn(label: Text('Attendance')),
+            ],
+            rows: _filteredStaff.asMap().entries.map((entry) {
+              final index = entry.key;
+              final staff = entry.value;
+              final isPresent = _getAttendanceStatus(staff.id, todayAttendance);
+
+              return DataRow(
+                cells: [
+                  DataCell(Text('${index + 1}')),
+                  DataCell(Text(staff.role)),
+                  DataCell(Text(staff.name)),
+                  DataCell(Text(staff.dailyWage.toStringAsFixed(0))),
+                  DataCell(
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Radio<bool>(
+                          value: true,
+                          groupValue: isPresent,
+                          onChanged: attendanceProvider.isLoading
+                              ? null
+                              : (value) => _markAttendance(
+                                  staff,
+                                  true,
+                                  attendanceProvider,
+                                ),
+                        ),
+                        const Text('Present'),
+                        const SizedBox(width: AppSpacing.sm),
+                        Radio<bool>(
+                          value: false,
+                          groupValue: isPresent,
+                          onChanged: attendanceProvider.isLoading
+                              ? null
+                              : (value) => _markAttendance(
+                                  staff,
+                                  false,
+                                  attendanceProvider,
+                                ),
+                        ),
+                        const Text('Absent'),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        );
+      },
     );
   }
 
@@ -893,37 +1047,47 @@ class _StaffScreenState extends State<StaffScreen> {
           ),
         ),
       ),
-      mobileItemBuilder: (context, index) {
-        return CustomCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ShimmerEffect(width: double.infinity, height: 20),
-              SizedBox(height: AppSpacing.sm),
-              ShimmerEffect(width: 120, height: 16),
-              SizedBox(height: AppSpacing.sm),
-              ShimmerEffect(width: 100, height: 16),
-              SizedBox(height: AppSpacing.sm),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ShimmerEffect(
-                    width: 36,
-                    height: 36,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  SizedBox(width: AppSpacing.xs),
-                  ShimmerEffect(
-                    width: 36,
-                    height: 36,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                ],
-              ),
-            ],
+    );
+  }
+
+  Widget _buildShimmerAttendanceTable() {
+    return DataTableWidget(
+      columns: List.generate(
+        5,
+        (index) => DataColumn(label: ShimmerEffect(width: 80, height: 20)),
+      ),
+      rows: List.generate(
+        5,
+        (index) => DataRow(
+          cells: List.generate(
+            5,
+            (index) => DataCell(
+              index == 4
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ShimmerEffect(
+                          width: 20,
+                          height: 20,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        SizedBox(width: AppSpacing.xs),
+                        ShimmerEffect(width: 40, height: 20),
+                        SizedBox(width: AppSpacing.sm),
+                        ShimmerEffect(
+                          width: 20,
+                          height: 20,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        SizedBox(width: AppSpacing.xs),
+                        ShimmerEffect(width: 40, height: 20),
+                      ],
+                    )
+                  : ShimmerEffect(width: 80, height: 20),
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

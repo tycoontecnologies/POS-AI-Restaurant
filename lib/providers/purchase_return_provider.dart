@@ -10,10 +10,12 @@ class PurchaseReturnProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _hasMore = true;
   DocumentSnapshot? _lastDocument;
+  String? _error;
 
   List<PurchaseReturn> get purchaseReturns => _purchaseReturns;
   bool get isLoading => _isLoading;
   bool get hasMore => _hasMore;
+  String? get error => _error;
 
   Future<void> createPurchaseReturn(
     String vendorId,
@@ -21,6 +23,7 @@ class PurchaseReturnProvider with ChangeNotifier {
   ) async {
     try {
       _isLoading = true;
+      _error = null;
       notifyListeners();
 
       await _purchaseReturnService.createPurchaseReturn(
@@ -35,6 +38,7 @@ class PurchaseReturnProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _isLoading = false;
+      _error = e.toString();
       notifyListeners();
       rethrow;
     }
@@ -49,6 +53,7 @@ class PurchaseReturnProvider with ChangeNotifier {
         _isLoading = true;
         _lastDocument = null;
         _hasMore = true;
+        _error = null;
         notifyListeners();
       }
 
@@ -73,6 +78,7 @@ class PurchaseReturnProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _isLoading = false;
+      _error = e.toString();
       notifyListeners();
       rethrow;
     }
@@ -81,6 +87,7 @@ class PurchaseReturnProvider with ChangeNotifier {
   Future<void> _refreshPurchaseReturns(String vendorId) async {
     _lastDocument = null;
     _hasMore = true;
+    _error = null;
     await fetchPurchaseReturns(vendorId);
   }
 
@@ -153,6 +160,7 @@ class PurchaseReturnProvider with ChangeNotifier {
     _purchaseReturns.clear();
     _lastDocument = null;
     _hasMore = true;
+    _error = null;
     notifyListeners();
   }
 }

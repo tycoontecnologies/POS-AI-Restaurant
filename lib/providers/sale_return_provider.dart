@@ -9,36 +9,44 @@ class SaleReturnProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _hasMore = true;
   DocumentSnapshot? _lastDocument;
+  String? _error;
 
   List<SaleReturn> get saleReturns => _saleReturns;
   bool get isLoading => _isLoading;
   bool get hasMore => _hasMore;
+  String? get error => _error;
 
   Future<void> createSaleReturn(String vendorId, SaleReturn saleReturn) async {
     try {
       _isLoading = true;
+      _error = null;
       notifyListeners();
 
       await _saleReturnService.createSaleReturn(vendorId, saleReturn);
-      
+
       // Refresh the list to include the new sale return
       await _refreshSaleReturns(vendorId);
-      
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
       _isLoading = false;
+      _error = e.toString();
       notifyListeners();
       rethrow;
     }
   }
 
-  Future<void> fetchSaleReturns(String vendorId, {bool loadMore = false}) async {
+  Future<void> fetchSaleReturns(
+    String vendorId, {
+    bool loadMore = false,
+  }) async {
     try {
       if (!loadMore) {
         _isLoading = true;
         _lastDocument = null;
         _hasMore = true;
+        _error = null;
         notifyListeners();
       }
 
@@ -64,6 +72,7 @@ class SaleReturnProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _isLoading = false;
+      _error = e.toString();
       notifyListeners();
       rethrow;
     }
@@ -72,11 +81,18 @@ class SaleReturnProvider with ChangeNotifier {
   Future<void> _refreshSaleReturns(String vendorId) async {
     _lastDocument = null;
     _hasMore = true;
+    _error = null;
     await fetchSaleReturns(vendorId);
   }
 
-  Future<DocumentSnapshot> _getLastDocument(String vendorId, SaleReturn lastSaleReturn) async {
-    return await _saleReturnService.getSaleReturnDocument(vendorId, lastSaleReturn.id);
+  Future<DocumentSnapshot> _getLastDocument(
+    String vendorId,
+    SaleReturn lastSaleReturn,
+  ) async {
+    return await _saleReturnService.getSaleReturnDocument(
+      vendorId,
+      lastSaleReturn.id,
+    );
   }
 
   Future<void> updateSaleReturn(String vendorId, SaleReturn saleReturn) async {
@@ -85,13 +101,13 @@ class SaleReturnProvider with ChangeNotifier {
       notifyListeners();
 
       await _saleReturnService.updateSaleReturn(vendorId, saleReturn);
-      
+
       // Update local list
       final index = _saleReturns.indexWhere((sr) => sr.id == saleReturn.id);
       if (index != -1) {
         _saleReturns[index] = saleReturn;
       }
-      
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -107,10 +123,10 @@ class SaleReturnProvider with ChangeNotifier {
       notifyListeners();
 
       await _saleReturnService.deleteSaleReturn(vendorId, saleReturnId);
-      
+
       // Remove from local list
       _saleReturns.removeWhere((sr) => sr.id == saleReturnId);
-      
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -124,6 +140,7 @@ class SaleReturnProvider with ChangeNotifier {
     _saleReturns.clear();
     _lastDocument = null;
     _hasMore = true;
+    _error = null;
     notifyListeners();
   }
 }

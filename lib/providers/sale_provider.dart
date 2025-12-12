@@ -6,13 +6,16 @@ class SaleProvider with ChangeNotifier {
   final SaleService _saleService = SaleService();
   List<Sale> _sales = [];
   bool _isLoading = false;
+  String? _error;
 
   List<Sale> get sales => _sales;
   bool get isLoading => _isLoading;
+  String? get error => _error; // Add getter
 
   Future<void> createSale(String vendorId, Sale sale) async {
     try {
       _isLoading = true;
+      _error = null;
       notifyListeners();
 
       await _saleService.createSale(vendorId, sale);
@@ -24,6 +27,7 @@ class SaleProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _isLoading = false;
+      _error = e.toString();
       notifyListeners();
       rethrow;
     }
@@ -32,13 +36,13 @@ class SaleProvider with ChangeNotifier {
   Future<void> fetchSales(String vendorId) async {
     try {
       _isLoading = true;
-
+      _error = null;
       _sales = await _saleService.getSales(vendorId);
-
       _isLoading = false;
       notifyListeners();
     } catch (e) {
       _isLoading = false;
+      _error = e.toString();
       notifyListeners();
       rethrow;
     }
@@ -61,6 +65,7 @@ class SaleProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _isLoading = false;
+      _error = e.toString();
       notifyListeners();
       rethrow;
     }
@@ -80,6 +85,7 @@ class SaleProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _isLoading = false;
+      _error = e.toString();
       notifyListeners();
       rethrow;
     }
@@ -87,6 +93,7 @@ class SaleProvider with ChangeNotifier {
 
   void clearSales() {
     _sales.clear();
+    _error = null;
     notifyListeners();
   }
 }

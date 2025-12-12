@@ -341,7 +341,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   vertical: AppSpacing.sm,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Colors.grey.shade300,
                   border: Border(
                     bottom: BorderSide(color: Colors.grey.shade300),
                   ),
@@ -368,15 +368,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               _selectedOrderType = type;
                             });
                           },
-                          variant: isSelected
-                              ? ButtonVariant.filled
-                              : ButtonVariant.outlined,
-                          color: isSelected
-                              ? AppColors.successDark
-                              : Colors.grey.shade700,
-                          textColor: isSelected
-                              ? Colors.white
-                              : Colors.grey.shade700,
+                          // color: isSelected
+                          //     ? AppColors.successDark
+                          //     : AppColors.warning,
+                          color: type == 'Dine In'
+                              ? (isSelected
+                                    ? AppColors.successDark
+                                    : AppColors.success)
+                              : type == 'Take Away'
+                              ? (isSelected
+                                    ? AppColors.secondaryDark
+                                    : AppColors.secondary)
+                              : (isSelected
+                                    ? AppColors.warningDark
+                                    : AppColors.warning),
+                          textColor: AppColors.white,
                         ),
                       ),
                     );
@@ -1141,7 +1147,7 @@ class _TablesGrid extends StatelessWidget {
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: .9, // Slightly taller aspect ratio
+        // childAspectRatio: .9,
       ),
       padding: const EdgeInsets.all(0),
       itemCount: tables.length,
@@ -1363,11 +1369,35 @@ class _HoverableTableCardState extends State<HoverableTableCard> {
                   ),
 
                   // Edit and Delete buttons
+                  // Add & View buttons (NEW)
                   Row(
                     children: [
-                      // Edit button
+                      // Add Items button
                       InkWell(
-                        onTap: widget.onEdit,
+                        onTap: widget.onTap,
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: Colors.green.shade300,
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.add,
+                            size: 16,
+                            color: Colors.green.shade600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // View Items button
+                      InkWell(
+                        onTap: widget.onViewItems,
                         borderRadius: BorderRadius.circular(6),
                         child: Container(
                           padding: const EdgeInsets.all(6),
@@ -1380,32 +1410,9 @@ class _HoverableTableCardState extends State<HoverableTableCard> {
                             ),
                           ),
                           child: Icon(
-                            Icons.edit,
+                            Icons.visibility,
                             size: 16,
                             color: Colors.blue.shade600,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // Delete button
-                      InkWell(
-                        onTap: widget.onDelete,
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: Colors.red.shade300,
-                              width: 1,
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.delete,
-                            size: 16,
-                            color: Colors.red.shade600,
                           ),
                         ),
                       ),
@@ -1429,23 +1436,7 @@ class _HoverableTableCardState extends State<HoverableTableCard> {
                         value: orderCount.toString(),
                         valueColor: AppColors.primary,
                       ),
-
-                      // 4. View Items row
-                      _buildActionRow(
-                        label: 'View Items',
-                        onPressed: orderCount > 0 ? widget.onViewItems : null,
-                        icon: Icons.visibility,
-                        color: orderCount > 0 ? Colors.blue : Colors.grey,
-                      ),
                     ],
-
-                    // 5. Add Items row
-                    _buildActionRow(
-                      label: 'Add Items',
-                      onPressed: widget.onTap,
-                      icon: Icons.add,
-                      color: AppColors.success,
-                    ),
                   ],
                 ),
               ),
@@ -1550,54 +1541,6 @@ class _HoverableTableCardState extends State<HoverableTableCard> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildActionRow({
-    required String label,
-    required VoidCallback? onPressed,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-          decoration: BoxDecoration(
-            color: onPressed != null
-                ? color.withOpacity(0.05)
-                : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: onPressed != null
-                  ? color.withOpacity(0.2)
-                  : Colors.grey.shade300,
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: onPressed != null ? color : Colors.grey.shade500,
-                ),
-              ),
-              Icon(
-                icon,
-                size: 18,
-                color: onPressed != null ? color : Colors.grey.shade400,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

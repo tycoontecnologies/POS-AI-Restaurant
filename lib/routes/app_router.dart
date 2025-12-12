@@ -103,7 +103,7 @@ class AppRouter {
           GoRoute(
             path: products,
             name: 'products',
-            builder: (context, state) => const ProductsScreen(),
+            builder: (context, state) => const StoreScreen(),
             redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
@@ -135,8 +135,8 @@ class AppRouter {
           ),
           GoRoute(
             path: purchases,
-            name: 'purchases',
-            builder: (context, state) => const PurchasesScreen(),
+            name: 'Operations',
+            builder: (context, state) => const OperationScreen(),
             redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
@@ -195,7 +195,7 @@ class AppRouter {
           ),
           GoRoute(
             path: discounts,
-            name: 'discounts',
+            name: 'Goodies',
             builder: (context, state) => const DiscountsScreen(),
             redirect: (context, state) => _checkSubscription(context, state),
           ),
@@ -293,27 +293,27 @@ class AppRouter {
         roles: [UserRole.admin, UserRole.staff, UserRole.kitchen],
       ),
       NavigationItem(
-        icon: Icons.category,
-        label: 'Categories',
-        route: categories,
-        roles: [UserRole.admin, UserRole.staff],
-      ),
-      NavigationItem(
         icon: Icons.inventory_2,
-        label: 'Products',
+        label: 'Store',
         route: products,
         roles: [UserRole.admin, UserRole.staff],
       ),
       NavigationItem(
         icon: Icons.group,
-        label: 'Staff',
+        label: 'HR',
         route: staff,
         roles: [UserRole.admin],
       ),
+      // NavigationItem(
+      //   icon: Icons.access_time,
+      //   label: 'Attendance',
+      //   route: attendance,
+      //   roles: [UserRole.admin, UserRole.staff],
+      // ),
       NavigationItem(
-        icon: Icons.access_time,
-        label: 'Attendance',
-        route: attendance,
+        icon: Icons.shopping_cart,
+        label: 'Operations',
+        route: purchases,
         roles: [UserRole.admin, UserRole.staff],
       ),
       NavigationItem(
@@ -322,39 +322,27 @@ class AppRouter {
         route: suppliers,
         roles: [UserRole.admin, UserRole.staff],
       ),
-      NavigationItem(
-        icon: Icons.shopping_cart,
-        label: 'Purchases',
-        route: purchases,
-        roles: [UserRole.admin, UserRole.staff],
-      ),
-      NavigationItem(
-        icon: Icons.keyboard_return_sharp,
-        label: 'Purchases return',
-        route: purchasesReturn,
-        roles: [UserRole.admin, UserRole.staff],
-      ),
-      NavigationItem(
-        icon: Icons.point_of_sale,
-        label: 'sales',
-        route: sales,
-        roles: [UserRole.admin, UserRole.staff, UserRole.user],
-      ),
-      NavigationItem(
-        icon: Icons.point_of_sale,
-        label: 'Sales Return',
-        route: salesReturn,
-        roles: [UserRole.admin, UserRole.staff, UserRole.user],
-      ),
-      NavigationItem(
-        icon: Icons.storefront_outlined,
-        label: 'Store Out',
-        route: storeOut,
-        roles: [UserRole.admin, UserRole.staff],
-      ),
+      // NavigationItem(
+      //   icon: Icons.keyboard_return_sharp,
+      //   label: 'Purchases return',
+      //   route: purchasesReturn,
+      //   roles: [UserRole.admin, UserRole.staff],
+      // ),
+      // NavigationItem(
+      //   icon: Icons.point_of_sale,
+      //   label: 'sales',
+      //   route: sales,
+      //   roles: [UserRole.admin, UserRole.staff, UserRole.user],
+      // ),
+      // NavigationItem(
+      //   icon: Icons.point_of_sale,
+      //   label: 'Sales Return',
+      //   route: salesReturn,
+      //   roles: [UserRole.admin, UserRole.staff, UserRole.user],
+      // ),
       NavigationItem(
         icon: Icons.kitchen,
-        label: 'Ingredients',
+        label: 'Recipe Management',
         route: ingredients,
         roles: [UserRole.admin],
       ),
@@ -381,12 +369,6 @@ class AppRouter {
         label: 'Settings',
         route: settings,
         roles: [UserRole.admin],
-      ),
-      NavigationItem(
-        icon: Icons.table_chart,
-        label: 'Tables',
-        route: tables,
-        roles: [UserRole.admin, UserRole.staff],
       ),
     ];
 
