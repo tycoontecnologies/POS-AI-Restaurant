@@ -1,0 +1,118 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+enum UserRole { admin, kitchen, user, staff }
+
+enum SubscriptionType { trial, monthly, yearly, lifetime }
+
+class UserModel {
+  final String id;
+  final String email;
+  final String name;
+  final UserRole role;
+  final DateTime createdAt;
+  final bool isActive;
+  final DateTime trialEndsAt;
+  final SubscriptionType subscriptionType;
+  final DateTime? subscriptionEndsAt;
+  final bool hasActiveSubscription;
+  final String location;
+  final String phoneNo;
+  final String restaurantName;
+  final String? restaurantLogoUrl; 
+
+  UserModel({
+    required this.id,
+    required this.email,
+    required this.name,
+    required this.role,
+    required this.createdAt,
+    this.isActive = true,
+    required this.trialEndsAt,
+    required this.subscriptionType,
+    this.subscriptionEndsAt,
+    this.hasActiveSubscription = false,
+    required this.location,
+    required this.phoneNo,
+    required this.restaurantName,
+    this.restaurantLogoUrl, 
+  });
+
+  factory UserModel.fromMap(Map<String, dynamic> data, String id) {
+    return UserModel(
+      id: id,
+      email: data['email'] ?? '',
+      name: data['name'] ?? '',
+      role: _parseRole(data['role']),
+      createdAt: data['createdAt'] != null
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+      isActive: data['isActive'] ?? true,
+      trialEndsAt: data['trialEndsAt'] != null
+          ? (data['trialEndsAt'] as Timestamp).toDate()
+          : DateTime.now().add(const Duration(days: 7)),
+      subscriptionType: _parseSubscriptionType(data['subscriptionType']),
+      subscriptionEndsAt: data['subscriptionEndsAt'] != null
+          ? (data['subscriptionEndsAt'] as Timestamp).toDate()
+          : null,
+      hasActiveSubscription: data['hasActiveSubscription'] ?? false,
+      location: data['location'] ?? '',
+      phoneNo: data['phoneNo'] ?? '',
+      restaurantName: data['restaurantName'] ?? '',
+      restaurantLogoUrl: data['restaurantLogoUrl'], 
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'email': email,
+      'name': name,
+      'role': role.toString().split('.').last,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'isActive': isActive,
+      'trialEndsAt': Timestamp.fromDate(trialEndsAt),
+      'subscriptionType': subscriptionType.toString().split('.').last,
+      'subscriptionEndsAt': subscriptionEndsAt != null
+          ? Timestamp.fromDate(subscriptionEndsAt!)
+          : null,
+      'hasActiveSubscription': hasActiveSubscription,
+      'location': location,
+      'phoneNo': phoneNo,
+      'restaurantName': restaurantName,
+      'restaurantLogoUrl': restaurantLogoUrl, 
+    };
+  }
+
+  static UserRole _parseRole(String role) {
+    switch (role) {
+      case 'admin':
+        return UserRole.admin;
+      case 'kitchen':
+        return UserRole.kitchen;
+      case 'staff':
+        return UserRole.staff;
+      default:
+        return UserRole.user;
+    }
+  }
+
+  static SubscriptionType _parseSubscriptionType(String type) {
+    switch (type) {
+      case 'monthly':
+        return SubscriptionType.monthly;
+      case 'yearly':
+        return SubscriptionType.yearly;
+      case 'lifetime':
+        return SubscriptionType.lifetime;
+      default:
+        return SubscriptionType.trial;
+    }
+  }
+
+  bool get isAdmin => role == UserRole.admin;
+  bool get isKitchen => role == UserRole.kitchen;
+  bool get isStaff => role == UserRole.staff;
+  bool get isRegularUser => role == UserRole.user;
+
+  bool get isTrialActive => trialEndsAt.isAfter(DateTime.now());
+  bool get shouldRedirectToPricing => !isTrialActive && !hasActiveSubscription;
+}

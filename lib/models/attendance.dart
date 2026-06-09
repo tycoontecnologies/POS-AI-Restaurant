@@ -1,0 +1,132 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class Attendance {
+  final String id;
+  final String vendorId;
+  final String staffId;
+  final String staffName;
+  final double dailyWage;
+  final DateTime date;
+  final bool isPresent;
+  final DateTime? checkInTime;
+  final DateTime? checkOutTime;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  Attendance({
+    required this.id,
+    required this.vendorId,
+    required this.staffId,
+    required this.staffName,
+    required this.dailyWage,
+    required this.date,
+    required this.isPresent,
+    this.checkInTime,
+    this.checkOutTime,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  double get calculatedHours {
+    if (checkInTime == null || checkOutTime == null) return 0.0;
+    final difference = checkOutTime!.difference(checkInTime!);
+    return difference.inMinutes / 60.0;
+  }
+
+  double get calculatedWage {
+    if (!isPresent) return 0.0;
+    if (checkInTime == null || checkOutTime == null) return dailyWage;
+    return (calculatedHours / 8.0) * dailyWage;
+  }
+
+  bool get isCheckedIn => checkInTime != null && checkOutTime == null;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'vendorId': vendorId,
+      'staffId': staffId,
+      'staffName': staffName,
+      'dailyWage': dailyWage,
+      'date': Timestamp.fromDate(date),
+      'isPresent': isPresent,
+      'checkInTime': checkInTime != null
+          ? Timestamp.fromDate(checkInTime!)
+          : null,
+      'checkOutTime': checkOutTime != null
+          ? Timestamp.fromDate(checkOutTime!)
+          : null,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
+    };
+  }
+
+  factory Attendance.fromMap(Map<String, dynamic> map) {
+    return Attendance(
+      id: map['id'] ?? '',
+      vendorId: map['vendorId'] ?? '',
+      staffId: map['staffId'] ?? '',
+      staffName: map['staffName'] ?? '',
+      dailyWage: (map['dailyWage'] ?? 0.0).toDouble(),
+      date: (map['date'] as Timestamp).toDate(),
+      isPresent: map['isPresent'] ?? false,
+      checkInTime: map['checkInTime'] != null
+          ? (map['checkInTime'] as Timestamp).toDate()
+          : null,
+      checkOutTime: map['checkOutTime'] != null
+          ? (map['checkOutTime'] as Timestamp).toDate()
+          : null,
+      createdAt: (map['createdAt'] as Timestamp).toDate(),
+      updatedAt: (map['updatedAt'] as Timestamp).toDate(),
+    );
+  }
+
+  Attendance copyWith({
+    String? id,
+    String? vendorId,
+    String? staffId,
+    String? staffName,
+    double? dailyWage,
+    DateTime? date,
+    bool? isPresent,
+    DateTime? checkInTime,
+    DateTime? checkOutTime,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Attendance(
+      id: id ?? this.id,
+      vendorId: vendorId ?? this.vendorId,
+      staffId: staffId ?? this.staffId,
+      staffName: staffName ?? this.staffName,
+      dailyWage: dailyWage ?? this.dailyWage,
+      date: date ?? this.date,
+      isPresent: isPresent ?? this.isPresent,
+      checkInTime: checkInTime ?? this.checkInTime,
+      checkOutTime: checkOutTime ?? this.checkOutTime,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  factory Attendance.create({
+    required String staffId,
+    required String staffName,
+    required double dailyWage,
+    DateTime? date,
+    bool isPresent = false,
+  }) {
+    final now = DateTime.now();
+    return Attendance(
+      id: '',
+      vendorId: '',
+      staffId: staffId,
+      staffName: staffName,
+      dailyWage: dailyWage,
+      date: date ?? DateTime(now.year, now.month, now.day),
+      isPresent: isPresent,
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+}
