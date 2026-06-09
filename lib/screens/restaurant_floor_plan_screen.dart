@@ -81,93 +81,130 @@ class _RestaurantFloorPlanScreenState extends State<RestaurantFloorPlanScreen> {
       ],
       child: Consumer2<TableProvider, TableOrderProvider>(
         builder: (context, tableProvider, orderProvider, _) {
-          final tables = tableProvider.tables;
-          final visibleTables = tables
-              .where((table) => _zoneForTable(table) == _selectedZone)
-              .toList();
-          final totalRevenue = tables.fold<double>(0, (sum, table) {
-            final items = orderProvider.getOrderForTable(table.id);
-            return sum +
-                items.fold<double>(0, (itemSum, item) => itemSum + item.totalPrice);
-          });
-          final occupied = tables
-              .where((table) => _tableState(table, orderProvider).isActive)
-              .length;
-          final attention = tables
-              .where((table) => _tableState(table, orderProvider).label == 'Attention Required')
-              .length;
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 900;
+              final tables = tableProvider.tables;
+              final visibleTables = tables
+                  .where((table) => _zoneForTable(table) == _selectedZone)
+                  .toList();
+              final totalRevenue = tables.fold<double>(0, (sum, table) {
+                final items = orderProvider.getOrderForTable(table.id);
+                return sum +
+                    items.fold<double>(
+                      0,
+                      (itemSum, item) => itemSum + item.totalPrice,
+                    );
+              });
+              final occupied = tables
+                  .where((table) => _tableState(table, orderProvider).isActive)
+                  .length;
+              final attention = tables
+                  .where(
+                    (table) =>
+                        _tableState(table, orderProvider).label ==
+                        'Attention Required',
+                  )
+                  .length;
 
-          return Column(
-            children: [
-              Row(
+              final metrics = [
+                PremiumMetric(
+                  label: 'Occupied',
+                  value: '$occupied/${tables.length}',
+                  icon: Icons.event_seat_outlined,
+                  color: AppColors.restaurantIndigo,
+                ),
+                PremiumMetric(
+                  label: 'Open checks',
+                  value: 'Rs ${totalRevenue.toStringAsFixed(0)}',
+                  icon: Icons.receipt_long_outlined,
+                ),
+                PremiumMetric(
+                  label: 'Attention',
+                  value: '$attention',
+                  icon: Icons.notifications_active_outlined,
+                  color: AppColors.restaurantCrimson,
+                ),
+              ];
+
+              final metricsRow = compact
+                  ? Column(
+                      children: [
+                        for (final metric in metrics) ...[
+                          metric,
+                          if (metric != metrics.last)
+                            const SizedBox(height: AppSpacing.sm),
+                        ],
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        for (final metric in metrics) ...[
+                          Expanded(child: metric),
+                          if (metric != metrics.last)
+                            const SizedBox(width: AppSpacing.md),
+                        ],
+                      ],
+                    );
+
+              final floorCanvas = PremiumGlassPanel(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: tableProvider.isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.restaurantGold,
+                        ),
+                      )
+                    : tables.isEmpty
+                        ? PremiumEmptyState(
+                            icon: Icons.table_bar_outlined,
+                            title: 'Design your first dining room',
+                            message:
+                                'Create tables from Manage tables, then this screen becomes your live operational floor plan.',
+                          )
+                        : _FloorCanvas(
+                            zone: _selectedZone,
+                            tables: visibleTables,
+                            stateForTable: (table) =>
+                                _tableState(table, orderProvider),
+                            onTableTap: (table) => context.go(
+                              '${AppRouter.ordering}/${table.id}',
+                              extra: table,
+                            ),
+                          ),
+              );
+
+              final zoneRail = _ZoneRail(
+                selectedZone: _selectedZone,
+                onZoneSelected: (zone) => setState(() => _selectedZone = zone),
+                horizontal: compact,
+              );
+
+              return Column(
                 children: [
+                  metricsRow,
+                  const SizedBox(height: AppSpacing.lg),
                   Expanded(
-                    child: PremiumMetric(
-                      label: 'Occupied',
-                      value: '$occupied/${tables.length}',
-                      icon: Icons.event_seat_outlined,
-                      color: AppColors.restaurantIndigo,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: PremiumMetric(
-                      label: 'Open checks',
-                      value: 'Rs ${totalRevenue.toStringAsFixed(0)}',
-                      icon: Icons.receipt_long_outlined,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: PremiumMetric(
-                      label: 'Attention',
-                      value: '$attention',
-                      icon: Icons.notifications_active_outlined,
-                      color: AppColors.restaurantCrimson,
-                    ),
+                    child: compact
+                        ? Column(
+                            children: [
+                              SizedBox(height: 112, child: zoneRail),
+                              const SizedBox(height: AppSpacing.md),
+                              Expanded(child: floorCanvas),
+                            ],
+                          )
+                        : Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(width: 220, child: zoneRail),
+                              const SizedBox(width: AppSpacing.lg),
+                              Expanded(child: floorCanvas),
+                            ],
+                          ),
                   ),
                 ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(width: 220, child: _ZoneRail()),
-                    const SizedBox(width: AppSpacing.lg),
-                    Expanded(
-                      child: PremiumGlassPanel(
-                        padding: const EdgeInsets.all(AppSpacing.xl),
-                        child: tableProvider.isLoading
-                            ? const Center(
-                                child: CircularProgressIndicator(
-                                  color: AppColors.restaurantGold,
-                                ),
-                              )
-                            : tables.isEmpty
-                                ? PremiumEmptyState(
-                                    icon: Icons.table_bar_outlined,
-                                    title: 'Design your first dining room',
-                                    message:
-                                        'Create tables from Manage tables, then this screen becomes your live operational floor plan.',
-                                  )
-                                : _FloorCanvas(
-                                    zone: _selectedZone,
-                                    tables: visibleTables,
-                                    orderProvider: orderProvider,
-                                    stateForTable: (table) =>
-                                        _tableState(table, orderProvider),
-                                    onTableTap: (table) => context.go(
-                                      '${AppRouter.ordering}/${table.id}',
-                                      extra: table,
-                                    ),
-                                  ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              );
+            },
           );
         },
       ),
@@ -296,10 +333,18 @@ class _RestaurantFloorPlanScreenState extends State<RestaurantFloorPlanScreen> {
 }
 
 class _ZoneRail extends StatelessWidget {
+  final String selectedZone;
+  final ValueChanged<String> onZoneSelected;
+  final bool horizontal;
+
+  const _ZoneRail({
+    required this.selectedZone,
+    required this.onZoneSelected,
+    this.horizontal = false,
+  });
+
   @override
   Widget build(BuildContext context) {
-    final state = context.findAncestorStateOfType<_RestaurantFloorPlanScreenState>()!;
-
     return PremiumGlassPanel(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
@@ -310,21 +355,32 @@ class _ZoneRail extends StatelessWidget {
             subtitle: 'Switch the floor in one tap.',
           ),
           const SizedBox(height: AppSpacing.lg),
-          for (final zone in _RestaurantFloorPlanScreenState._zones)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: _ZoneButton(
-                label: zone,
-                selected: state._selectedZone == zone,
-                onTap: () => state.setState(() => state._selectedZone = zone),
+          Expanded(
+            child: ListView.separated(
+              scrollDirection: horizontal ? Axis.horizontal : Axis.vertical,
+              itemCount: _RestaurantFloorPlanScreenState._zones.length,
+              separatorBuilder: (_, __) => SizedBox(
+                width: horizontal ? AppSpacing.sm : 0,
+                height: horizontal ? 0 : AppSpacing.sm,
               ),
+              itemBuilder: (context, index) {
+                final zone = _RestaurantFloorPlanScreenState._zones[index];
+                return _ZoneButton(
+                  label: zone,
+                  selected: selectedZone == zone,
+                  onTap: () => onZoneSelected(zone),
+                );
+              },
             ),
-          const Spacer(),
-          PremiumStatusPill(
-            label: 'Live service',
-            color: AppColors.restaurantEmerald,
-            icon: Icons.circle,
           ),
+          if (!horizontal) ...[
+            const SizedBox(height: AppSpacing.md),
+            PremiumStatusPill(
+              label: 'Live service',
+              color: AppColors.restaurantEmerald,
+              icon: Icons.circle,
+            ),
+          ],
         ],
       ),
     );
@@ -414,14 +470,12 @@ class _ZoneButton extends StatelessWidget {
 class _FloorCanvas extends StatelessWidget {
   final String zone;
   final List<RestaurantTable> tables;
-  final TableOrderProvider orderProvider;
   final _OperationalTableState Function(RestaurantTable table) stateForTable;
   final ValueChanged<RestaurantTable> onTableTap;
 
   const _FloorCanvas({
     required this.zone,
     required this.tables,
-    required this.orderProvider,
     required this.stateForTable,
     required this.onTableTap,
   });

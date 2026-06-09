@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pos/models/table.dart';
 import 'package:pos/models/user.dart';
 import 'package:pos/providers/subscription_provider.dart';
+import 'package:pos/providers/table_provider.dart';
 import 'package:pos/screens/auth/login_screen.dart';
 import 'package:pos/screens/auth/signup_screen.dart';
 import 'package:pos/screens/discounts_screen.dart';
@@ -117,7 +118,7 @@ class AppRouter {
             name: 'ordering',
             builder: (context, state) {
               final tableId = state.pathParameters['tableId']!;
-              final table = _tableFromState(state, tableId);
+              final table = _tableFromState(context, state, tableId);
               return PremiumOrderingScreen(table: table);
             },
             redirect: (context, state) => _checkSubscription(context, state),
@@ -133,7 +134,7 @@ class AppRouter {
             name: 'billing',
             builder: (context, state) {
               final tableId = state.pathParameters['tableId']!;
-              final table = _tableFromState(state, tableId);
+              final table = _tableFromState(context, state, tableId);
               return PremiumBillingScreen(table: table);
             },
             redirect: (context, state) => _checkSubscription(context, state),
@@ -259,7 +260,7 @@ class AppRouter {
             path: '/table-order/:tableId',
             builder: (context, state) {
               final tableId = state.pathParameters['tableId']!;
-              final table = _tableFromState(state, tableId);
+              final table = _tableFromState(context, state, tableId);
               return PremiumOrderingScreen(table: table);
             },
             redirect: (context, state) => _checkSubscription(context, state),
@@ -421,9 +422,17 @@ class AppRouter {
     return allItems.where((item) => item.roles.contains(role)).toList();
   }
 
-  static RestaurantTable _tableFromState(GoRouterState state, String tableId) {
+  static RestaurantTable _tableFromState(
+    BuildContext context,
+    GoRouterState state,
+    String tableId,
+  ) {
     final extra = state.extra;
     if (extra is RestaurantTable) return extra;
+    final loadedTables = context.read<TableProvider>().tables;
+    for (final table in loadedTables) {
+      if (table.id == tableId) return table;
+    }
     return RestaurantTable(
       id: tableId,
       tableNumber: tableId,

@@ -78,183 +78,203 @@ class _PremiumBillingScreenState extends State<PremiumBillingScreen> {
           final service = subtotal * 0.05;
           final total = subtotal + tax + service + _tip - _discount;
 
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                flex: 6,
-                child: PremiumGlassPanel(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+          final guestCheck = PremiumGlassPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const PremiumSectionTitle(
+                      title: 'Guest check',
+                      subtitle: 'Review items before settlement.',
+                    ),
+                    const Spacer(),
+                    PremiumStatusPill(
+                      label: '${items.length} lines',
+                      color: AppColors.restaurantIndigo,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Expanded(
+                  child: items.isEmpty
+                      ? const PremiumEmptyState(
+                          icon: Icons.receipt_long_outlined,
+                          title: 'No active check',
+                          message:
+                              'Add items from the ordering workspace before billing this table.',
+                        )
+                      : ListView.separated(
+                          itemCount: items.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: AppSpacing.sm),
+                          itemBuilder: (context, index) {
+                            final item = items[index];
+                            return _BillLine(item: item);
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+
+          final settlement = PremiumGlassPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const PremiumSectionTitle(
+                  title: 'Settlement',
+                  subtitle: 'Premium billing without spreadsheet friction.',
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: _paymentMethods.map((method) {
+                    final selected = method == _paymentMethod;
+                    return ChoiceChip(
+                      label: Text(method),
+                      selected: selected,
+                      onSelected: (_) {
+                        setState(() => _paymentMethod = method);
+                      },
+                      selectedColor:
+                          AppColors.restaurantGold.withOpacity(0.24),
+                      backgroundColor: Colors.white.withOpacity(0.06),
+                      side: BorderSide(
+                        color: selected
+                            ? AppColors.restaurantGold.withOpacity(0.5)
+                            : Colors.white.withOpacity(0.08),
+                      ),
+                      labelStyle: TextStyle(
+                        color: selected
+                            ? AppColors.restaurantGold
+                            : AppColors.restaurantInk,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 420;
+                    final discount = _MoneyAdjuster(
+                      label: 'Discount',
+                      value: _discount,
+                      icon: Icons.percent,
+                      onChanged: (value) => setState(() => _discount = value),
+                    );
+                    final tip = _MoneyAdjuster(
+                      label: 'Tips',
+                      value: _tip,
+                      icon: Icons.volunteer_activism_outlined,
+                      onChanged: (value) => setState(() => _tip = value),
+                    );
+                    if (compact) {
+                      return Column(
                         children: [
-                          const PremiumSectionTitle(
-                            title: 'Guest check',
-                            subtitle: 'Review items before settlement.',
-                          ),
-                          const Spacer(),
-                          PremiumStatusPill(
-                            label: '${items.length} lines',
-                            color: AppColors.restaurantIndigo,
-                          ),
+                          discount,
+                          const SizedBox(height: AppSpacing.sm),
+                          tip,
                         ],
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      Expanded(
-                        child: items.isEmpty
-                            ? const PremiumEmptyState(
-                                icon: Icons.receipt_long_outlined,
-                                title: 'No active check',
-                                message:
-                                    'Add items from the ordering workspace before billing this table.',
-                              )
-                            : ListView.separated(
-                                itemCount: items.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: AppSpacing.sm),
-                                itemBuilder: (context, index) {
-                                  final item = items[index];
-                                  return _BillLine(item: item);
-                                },
-                              ),
-                      ),
-                    ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(child: discount),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(child: tip),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                SwitchListTile.adaptive(
+                  value: _splitPayment,
+                  onChanged: (value) => setState(() => _splitPayment = value),
+                  activeColor: AppColors.restaurantGold,
+                  title: const Text(
+                    'Split payment',
+                    style: TextStyle(color: AppColors.restaurantInk),
+                  ),
+                  subtitle: const Text(
+                    'Divide by guest, amount, or selected items.',
+                    style: TextStyle(color: AppColors.restaurantMuted),
                   ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.lg),
-              Expanded(
-                flex: 4,
-                child: PremiumGlassPanel(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const PremiumSectionTitle(
-                        title: 'Settlement',
-                        subtitle: 'Premium billing without spreadsheet friction.',
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      Wrap(
-                        spacing: AppSpacing.sm,
-                        runSpacing: AppSpacing.sm,
-                        children: _paymentMethods.map((method) {
-                          final selected = method == _paymentMethod;
-                          return ChoiceChip(
-                            label: Text(method),
-                            selected: selected,
-                            onSelected: (_) {
-                              setState(() => _paymentMethod = method);
-                            },
-                            selectedColor:
-                                AppColors.restaurantGold.withOpacity(0.24),
-                            backgroundColor: Colors.white.withOpacity(0.06),
-                            side: BorderSide(
-                              color: selected
-                                  ? AppColors.restaurantGold.withOpacity(0.5)
-                                  : Colors.white.withOpacity(0.08),
-                            ),
-                            labelStyle: TextStyle(
-                              color: selected
-                                  ? AppColors.restaurantGold
-                                  : AppColors.restaurantInk,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _MoneyAdjuster(
-                              label: 'Discount',
-                              value: _discount,
-                              icon: Icons.percent,
-                              onChanged: (value) =>
-                                  setState(() => _discount = value),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: _MoneyAdjuster(
-                              label: 'Tips',
-                              value: _tip,
-                              icon: Icons.volunteer_activism_outlined,
-                              onChanged: (value) =>
-                                  setState(() => _tip = value),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      SwitchListTile.adaptive(
-                        value: _splitPayment,
-                        onChanged: (value) =>
-                            setState(() => _splitPayment = value),
-                        activeColor: AppColors.restaurantGold,
-                        title: const Text(
-                          'Split payment',
-                          style: TextStyle(color: AppColors.restaurantInk),
-                        ),
-                        subtitle: const Text(
-                          'Divide by guest, amount, or selected items.',
-                          style: TextStyle(color: AppColors.restaurantMuted),
-                        ),
-                      ),
-                      SwitchListTile.adaptive(
-                        value: _partialPayment,
-                        onChanged: (value) =>
-                            setState(() => _partialPayment = value),
-                        activeColor: AppColors.restaurantGold,
-                        title: const Text(
-                          'Partial payment',
-                          style: TextStyle(color: AppColors.restaurantInk),
-                        ),
-                        subtitle: const Text(
-                          'Keep remainder open for the table.',
-                          style: TextStyle(color: AppColors.restaurantMuted),
-                        ),
-                      ),
-                      const Spacer(),
-                      _TotalsBox(
-                        subtotal: subtotal,
-                        tax: tax,
-                        discount: _discount,
-                        service: service,
-                        tip: _tip,
-                        total: total,
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: PremiumActionButton(
-                              label: 'Print',
-                              icon: Icons.print_outlined,
-                              filled: false,
-                              onPressed: items.isEmpty
-                                  ? null
-                                  : () => _printBill(context, items, subtotal),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: PremiumActionButton(
-                              label: _processing ? 'Settling' : 'Settle',
-                              icon: Icons.check_rounded,
-                              onPressed: items.isEmpty || _processing
-                                  ? null
-                                  : () => _settle(context, items, subtotal),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                SwitchListTile.adaptive(
+                  value: _partialPayment,
+                  onChanged: (value) => setState(() => _partialPayment = value),
+                  activeColor: AppColors.restaurantGold,
+                  title: const Text(
+                    'Partial payment',
+                    style: TextStyle(color: AppColors.restaurantInk),
+                  ),
+                  subtitle: const Text(
+                    'Keep remainder open for the table.',
+                    style: TextStyle(color: AppColors.restaurantMuted),
                   ),
                 ),
-              ),
-            ],
+                const Spacer(),
+                _TotalsBox(
+                  subtotal: subtotal,
+                  tax: tax,
+                  discount: _discount,
+                  service: service,
+                  tip: _tip,
+                  total: total,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Row(
+                  children: [
+                    Expanded(
+                      child: PremiumActionButton(
+                        label: 'Print',
+                        icon: Icons.print_outlined,
+                        filled: false,
+                        onPressed: items.isEmpty
+                            ? null
+                            : () => _printBill(context, items, subtotal),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: PremiumActionButton(
+                        label: _processing ? 'Settling' : 'Settle',
+                        icon: Icons.check_rounded,
+                        onPressed: items.isEmpty || _processing
+                            ? null
+                            : () => _settle(context, items, subtotal),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 1050) {
+                return Column(
+                  children: [
+                    Expanded(child: guestCheck),
+                    const SizedBox(height: AppSpacing.md),
+                    Expanded(child: settlement),
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(flex: 6, child: guestCheck),
+                  const SizedBox(width: AppSpacing.lg),
+                  Expanded(flex: 4, child: settlement),
+                ],
+              );
+            },
           );
         },
       ),

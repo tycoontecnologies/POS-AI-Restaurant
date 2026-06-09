@@ -85,9 +85,23 @@ class _PremiumOrderingScreenState extends State<PremiumOrderingScreen> {
           final workspace = compact
               ? Column(
                   children: [
-                    SizedBox(height: 120, child: _CategoryRail(horizontal: true)),
+                    SizedBox(
+                      height: 120,
+                      child: _CategoryRail(
+                        selectedCategory: _selectedCategory,
+                        onCategorySelected: (category) =>
+                            setState(() => _selectedCategory = category),
+                        horizontal: true,
+                      ),
+                    ),
                     const SizedBox(height: AppSpacing.md),
-                    Expanded(child: _MenuBoard(search: _search, table: widget.table)),
+                    Expanded(
+                      child: _MenuBoard(
+                        search: _search,
+                        selectedCategory: _selectedCategory,
+                        table: widget.table,
+                      ),
+                    ),
                     const SizedBox(height: AppSpacing.md),
                     SizedBox(height: 360, child: _OrderSummary(table: widget.table)),
                   ],
@@ -95,9 +109,22 @@ class _PremiumOrderingScreenState extends State<PremiumOrderingScreen> {
               : Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(width: 220, child: _CategoryRail()),
+                    SizedBox(
+                      width: 220,
+                      child: _CategoryRail(
+                        selectedCategory: _selectedCategory,
+                        onCategorySelected: (category) =>
+                            setState(() => _selectedCategory = category),
+                      ),
+                    ),
                     const SizedBox(width: AppSpacing.lg),
-                    Expanded(child: _MenuBoard(search: _search, table: widget.table)),
+                    Expanded(
+                      child: _MenuBoard(
+                        search: _search,
+                        selectedCategory: _selectedCategory,
+                        table: widget.table,
+                      ),
+                    ),
                     const SizedBox(width: AppSpacing.lg),
                     SizedBox(width: 380, child: _OrderSummary(table: widget.table)),
                   ],
@@ -108,7 +135,6 @@ class _PremiumOrderingScreenState extends State<PremiumOrderingScreen> {
               _OrderingCommandBar(
                 search: _search,
                 onSearchChanged: (value) => setState(() => _search = value),
-                table: widget.table,
               ),
               const SizedBox(height: AppSpacing.lg),
               Expanded(child: workspace),
@@ -123,45 +149,69 @@ class _PremiumOrderingScreenState extends State<PremiumOrderingScreen> {
 class _OrderingCommandBar extends StatelessWidget {
   final String search;
   final ValueChanged<String> onSearchChanged;
-  final RestaurantTable table;
-
   const _OrderingCommandBar({
     required this.search,
     required this.onSearchChanged,
-    required this.table,
   });
 
   @override
   Widget build(BuildContext context) {
     return PremiumGlassPanel(
       padding: const EdgeInsets.all(AppSpacing.md),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              onChanged: onSearchChanged,
-              style: const TextStyle(color: AppColors.restaurantInk),
-              decoration: InputDecoration(
-                hintText: 'Search menu or SKU',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.08),
-                hintStyle: const TextStyle(color: AppColors.restaurantMuted),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                  borderSide: BorderSide.none,
-                ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 920;
+          final searchField = TextField(
+            onChanged: onSearchChanged,
+            style: const TextStyle(color: AppColors.restaurantInk),
+            decoration: InputDecoration(
+              hintText: 'Search menu or SKU',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.08),
+              hintStyle: const TextStyle(color: AppColors.restaurantMuted),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                borderSide: BorderSide.none,
               ),
             ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          _FeatureChip(label: 'Notes', icon: Icons.edit_note),
-          _FeatureChip(label: 'Discounts', icon: Icons.percent),
-          _FeatureChip(label: 'Coupons', icon: Icons.confirmation_number_outlined),
-          _FeatureChip(label: 'Split', icon: Icons.call_split_outlined),
-          _FeatureChip(label: 'Merge', icon: Icons.merge_type_outlined),
-          _FeatureChip(label: 'Transfer', icon: Icons.swap_horiz_rounded),
-        ],
+          );
+
+          final featureRail = SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: const [
+                _FeatureChip(label: 'Notes', icon: Icons.edit_note),
+                _FeatureChip(label: 'Discounts', icon: Icons.percent),
+                _FeatureChip(
+                  label: 'Coupons',
+                  icon: Icons.confirmation_number_outlined,
+                ),
+                _FeatureChip(label: 'Split', icon: Icons.call_split_outlined),
+                _FeatureChip(label: 'Merge', icon: Icons.merge_type_outlined),
+                _FeatureChip(label: 'Transfer', icon: Icons.swap_horiz_rounded),
+              ],
+            ),
+          );
+
+          if (compact) {
+            return Column(
+              children: [
+                searchField,
+                const SizedBox(height: AppSpacing.sm),
+                SizedBox(height: 44, child: featureRail),
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: searchField),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(child: featureRail),
+            ],
+          );
+        },
       ),
     );
   }
@@ -200,13 +250,18 @@ class _FeatureChip extends StatelessWidget {
 }
 
 class _CategoryRail extends StatelessWidget {
+  final String selectedCategory;
+  final ValueChanged<String> onCategorySelected;
   final bool horizontal;
 
-  const _CategoryRail({this.horizontal = false});
+  const _CategoryRail({
+    required this.selectedCategory,
+    required this.onCategorySelected,
+    this.horizontal = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final state = context.findAncestorStateOfType<_PremiumOrderingScreenState>()!;
     return Consumer2<CategoryProvider, ProductProvider>(
       builder: (context, categoryProvider, productProvider, _) {
         final productCategories =
@@ -226,11 +281,11 @@ class _CategoryRail extends StatelessWidget {
           ),
           itemBuilder: (context, index) {
             final category = categories[index];
-            final selected = state._selectedCategory == category;
+            final selected = selectedCategory == category;
             return _CategoryButton(
               label: category,
               selected: selected,
-              onTap: () => state.setState(() => state._selectedCategory = category),
+              onTap: () => onCategorySelected(category),
             );
           },
         );
@@ -318,18 +373,22 @@ class _CategoryButton extends StatelessWidget {
 
 class _MenuBoard extends StatelessWidget {
   final String search;
+  final String selectedCategory;
   final RestaurantTable table;
 
-  const _MenuBoard({required this.search, required this.table});
+  const _MenuBoard({
+    required this.search,
+    required this.selectedCategory,
+    required this.table,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final state = context.findAncestorStateOfType<_PremiumOrderingScreenState>()!;
     return Consumer<ProductProvider>(
       builder: (context, productProvider, _) {
         final products = productProvider.products.where((product) {
-          final categoryMatches = state._selectedCategory == 'All' ||
-              product.category == state._selectedCategory;
+          final categoryMatches =
+              selectedCategory == 'All' || product.category == selectedCategory;
           final searchMatches = search.trim().isEmpty ||
               product.name.toLowerCase().contains(search.toLowerCase()) ||
               product.category.toLowerCase().contains(search.toLowerCase());

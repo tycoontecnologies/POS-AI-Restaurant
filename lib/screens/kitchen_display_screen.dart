@@ -62,26 +62,39 @@ class KitchenDisplayScreen extends StatelessWidget {
                         .toList() ??
                     [];
 
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: _columns.map((column) {
-                    final columnTickets = tickets
-                        .where((ticket) => ticket.stage == column.title)
-                        .toList();
-                    return Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          right: column.title == _columns.last.title
-                              ? 0
-                              : AppSpacing.md,
-                        ),
-                        child: _KdsColumn(
-                          spec: column,
-                          tickets: columnTickets,
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final boardWidth = constraints.maxWidth < 1120
+                        ? 1120.0
+                        : constraints.maxWidth;
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        width: boardWidth,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: _columns.map((column) {
+                            final columnTickets = tickets
+                                .where((ticket) => ticket.stage == column.title)
+                                .toList();
+                            return Expanded(
+                              child: Padding(
+                                padding: EdgeInsets.only(
+                                  right: column.title == _columns.last.title
+                                      ? 0
+                                      : AppSpacing.md,
+                                ),
+                                child: _KdsColumn(
+                                  spec: column,
+                                  tickets: columnTickets,
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ),
                     );
-                  }).toList(),
+                  },
                 );
               },
             ),
@@ -275,7 +288,7 @@ class _KitchenTicketCard extends StatelessWidget {
               ),
               const Spacer(),
               const Text(
-                'Tap status in backend',
+                'Status synced live',
                 style: TextStyle(
                   color: AppColors.restaurantMuted,
                   fontSize: 11,

@@ -54,7 +54,11 @@ class PremiumRestaurantScaffold extends StatelessWidget {
           ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.xl),
+              padding: EdgeInsets.all(
+                MediaQuery.sizeOf(context).width < 700
+                    ? AppSpacing.md
+                    : AppSpacing.xl,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -199,26 +203,32 @@ class PremiumMetric extends StatelessWidget {
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: AppSpacing.md),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.restaurantMuted,
-                  fontSize: 12,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.restaurantMuted,
+                    fontSize: 12,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: AppColors.restaurantInk,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.restaurantInk,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -375,49 +385,73 @@ class _PremiumPageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 760;
+        final textBlock = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              eyebrow.toUpperCase(),
+              style: const TextStyle(
+                color: AppColors.restaurantGold,
+                fontSize: 12,
+                letterSpacing: 2.2,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              title,
+              style: TextStyle(
+                color: AppColors.restaurantInk,
+                fontSize: compact ? 28 : 36,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -1.2,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                color: AppColors.restaurantMuted,
+                fontSize: 15,
+                height: 1.45,
+              ),
+            ),
+          ],
+        );
+
+        final actionWrap = Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: actions,
+        );
+
+        if (compact) {
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                eyebrow.toUpperCase(),
-                style: const TextStyle(
-                  color: AppColors.restaurantGold,
-                  fontSize: 12,
-                  letterSpacing: 2.2,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: AppColors.restaurantInk,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -1.2,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: AppColors.restaurantMuted,
-                  fontSize: 15,
-                  height: 1.45,
-                ),
-              ),
+              textBlock,
+              if (actions.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.md),
+                actionWrap,
+              ],
             ],
-          ),
-        ),
-        if (actions.isNotEmpty) ...[
-          const SizedBox(width: AppSpacing.xl),
-          Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.sm, children: actions),
-        ],
-      ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(child: textBlock),
+            if (actions.isNotEmpty) ...[
+              const SizedBox(width: AppSpacing.xl),
+              actionWrap,
+            ],
+          ],
+        );
+      },
     );
   }
 }
