@@ -11,6 +11,7 @@ import 'package:pos/providers/product_provider.dart';
 import 'package:pos/providers/cart_provider.dart';
 import 'package:pos/providers/table_order_provider.dart';
 import 'package:pos/providers/table_provider.dart';
+import 'package:pos/routes/app_router.dart';
 import 'package:pos/services/pdf_service.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_colors.dart';
@@ -710,7 +711,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => context.go('/dashboard'),
+            onPressed: () => context.go(AppRouter.floorPlan),
             icon: const Icon(Icons.arrow_back),
             style: IconButton.styleFrom(
               backgroundColor: AppColors.primary.withOpacity(0.1),

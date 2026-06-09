@@ -60,7 +60,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         });
 
         await Future.delayed(const Duration(seconds: 3));
-        if (mounted) context.go(AppRouter.dashboard);
+        if (mounted) context.go(AppRouter.floorPlan);
       } else {
         throw Exception('Payment not completed');
       }

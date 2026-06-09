@@ -9,11 +9,14 @@ import 'package:pos/screens/discounts_screen.dart';
 import 'package:pos/screens/orders_screen.dart';
 import 'package:pos/screens/payment_screen.dart';
 import 'package:pos/screens/payment_success_screen.dart';
+import 'package:pos/screens/premium_billing_screen.dart';
+import 'package:pos/screens/kitchen_display_screen.dart';
+import 'package:pos/screens/premium_ordering_screen.dart';
 import 'package:pos/screens/pricing_screen.dart';
 import 'package:pos/screens/purchase_return_screen.dart';
+import 'package:pos/screens/restaurant_floor_plan_screen.dart';
 import 'package:pos/screens/sale_screen.dart';
 import 'package:pos/screens/sale_return_screen.dart';
-import 'package:pos/screens/table_order_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/screens/category_products_screen.dart';
 import 'package:pos/providers/auth_provider.dart';
@@ -25,7 +28,6 @@ import '../screens/suppliers_screen.dart';
 import '../screens/purchases_screen.dart';
 import '../screens/store_out_screen.dart';
 import '../screens/settings_screen.dart';
-import '../screens/dashboard_screen.dart';
 import '../screens/ingredients_screen.dart';
 import '../screens/customers_screen.dart';
 import '../screens/table_management_screen.dart';
@@ -35,6 +37,10 @@ class AppRouter {
   static const String login = '/login';
   static const String signup = '/signup';
   static const String dashboard = '/dashboard';
+  static const String floorPlan = '/floor-plan';
+  static const String ordering = '/ordering';
+  static const String kitchenDisplay = '/kitchen-display';
+  static const String billing = '/billing';
   static const String categories = '/categories';
   static const String products = '/products';
   static const String staff = '/staff';
@@ -97,7 +103,39 @@ class AppRouter {
           GoRoute(
             path: dashboard,
             name: 'dashboard',
-            builder: (context, state) => const DashboardScreen(),
+            builder: (context, state) => const RestaurantFloorPlanScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
+          ),
+          GoRoute(
+            path: floorPlan,
+            name: 'floor-plan',
+            builder: (context, state) => const RestaurantFloorPlanScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
+          ),
+          GoRoute(
+            path: '$ordering/:tableId',
+            name: 'ordering',
+            builder: (context, state) {
+              final tableId = state.pathParameters['tableId']!;
+              final table = _tableFromState(state, tableId);
+              return PremiumOrderingScreen(table: table);
+            },
+            redirect: (context, state) => _checkSubscription(context, state),
+          ),
+          GoRoute(
+            path: kitchenDisplay,
+            name: 'kitchen-display',
+            builder: (context, state) => const KitchenDisplayScreen(),
+            redirect: (context, state) => _checkSubscription(context, state),
+          ),
+          GoRoute(
+            path: '$billing/:tableId',
+            name: 'billing',
+            builder: (context, state) {
+              final tableId = state.pathParameters['tableId']!;
+              final table = _tableFromState(state, tableId);
+              return PremiumBillingScreen(table: table);
+            },
             redirect: (context, state) => _checkSubscription(context, state),
           ),
           GoRoute(
@@ -220,9 +258,11 @@ class AppRouter {
           GoRoute(
             path: '/table-order/:tableId',
             builder: (context, state) {
-              final table = state.extra as RestaurantTable;
-              return TableOrderScreen(table: table);
+              final tableId = state.pathParameters['tableId']!;
+              final table = _tableFromState(state, tableId);
+              return PremiumOrderingScreen(table: table);
             },
+            redirect: (context, state) => _checkSubscription(context, state),
           ),
         ],
       ),
@@ -242,7 +282,7 @@ class AppRouter {
       }
 
       if (isAuthenticated && (isLoginRoute || isSignupRoute)) {
-        return dashboard;
+        return floorPlan;
       }
 
       return null;
@@ -274,9 +314,9 @@ class AppRouter {
           !isPaymentSuccessRoute) {
         return AppRouter.pricing;
       }
-      // If user has valid subscription and is on pricing page, redirect to dashboard
+      // If user has valid subscription and is on pricing page, redirect to floor plan.
       if (hasValidSubscription && isPricingRoute) {
-        return AppRouter.dashboard;
+        return AppRouter.floorPlan;
       }
     }
 
@@ -287,9 +327,15 @@ class AppRouter {
   static List<NavigationItem> getNavigationItems(UserRole role) {
     final allItems = [
       NavigationItem(
-        icon: Icons.dashboard,
-        label: 'POS',
-        route: dashboard,
+        icon: Icons.grid_view_rounded,
+        label: 'Floor',
+        route: floorPlan,
+        roles: [UserRole.admin, UserRole.staff, UserRole.kitchen],
+      ),
+      NavigationItem(
+        icon: Icons.soup_kitchen_outlined,
+        label: 'KDS',
+        route: kitchenDisplay,
         roles: [UserRole.admin, UserRole.staff, UserRole.kitchen],
       ),
       NavigationItem(
@@ -373,6 +419,18 @@ class AppRouter {
     ];
 
     return allItems.where((item) => item.roles.contains(role)).toList();
+  }
+
+  static RestaurantTable _tableFromState(GoRouterState state, String tableId) {
+    final extra = state.extra;
+    if (extra is RestaurantTable) return extra;
+    return RestaurantTable(
+      id: tableId,
+      tableNumber: tableId,
+      numberOfSeats: 0,
+      status: TableStatus.empty,
+      createdAt: DateTime.now(),
+    );
   }
 }
 

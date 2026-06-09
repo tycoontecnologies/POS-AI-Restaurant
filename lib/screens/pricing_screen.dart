@@ -15,7 +15,7 @@ class PricingScreen extends StatelessWidget {
         title: const Text('Choose Your Plan'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(AppRouter.dashboard),
+          onPressed: () => context.go(AppRouter.floorPlan),
         ),
       ),
       body: Padding(

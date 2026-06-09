@@ -23,7 +23,7 @@ class MainShell extends StatelessWidget {
 
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(72),
+        preferredSize: const Size.fromHeight(82),
         child: _ModernAppHeader(currentLocation: currentLocation),
       ),
       body: AnimatedSwitcher(
@@ -87,26 +87,31 @@ class _ModernAppHeaderState extends State<_ModernAppHeader> {
 
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryDark],
+        gradient: const LinearGradient(
+          colors: [
+            AppColors.restaurantCharcoal,
+            AppColors.restaurantCharcoalLight,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.32),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: SafeArea(
         bottom: false,
         child: Container(
-          height: 72,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          height: 82,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
           child: Row(
             children: [
+              _RestaurantBrand(),
+              const SizedBox(width: AppSpacing.xl),
               // Left Arrow
               // if (_showLeftArrow)
               // Container(
@@ -129,54 +134,60 @@ class _ModernAppHeaderState extends State<_ModernAppHeader> {
 
               // Scrollable tabs
               Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    for (int i = 0; i < items.length; i++)
-                      _ModernHeaderButton(
-                        item: items[i],
-                        selected: widget.currentLocation == items[i].route,
-                        onTap: () async {
-                          try {
-                            final subscriptionProvider =
-                                Provider.of<SubscriptionProvider>(
-                                  context,
-                                  listen: false,
-                                );
-                            final hasValidSubscription =
-                                await subscriptionProvider
-                                    .hasValidSubscription();
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (int i = 0; i < items.length; i++)
+                        Padding(
+                          padding: const EdgeInsets.only(right: AppSpacing.sm),
+                          child: _ModernHeaderButton(
+                            item: items[i],
+                            selected: widget.currentLocation == items[i].route,
+                            onTap: () async {
+                              try {
+                                final subscriptionProvider =
+                                    Provider.of<SubscriptionProvider>(
+                                      context,
+                                      listen: false,
+                                    );
+                                final hasValidSubscription =
+                                    await subscriptionProvider
+                                        .hasValidSubscription();
 
-                            if (!hasValidSubscription &&
-                                items[i].route != AppRouter.pricing) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Please renew your subscription to access this feature',
+                                if (!hasValidSubscription &&
+                                    items[i].route != AppRouter.pricing) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Please renew your subscription to access this feature',
+                                      ),
+                                      duration: Duration(seconds: 1),
+                                      backgroundColor: Colors.orange,
+                                    ),
+                                  );
+                                  context.go(AppRouter.pricing);
+                                } else {
+                                  context.go(items[i].route);
+                                }
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    duration: const Duration(seconds: 1),
+                                    content: Text(
+                                      'Error checking subscription: $e',
+                                    ),
+                                    backgroundColor: Colors.red,
                                   ),
-                                  duration: Duration(seconds: 1),
-                                  backgroundColor: Colors.orange,
-                                ),
-                              );
-                              context.go(AppRouter.pricing);
-                            } else {
-                              context.go(items[i].route);
-                            }
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                duration: const Duration(seconds: 1),
-                                content: Text(
-                                  'Error checking subscription: $e',
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        },
-                        compact: isCompact,
-                      ),
-                  ],
+                                );
+                              }
+                            },
+                            compact: isCompact,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -203,6 +214,63 @@ class _ModernAppHeaderState extends State<_ModernAppHeader> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _RestaurantBrand extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            gradient: LinearGradient(
+              colors: [
+                AppColors.restaurantGold,
+                AppColors.restaurantGoldSoft.withOpacity(0.7),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.restaurantGold.withOpacity(0.26),
+                blurRadius: 18,
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.restaurant_rounded,
+            color: AppColors.restaurantCharcoal,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Kashif',
+              style: TextStyle(
+                color: AppColors.restaurantGold,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5,
+              ),
+            ),
+            Text(
+              'Restaurant OS',
+              style: TextStyle(
+                color: AppColors.restaurantInk,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -251,7 +319,9 @@ class _ModernHeaderButtonState extends State<_ModernHeaderButton>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final color = AppColors.white;
+    final color = widget.selected
+        ? AppColors.restaurantGold
+        : AppColors.restaurantInk.withOpacity(0.82);
 
     String getLocalizedLabel() {
       switch (widget.item.label) {
@@ -304,7 +374,7 @@ class _ModernHeaderButtonState extends State<_ModernHeaderButton>
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: widget.onTap,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     padding: EdgeInsets.symmetric(
@@ -315,20 +385,21 @@ class _ModernHeaderButtonState extends State<_ModernHeaderButton>
                     ),
                     decoration: BoxDecoration(
                       color: widget.selected
-                          ? AppColors.white.withOpacity(0.2)
+                          ? AppColors.restaurantGold.withOpacity(0.14)
                           : _isHovered
-                          ? AppColors.white.withOpacity(0.1)
+                          ? AppColors.white.withOpacity(0.08)
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
                       border: widget.selected
-                          ? Border.all(color: AppColors.white.withOpacity(0.3))
-                          : null,
+                          ? Border.all(
+                              color: AppColors.restaurantGold.withOpacity(0.38),
+                            )
+                          : Border.all(color: Colors.white.withOpacity(0.06)),
                       boxShadow: widget.selected
                           ? [
                               BoxShadow(
-                                color: AppColors.white.withOpacity(0.1),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                                color: AppColors.restaurantGold.withOpacity(0.15),
+                                blurRadius: 18,
                               ),
                             ]
                           : null,
@@ -373,6 +444,41 @@ class _HeaderActions extends StatelessWidget {
 
     return Row(
       children: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+            border: Border.all(color: Colors.white.withOpacity(0.08)),
+          ),
+          child: const Row(
+            children: [
+              Icon(
+                Icons.apartment_rounded,
+                color: AppColors.restaurantGold,
+                size: 18,
+              ),
+              SizedBox(width: AppSpacing.sm),
+              Text(
+                'Main Branch',
+                style: TextStyle(
+                  color: AppColors.restaurantInk,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(width: AppSpacing.xs),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: AppColors.restaurantMuted,
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
         // Language selector
         // PopupMenuButton<Locale>(
         //   child: _ActionButton(
@@ -474,8 +580,8 @@ class _ActionButtonState extends State<_ActionButton> {
       child: Tooltip(
         message: widget.tooltip,
         child: Material(
-          color: Colors.red,
-          borderRadius: BorderRadius.circular(6),
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
           child: InkWell(
             onTap: widget.onTap,
             borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -484,12 +590,12 @@ class _ActionButtonState extends State<_ActionButton> {
               padding: const EdgeInsets.all(AppSpacing.sm),
               decoration: BoxDecoration(
                 color: _isHovered
-                    ? AppColors.white.withOpacity(0.15)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                border: _isHovered
-                    ? Border.all(color: AppColors.white.withOpacity(0.2))
-                    : null,
+                    ? AppColors.restaurantCrimson.withOpacity(0.22)
+                    : AppColors.restaurantCrimson.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                border: Border.all(
+                  color: AppColors.restaurantCrimson.withOpacity(0.25),
+                ),
               ),
               child: Icon(widget.icon, color: AppColors.white, size: 20),
             ),

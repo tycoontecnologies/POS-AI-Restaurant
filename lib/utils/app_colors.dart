@@ -1,6 +1,21 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
+  // Premium restaurant operating system palette.
+  static const Color restaurantCharcoal = Color(0xFF0B1020);
+  static const Color restaurantCharcoalLight = Color(0xFF121A2F);
+  static const Color restaurantPanel = Color(0xCC172033);
+  static const Color restaurantPanelStrong = Color(0xF01A2438);
+  static const Color restaurantGold = Color(0xFFD4A017);
+  static const Color restaurantGoldSoft = Color(0xFFFFD166);
+  static const Color restaurantEmerald = Color(0xFF22C55E);
+  static const Color restaurantCrimson = Color(0xFFE11D48);
+  static const Color restaurantIndigo = Color(0xFF6366F1);
+  static const Color restaurantPurple = Color(0xFFA855F7);
+  static const Color restaurantAmber = Color(0xFFF59E0B);
+  static const Color restaurantInk = Color(0xFFE5E7EB);
+  static const Color restaurantMuted = Color(0xFF94A3B8);
+
   static const Color primary = Color(
     0xFF6366F1,
   ); // Indigo - keeping your choice

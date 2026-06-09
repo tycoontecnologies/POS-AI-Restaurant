@@ -44,13 +44,13 @@ class OnboardingCompletion extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           ElevatedButton(
             onPressed: () {
-              context.go(AppRouter.dashboard);
+              context.go(AppRouter.floorPlan);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.success,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Go to Dashboard'),
+            child: const Text('Go to Floor'),
           ),
         ],
       ),

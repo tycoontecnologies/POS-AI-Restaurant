@@ -25,6 +25,8 @@ class RestaurantTable {
         return TableStatus.occupied;
       case 'served':
         return TableStatus.served;
+      case 'cleared':
+        return TableStatus.cleared;
       default:
         return TableStatus.empty;
     }

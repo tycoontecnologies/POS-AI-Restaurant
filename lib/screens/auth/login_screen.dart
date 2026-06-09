@@ -39,7 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (success && mounted) {
-      GoRouter.of(context).go(AppRouter.dashboard);
+      GoRouter.of(context).go(AppRouter.floorPlan);
     } else if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
