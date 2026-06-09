@@ -327,7 +327,7 @@ class _KitchenTicket {
     final rawItems = List<Map<String, dynamic>>.from(data['items'] ?? []);
     final totalQuantity = rawItems.fold<int>(
       0,
-      (sum, item) => sum + ((item['quantity'] ?? 0) as int),
+      (sum, item) => sum + ((item['quantity'] as num?)?.toInt() ?? 0),
     );
 
     return _KitchenTicket(
@@ -340,7 +340,7 @@ class _KitchenTicket {
           .map(
             (item) => _KitchenTicketItem(
               name: item['productName']?.toString() ?? 'Menu item',
-              quantity: item['quantity'] ?? 1,
+              quantity: (item['quantity'] as num?)?.toInt() ?? 1,
             ),
           )
           .toList(),

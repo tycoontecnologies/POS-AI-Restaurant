@@ -516,19 +516,15 @@ class _ProductTile extends StatelessWidget {
       );
       return;
     }
-    await _persistItem(context, product, null);
+    await _persistItem(context, product, null, table);
   }
 
   static Future<void> _persistItem(
     BuildContext context,
     Product product,
     ProductVariant? variant,
+    RestaurantTable table,
   ) async {
-    final table = context
-        .findAncestorWidgetOfExactType<PremiumOrderingScreen>()
-        ?.table;
-    if (table == null) return;
-
     final orderProvider = context.read<TableOrderProvider>();
     final tableProvider = context.read<TableProvider>();
     await orderProvider.addToTableOrder(

@@ -87,7 +87,8 @@ class _RestaurantFloorPlanScreenState extends State<RestaurantFloorPlanScreen> {
               .toList();
           final totalRevenue = tables.fold<double>(0, (sum, table) {
             final items = orderProvider.getOrderForTable(table.id);
-            return sum + items.fold(0, (itemSum, item) => itemSum + item.totalPrice);
+            return sum +
+                items.fold<double>(0, (itemSum, item) => itemSum + item.totalPrice);
           });
           final occupied = tables
               .where((table) => _tableState(table, orderProvider).isActive)
