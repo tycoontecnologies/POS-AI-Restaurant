@@ -221,6 +221,12 @@ class _ModernAppHeaderState extends State<_ModernAppHeader> {
 class _RestaurantBrand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final restaurantName =
+        context.watch<AuthProvider>().currentUser?.restaurantName.trim();
+    final displayName = restaurantName == null || restaurantName.isEmpty
+        ? 'Hospitality OS'
+        : restaurantName;
+
     return Row(
       children: [
         Container(
@@ -247,12 +253,12 @@ class _RestaurantBrand extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.md),
-        const Column(
+        Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Kashif',
+            const Text(
+              'PREMIUM HOUSE',
               style: TextStyle(
                 color: AppColors.restaurantGold,
                 fontSize: 12,
@@ -261,8 +267,10 @@ class _RestaurantBrand extends StatelessWidget {
               ),
             ),
             Text(
-              'Restaurant OS',
-              style: TextStyle(
+              displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
                 color: AppColors.restaurantInk,
                 fontSize: 16,
                 fontWeight: FontWeight.w900,

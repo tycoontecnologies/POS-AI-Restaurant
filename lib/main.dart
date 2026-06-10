@@ -152,7 +152,7 @@ class MyApp extends StatelessWidget {
           }
 
           return MaterialApp.router(
-            title: 'Kashif Restaurant OS',
+            title: 'Premium Hospitality Restaurant OS',
             debugShowCheckedModeBanner: false,
 
             theme: AppTheme.lightTheme,
