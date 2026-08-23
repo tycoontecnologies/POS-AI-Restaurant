@@ -4,7 +4,6 @@ import 'package:pos/models/table.dart';
 import 'package:pos/providers/table_provider.dart';
 import 'package:pos/utils/app_colors.dart';
 import 'package:pos/utils/app_spacing.dart';
-import 'package:pos/components/ui/custom_button.dart';
 import 'package:pos/components/ui/custom_input.dart';
 
 class TableManagementScreen extends StatefulWidget {
@@ -17,12 +16,13 @@ class TableManagementScreen extends StatefulWidget {
 class _TableManagementScreenState extends State<TableManagementScreen> {
   final _tableNumberController = TextEditingController();
   final _seatsController = TextEditingController();
+  String _filter = 'All';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<TableProvider>(context, listen: false).loadTables();
+      context.read<TableProvider>().loadTables();
     });
   }
 
@@ -33,27 +33,28 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
     super.dispose();
   }
 
-  void _showAddTableDialog() {
+  Future<void> _showAddTableDialog() async {
     _tableNumberController.clear();
     _seatsController.clear();
 
-    showDialog(
+    await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add New Table'),
-        content: SingleChildScrollView(
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Add table'),
+        content: SizedBox(
+          width: 380,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               CustomInput(
                 controller: _tableNumberController,
-                label: 'Table Number',
-                keyboardType: TextInputType.text, // Changed from number to text
+                label: 'Table number',
+                keyboardType: TextInputType.text,
               ),
               const SizedBox(height: AppSpacing.md),
               CustomInput(
                 controller: _seatsController,
-                label: 'Number of Seats',
+                label: 'Number of seats',
                 keyboardType: TextInputType.number,
               ),
             ],
@@ -61,375 +62,481 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () async {
               final tableNumber = _tableNumberController.text.trim();
-              final seats = int.tryParse(_seatsController.text);
-
-              if (tableNumber.isEmpty || seats == null) {
-                // Changed validation
+              final seats = int.tryParse(_seatsController.text.trim());
+              if (tableNumber.isEmpty || seats == null || seats <= 0) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please enter valid table number and seats'),
-                  ),
+                  const SnackBar(content: Text('Enter a valid table number and seat count')),
                 );
                 return;
               }
 
-              final provider = Provider.of<TableProvider>(
-                context,
-                listen: false,
+              await context.read<TableProvider>().addTable(tableNumber, seats);
+              if (!mounted) return;
+              Navigator.pop(dialogContext);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Table added successfully')),
               );
-              await provider.addTable(
-                tableNumber,
-                seats,
-              ); // Changed parameter type
-
-              if (mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Table added successfully')),
-                );
-              }
             },
-            child: const Text('Add'),
+            child: const Text('Add table'),
           ),
         ],
       ),
     );
   }
 
-  void _showEditTableDialog(RestaurantTable table) {
+  Future<void> _showEditTableDialog(RestaurantTable table) async {
     _seatsController.text = table.numberOfSeats.toString();
 
-    showDialog(
+    await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Table'),
-        content: SingleChildScrollView(
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Table ${table.tableNumber}'),
+        content: SizedBox(
+          width: 420,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Table ${table.tableNumber}'),
-              const SizedBox(height: AppSpacing.md),
               CustomInput(
                 controller: _seatsController,
-                label: 'Number of Seats',
+                label: 'Number of seats',
                 keyboardType: TextInputType.number,
               ),
-              const SizedBox(height: AppSpacing.md),
-              const Text('Status:'),
-              const SizedBox(height: AppSpacing.sm),
-              ..._buildStatusButtons(table),
+              const SizedBox(height: 20),
+              const Text('Table status', style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: TableStatus.values.map((status) {
+                  final selected = table.status == status;
+                  return ChoiceChip(
+                    label: Text(_statusLabel(status)),
+                    selected: selected,
+                    onSelected: (_) async {
+                      await context.read<TableProvider>().updateTableStatus(table.id, status);
+                      if (!mounted) return;
+                      Navigator.pop(dialogContext);
+                    },
+                  );
+                }).toList(),
+              ),
             ],
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () async {
-              final seats = int.tryParse(_seatsController.text);
-              if (seats == null) {
+              final seats = int.tryParse(_seatsController.text.trim());
+              if (seats == null || seats <= 0) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter valid number')),
+                  const SnackBar(content: Text('Enter a valid seat count')),
                 );
                 return;
               }
-
-              final provider = Provider.of<TableProvider>(
-                context,
-                listen: false,
+              await context.read<TableProvider>().updateTable(table.id, numberOfSeats: seats);
+              if (!mounted) return;
+              Navigator.pop(dialogContext);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Table updated successfully')),
               );
-              await provider.updateTable(table.id, numberOfSeats: seats);
-
-              if (mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Table updated successfully')),
-                );
-              }
             },
-            child: const Text('Update'),
+            child: const Text('Save changes'),
           ),
         ],
       ),
     );
   }
 
-  List<Widget> _buildStatusButtons(RestaurantTable table) {
-    return [
-      Wrap(
-        spacing: AppSpacing.sm,
-        runSpacing: AppSpacing.sm,
-        children: [
-          FilterChip(
-            label: const Text('Empty'),
-            selected: table.status == TableStatus.empty,
-            onSelected: (_) async {
-              final provider = Provider.of<TableProvider>(
-                context,
-                listen: false,
-              );
-              await provider.updateTableStatus(table.id, TableStatus.empty);
-              if (mounted) Navigator.pop(context);
-            },
-            backgroundColor: color: Colors.white,
-            selectedColor: Colors.grey.shade400,
+  Future<void> _deleteTable(RestaurantTable table) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete table'),
+        content: Text('Delete Table ${table.tableNumber}? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
           ),
-          FilterChip(
-            label: const Text('Occupied'),
-            selected: table.status == TableStatus.occupied,
-            onSelected: (_) async {
-              final provider = Provider.of<TableProvider>(
-                context,
-                listen: false,
-              );
-              await provider.updateTableStatus(table.id, TableStatus.occupied);
-              if (mounted) Navigator.pop(context);
-            },
-            backgroundColor: AppColors.success.withOpacity(0.3),
-            selectedColor: AppColors.success,
-          ),
-          FilterChip(
-            label: const Text('Served'),
-            selected: table.status == TableStatus.served,
-            onSelected: (_) async {
-              final provider = Provider.of<TableProvider>(
-                context,
-                listen: false,
-              );
-              await provider.updateTableStatus(table.id, TableStatus.served);
-              if (mounted) Navigator.pop(context);
-            },
-            backgroundColor: Colors.orange.withOpacity(0.3),
-            selectedColor: Colors.orange.shade300,
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
           ),
         ],
       ),
-    ];
+    );
+
+    if (confirmed != true || !mounted) return;
+    await context.read<TableProvider>().deleteTable(table.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Table deleted successfully')),
+    );
   }
 
-  Color _getStatusColor(TableStatus status) {
+  String _statusLabel(TableStatus status) {
     switch (status) {
       case TableStatus.empty:
-        return Colors.grey.shade300;
-      case TableStatus.occupied:
-        return Colors.green.shade300;
-      case TableStatus.served:
-        return Colors.orange.shade300;
-      case TableStatus.cleared:
-        return Colors.blue.shade400;
-    }
-  }
-
-  String _getStatusLabel(TableStatus status) {
-    switch (status) {
-      case TableStatus.empty:
-        return 'Empty';
+        return 'Available';
       case TableStatus.occupied:
         return 'Occupied';
       case TableStatus.served:
         return 'Served';
       case TableStatus.cleared:
-        return 'Cleared';
+        return 'Billing';
     }
+  }
+
+  Color _statusColor(TableStatus status) {
+    switch (status) {
+      case TableStatus.empty:
+        return AppColors.success;
+      case TableStatus.occupied:
+        return AppColors.error;
+      case TableStatus.served:
+        return AppColors.info;
+      case TableStatus.cleared:
+        return AppColors.warning;
+    }
+  }
+
+  List<RestaurantTable> _filteredTables(List<RestaurantTable> tables) {
+    if (_filter == 'All') return tables;
+    return tables.where((table) => _statusLabel(table.status) == _filter).toList();
+  }
+
+  int _count(List<RestaurantTable> tables, String status) {
+    if (status == 'All') return tables.length;
+    return tables.where((table) => _statusLabel(table.status) == status).length;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Table Management'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Center(
-              child: CustomButton(
-                text: 'Add Table',
-                onPressed: _showAddTableDialog,
-                icon: Icons.add,
-                variant: ButtonVariant.filled,
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: Consumer<TableProvider>(
-        builder: (context, tableProvider, child) {
-          if (tableProvider.isLoading && tableProvider.tables.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return Consumer<TableProvider>(
+      builder: (context, tableProvider, child) {
+        if (tableProvider.isLoading && tableProvider.tables.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          if (tableProvider.error != null) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+        if (tableProvider.error != null) {
+          return _ErrorState(
+            message: tableProvider.error.toString(),
+            onRetry: tableProvider.refreshTables,
+          );
+        }
+
+        final allTables = tableProvider.tables;
+        final tables = _filteredTables(allTables);
+
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Icon(Icons.error, size: 64, color: AppColors.error),
-                  const SizedBox(height: AppSpacing.md),
-                  Text('Error: ${tableProvider.error}'),
-                  const SizedBox(height: AppSpacing.md),
-                  CustomButton(
-                    text: 'Retry',
-                    onPressed: () => tableProvider.refreshTables(),
-                    variant: ButtonVariant.filled,
-                  ),
-                ],
-              ),
-            );
-          }
-
-          if (tableProvider.tables.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.table_chart, size: 64, color: Colors.grey),
-                  const SizedBox(height: AppSpacing.md),
-                  const Text('No tables added yet'),
-                  const SizedBox(height: AppSpacing.md),
-                  CustomButton(
-                    text: 'Add First Table',
-                    onPressed: _showAddTableDialog,
-                    icon: Icons.add,
-                    variant: ButtonVariant.filled,
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return GridView.builder(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-  crossAxisCount: 5,
-  childAspectRatio: 1.35,
-  mainAxisSpacing: 12,
-  crossAxisSpacing: 12,
-),
-            itemCount: tableProvider.tables.length,
-            itemBuilder: (context, index) {
-              final table = tableProvider.tables[index];
-              final statusColor = _getStatusColor(table.status);
-              final statusLabel = _getStatusLabel(table.status);
-
-              return GestureDetector(
-                onTap: () => _showEditTableDialog(table),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: Colors.grey.shade300,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        offset: const Offset(0, 3),
-                        blurRadius: 6,
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(12),
-                  
-
-                      const SizedBox(height: 12),
-
-                      // Table number big + nice UI box
-                      Container(
-                        height: 70,
-                        width: 70,
-                        decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(10),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Restaurant Floor',
+                          style: TextStyle(
+                            color: AppColors.grey900,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                        child: Center(
-                          child: Text(
-                            table.tableNumber, // Already String
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
+                        SizedBox(height: 5),
+                        Text(
+                          'View availability and manage your dining tables.',
+                          style: TextStyle(color: AppColors.grey500, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: _showAddTableDialog,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Add table'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: ['All', 'Available', 'Occupied', 'Served', 'Billing'].map((status) {
+                  final selected = _filter == status;
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(9),
+                    onTap: () => setState(() => _filter = status),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: selected ? AppColors.primarySoft : Colors.white,
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(color: selected ? AppColors.primary : AppColors.outlineLight),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            status,
+                            style: TextStyle(
+                              color: selected ? AppColors.primaryDark : AppColors.grey600,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Seats
-                      Text(
-                        '${table.numberOfSeats} seats',
-                        style: TextStyle(
-                          color: Colors.grey.shade700,
-                          fontSize: 14,
-                        ),
-                      ),
-
-                      const Spacer(),
-
-                      // Edit + Delete
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          IconButton(
-                            icon: Icon(Icons.edit, color: Colors.blue.shade700),
-                            onPressed: () => _showEditTableDialog(table),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: selected ? Colors.white : AppColors.grey100,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _count(allTables, status).toString(),
+                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700),
+                            ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('Delete Table'),
-                                  content: Text(
-                                    'Are you sure you want to delete Table ${table.tableNumber}?',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    FilledButton(
-                                      onPressed: () async {
-                                        final provider =
-                                            Provider.of<TableProvider>(
-                                              context,
-                                              listen: false,
-                                            );
-                                        await provider.deleteTable(table.id);
-                                        if (mounted) {
-                                          Navigator.pop(context);
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Table deleted successfully',
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                      },
-                                      child: const Text('Delete'),
-                                    ),
-                                  ],
-                                ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: tables.isEmpty
+                    ? const _EmptyState()
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          final width = constraints.maxWidth;
+                          final columns = width >= 1250
+                              ? 5
+                              : width >= 950
+                                  ? 4
+                                  : width >= 680
+                                      ? 3
+                                      : 2;
+                          return GridView.builder(
+                            itemCount: tables.length,
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: columns,
+                              crossAxisSpacing: 14,
+                              mainAxisSpacing: 14,
+                              childAspectRatio: 1.35,
+                            ),
+                            itemBuilder: (context, index) {
+                              final table = tables[index];
+                              return _TableCard(
+                                table: table,
+                                label: _statusLabel(table.status),
+                                statusColor: _statusColor(table.status),
+                                onEdit: () => _showEditTableDialog(table),
+                                onDelete: () => _deleteTable(table),
                               );
                             },
-                          ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TableCard extends StatefulWidget {
+  final RestaurantTable table;
+  final String label;
+  final Color statusColor;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _TableCard({
+    required this.table,
+    required this.label,
+    required this.statusColor,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  State<_TableCard> createState() => _TableCardState();
+}
+
+class _TableCardState extends State<_TableCard> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _hovered ? AppColors.grey300 : AppColors.outlineLight),
+          boxShadow: _hovered
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.055),
+                    blurRadius: 16,
+                    offset: const Offset(0, 5),
+                  ),
+                ]
+              : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: widget.onEdit,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(color: widget.statusColor, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        widget.label.toUpperCase(),
+                        style: TextStyle(
+                          color: widget.statusColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: .7,
+                        ),
+                      ),
+                      const Spacer(),
+                      PopupMenuButton<String>(
+                        tooltip: 'Table actions',
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.more_horiz_rounded, color: AppColors.grey400, size: 20),
+                        onSelected: (value) {
+                          if (value == 'edit') widget.onEdit();
+                          if (value == 'delete') widget.onDelete();
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(value: 'edit', child: Text('Edit table')),
+                          PopupMenuItem(value: 'delete', child: Text('Delete table')),
                         ],
                       ),
                     ],
                   ),
-                ),
-              );
-            },
-          );
-        },
+                  const Spacer(),
+                  Text(
+                    'Table ${widget.table.tableNumber}',
+                    style: const TextStyle(
+                      color: AppColors.grey900,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Row(
+                    children: [
+                      const Icon(Icons.chair_alt_outlined, size: 16, color: AppColors.grey400),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${widget.table.numberOfSeats} seats',
+                        style: const TextStyle(color: AppColors.grey500, fontSize: 12.5),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  const Divider(height: 1, color: AppColors.outlineLight),
+                  const SizedBox(height: 11),
+                  const Row(
+                    children: [
+                      Text('Manage table', style: TextStyle(color: AppColors.grey500, fontSize: 11.5)),
+                      Spacer(),
+                      Icon(Icons.arrow_forward_rounded, size: 16, color: AppColors.grey400),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.table_restaurant_outlined, size: 48, color: AppColors.grey300),
+          SizedBox(height: 12),
+          Text('No tables found', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          SizedBox(height: 5),
+          Text('Try another status filter or add a new table.', style: TextStyle(color: AppColors.grey500)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.error),
+          const SizedBox(height: 12),
+          const Text('Unable to load tables', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Text(message, style: const TextStyle(color: AppColors.grey500)),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Try again'),
+          ),
+        ],
       ),
     );
   }
