@@ -31,7 +31,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (context, provider, _) {
         final tables = provider.tables;
         final available = tables.where((t) => t.status == TableStatus.empty).length;
-        final occupied = tables.where((t) => t.status == TableStatus.occupied).length;
         final active = tables.where((t) => t.status != TableStatus.empty).length;
 
         return Container(
@@ -213,7 +212,7 @@ class _OrderTypeCard extends StatelessWidget {
                 ],
               ),
               const Spacer(),
-              Text(title, style: TextStyle(color: primary ? Colors.white : AppColors.grey900, fontSize: 19, fontWeight: FontWeight.w750)),
+              Text(title, style: TextStyle(color: primary ? Colors.white : AppColors.grey900, fontSize: 19, fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
               Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: primary ? Colors.white70 : AppColors.grey500, fontSize: 11.5)),
               const SizedBox(height: 7),
