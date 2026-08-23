@@ -221,7 +221,7 @@ class _NavItemState extends State<_NavItem> {
               child: Row(children: [
                 Icon(widget.item.icon, size: 19, color: widget.selected ? AppColors.primaryLight : AppColors.sidebarMuted),
                 const SizedBox(width: 12),
-                Expanded(child: Text(widget.item.label, style: TextStyle(color: widget.selected ? Colors.white : AppColors.sidebarText, fontSize: 13, fontWeight: widget.selected ? FontWeight.w650 : FontWeight.w500))),
+                Expanded(child: Text(widget.item.label, style: TextStyle(color: widget.selected ? Colors.white : AppColors.sidebarText, fontSize: 13, fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500))),
               ]),
             ),
           ),
@@ -250,7 +250,7 @@ class _TopBar extends StatelessWidget {
           const SizedBox(width: 8),
         ],
         Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(color: AppColors.grey900, fontSize: 20, fontWeight: FontWeight.w750)),
+          Text(title, style: const TextStyle(color: AppColors.grey900, fontSize: 20, fontWeight: FontWeight.w700)),
           if (!compact) const Text('Manage restaurant operations', style: TextStyle(color: AppColors.grey500, fontSize: 11.5)),
         ]),
         const Spacer(),
