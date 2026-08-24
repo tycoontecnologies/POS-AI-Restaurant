@@ -31,6 +31,8 @@ class MainShell extends StatelessWidget {
     final location = GoRouterState.of(context).uri.toString();
     if (user == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
+    final canSeeSales = user.role != UserRole.waiter && user.role != UserRole.reception && user.role != UserRole.kitchen;
+
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance.collection('vendors').doc(user.authUid).snapshots(),
       builder: (_, snap) {
@@ -43,8 +45,8 @@ class MainShell extends StatelessWidget {
             const SingleActivator(LogicalKeyboardKey.keyI): () => _shortcut(context, AppRouter.products),
             const SingleActivator(LogicalKeyboardKey.keyA): () => _shortcut(context, AppRouter.products),
             const SingleActivator(LogicalKeyboardKey.keyB): () => _shortcut(context, AppRouter.orders),
-            const SingleActivator(LogicalKeyboardKey.keyS): () => _shortcut(context, AppRouter.sales),
-            const SingleActivator(LogicalKeyboardKey.keyR): () => _shortcut(context, AppRouter.salesReturn),
+            if (canSeeSales) const SingleActivator(LogicalKeyboardKey.keyS): () => _shortcut(context, AppRouter.sales),
+            if (canSeeSales) const SingleActivator(LogicalKeyboardKey.keyR): () => _shortcut(context, AppRouter.salesReturn),
             const SingleActivator(LogicalKeyboardKey.keyC): () => _shortcut(context, AppRouter.customers),
             const SingleActivator(LogicalKeyboardKey.keyO): () => _shortcut(context, AppRouter.purchases),
             const SingleActivator(LogicalKeyboardKey.keyV): () => _shortcut(context, AppRouter.suppliers),
@@ -196,8 +198,7 @@ class _QuickTopBar extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     final user = auth.currentUser;
     final title = _pageTitle(currentLocation);
-    final isAdmin = user?.isAdmin ?? false;
-    final actions = _quickActions(isAdmin);
+    final actions = _quickActions(user?.role ?? UserRole.user);
     final onDashboard = currentLocation == AppRouter.dashboard;
     return Container(
       height: 76,
@@ -222,7 +223,8 @@ class _QuickTopBar extends StatelessWidget {
         const SizedBox(width: 8),
         Tooltip(message: 'Change interface color', child: IconButton(onPressed: () => _openColorPicker(context), icon: Icon(Icons.palette_outlined, color: accent, size: 20))),
         Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6), decoration: BoxDecoration(color: AppColors.successSoft, borderRadius: BorderRadius.circular(18)), child: const Row(children: [Icon(Icons.circle, size: 7, color: AppColors.success), SizedBox(width: 5), Text('Online', style: TextStyle(color: AppColors.successDark, fontSize: 10.5, fontWeight: FontWeight.w700))])),
-        const SizedBox(width: 7), IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none_rounded, color: AppColors.grey700, size: 20)),
+        const SizedBox(width: 7),
+        _NotificationBell(user: user, accent: accent),
         CircleAvatar(radius: 16, backgroundColor: accent.withValues(alpha: .10), child: Text((user?.name ?? 'U').substring(0,1).toUpperCase(), style: TextStyle(color: accent, fontWeight: FontWeight.w800, fontSize: 11))),
       ]),
     );
@@ -241,12 +243,110 @@ class _QuickTopBar extends StatelessWidget {
 
   bool _isSelected(String route, String location) => route == AppRouter.dashboard ? location == route : location.startsWith(route);
 
-  List<_QuickAction> _quickActions(bool admin) => admin ? const [
-    _QuickAction('Dashboard', Icons.dashboard_outlined, AppRouter.dashboard, 'd'), _QuickAction('Tables', Icons.table_restaurant_outlined, AppRouter.tables, 't'), _QuickAction('Inventory', Icons.inventory_2_outlined, AppRouter.products, 'i'), _QuickAction('Add Item', Icons.add_box_outlined, AppRouter.products, 'a'), _QuickAction('Billing', Icons.receipt_long_outlined, AppRouter.orders, 'b'), _QuickAction('Sales', Icons.point_of_sale_outlined, AppRouter.sales, 's'), _QuickAction('Returns', Icons.assignment_return_outlined, AppRouter.salesReturn, 'r'), _QuickAction('CRM', Icons.people_alt_outlined, AppRouter.customers, 'c'), _QuickAction('Operations', Icons.settings_suggest_outlined, AppRouter.purchases, 'o'), _QuickAction('Vendors', Icons.local_shipping_outlined, AppRouter.suppliers, 'v'), _QuickAction('Kitchen Recipes', Icons.menu_book_outlined, AppRouter.ingredients, 'k'), _QuickAction('Users', Icons.manage_accounts_outlined, AppRouter.usersRoles, 'u'), _QuickAction('Preferences', Icons.settings_outlined, AppRouter.settings, 'p'),
-  ] : const [_QuickAction('Dashboard', Icons.dashboard_outlined, AppRouter.dashboard, 'd'), _QuickAction('Tables', Icons.table_restaurant_outlined, AppRouter.tables, 't'), _QuickAction('Billing', Icons.receipt_long_outlined, AppRouter.orders, 'b'), _QuickAction('Sales', Icons.point_of_sale_outlined, AppRouter.sales, 's')];
+  List<_QuickAction> _quickActions(UserRole role) {
+    if (role == UserRole.superAdmin || role == UserRole.admin) {
+      return const [
+        _QuickAction('Dashboard', Icons.dashboard_outlined, AppRouter.dashboard, 'd'), _QuickAction('Tables', Icons.table_restaurant_outlined, AppRouter.tables, 't'), _QuickAction('Inventory', Icons.inventory_2_outlined, AppRouter.products, 'i'), _QuickAction('Add Item', Icons.add_box_outlined, AppRouter.products, 'a'), _QuickAction('Billing', Icons.receipt_long_outlined, AppRouter.orders, 'b'), _QuickAction('Sales', Icons.point_of_sale_outlined, AppRouter.sales, 's'), _QuickAction('Returns', Icons.assignment_return_outlined, AppRouter.salesReturn, 'r'), _QuickAction('CRM', Icons.people_alt_outlined, AppRouter.customers, 'c'), _QuickAction('Operations', Icons.settings_suggest_outlined, AppRouter.purchases, 'o'), _QuickAction('Vendors', Icons.local_shipping_outlined, AppRouter.suppliers, 'v'), _QuickAction('Kitchen Recipes', Icons.menu_book_outlined, AppRouter.ingredients, 'k'), _QuickAction('Users', Icons.manage_accounts_outlined, AppRouter.usersRoles, 'u'), _QuickAction('Preferences', Icons.settings_outlined, AppRouter.settings, 'p'),
+      ];
+    }
+    if (role == UserRole.waiter) {
+      return const [_QuickAction('Dashboard', Icons.dashboard_outlined, AppRouter.dashboard, 'd'), _QuickAction('Tables', Icons.table_restaurant_outlined, AppRouter.tables, 't'), _QuickAction('Billing', Icons.receipt_long_outlined, AppRouter.orders, 'b')];
+    }
+    if (role == UserRole.kitchen) {
+      return const [_QuickAction('Dashboard', Icons.dashboard_outlined, AppRouter.dashboard, 'd'), _QuickAction('Billing', Icons.receipt_long_outlined, AppRouter.orders, 'b')];
+    }
+    if (role == UserRole.accounts) {
+      return const [_QuickAction('Dashboard', Icons.dashboard_outlined, AppRouter.dashboard, 'd'), _QuickAction('Sales', Icons.point_of_sale_outlined, AppRouter.sales, 's'), _QuickAction('Returns', Icons.assignment_return_outlined, AppRouter.salesReturn, 'r'), _QuickAction('Operations', Icons.settings_suggest_outlined, AppRouter.purchases, 'o')];
+    }
+    return const [_QuickAction('Dashboard', Icons.dashboard_outlined, AppRouter.dashboard, 'd'), _QuickAction('Tables', Icons.table_restaurant_outlined, AppRouter.tables, 't'), _QuickAction('Billing', Icons.receipt_long_outlined, AppRouter.orders, 'b')];
+  }
 
   String _pageTitle(String path) {
     if (path.startsWith('/table-order')) return 'POS'; if (path.startsWith(AppRouter.tables)) return 'Tables'; if (path.startsWith(AppRouter.products)) return 'Inventory'; if (path.startsWith(AppRouter.orders)) return 'Billing'; if (path.startsWith(AppRouter.customers)) return 'CRM'; if (path.startsWith(AppRouter.purchases)) return 'Operations'; if (path.startsWith(AppRouter.ingredients)) return 'Kitchen Recipes'; if (path.startsWith(AppRouter.suppliers)) return 'Vendors'; if (path.startsWith(AppRouter.usersRoles)) return 'Users & Roles'; if (path.startsWith(AppRouter.settings)) return 'Preferences'; if (path.startsWith(AppRouter.salesReturn)) return 'Returns'; if (path.startsWith(AppRouter.sales)) return 'Sales'; return 'Dashboard';
+  }
+}
+
+class _NotificationBell extends StatelessWidget {
+  final UserModel? user;
+  final Color accent;
+  const _NotificationBell({required this.user, required this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    if (user == null) return const SizedBox.shrink();
+    final ref = FirebaseFirestore.instance.collection('vendors').doc(user!.id).collection('notifications');
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: ref.orderBy('createdAt', descending: true).limit(50).snapshots(),
+      builder: (_, snap) {
+        final visible = (snap.data?.docs ?? []).where((doc) {
+          final d = doc.data();
+          final target = d['targetAuthUid']?.toString();
+          final roles = List<String>.from(d['targetRoles'] ?? const <String>[]);
+          return (target == null || target.isEmpty || target == user!.authUid) && (roles.isEmpty || roles.contains(user!.role.name));
+        }).toList();
+        final unread = visible.where((doc) => !List<String>.from(doc.data()['readBy'] ?? const <String>[]).contains(user!.authUid)).length;
+        return Stack(clipBehavior: Clip.none, children: [
+          IconButton(onPressed: () => _showNotifications(context, visible), icon: const Icon(Icons.notifications_none_rounded, color: AppColors.grey700, size: 20)),
+          if (unread > 0) Positioned(right: 5, top: 5, child: Container(minWidth: 15, height: 15, padding: const EdgeInsets.symmetric(horizontal: 3), decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(10)), alignment: Alignment.center, child: Text(unread > 9 ? '9+' : '$unread', style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white)))),
+        ]);
+      },
+    );
+  }
+
+  void _showNotifications(BuildContext context, List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheet) => SizedBox(
+        height: MediaQuery.of(sheet).size.height * .68,
+        child: Column(children: [
+          Padding(padding: const EdgeInsets.fromLTRB(20, 2, 12, 12), child: Row(children: [const Expanded(child: Text('Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900))), Text('${docs.length} events', style: const TextStyle(fontSize: 10, color: AppColors.grey500))])),
+          const Divider(height: 1),
+          Expanded(child: docs.isEmpty ? const Center(child: Text('No notifications yet.', style: TextStyle(color: AppColors.grey500))) : ListView.separated(
+            padding: const EdgeInsets.all(12),
+            itemCount: docs.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (_, i) {
+              final doc = docs[i]; final d = doc.data();
+              final created = d['createdAt'] is Timestamp ? (d['createdAt'] as Timestamp).toDate() : null;
+              final readBy = List<String>.from(d['readBy'] ?? const <String>[]);
+              final unread = !readBy.contains(user!.authUid);
+              return ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                leading: CircleAvatar(backgroundColor: unread ? accent.withValues(alpha: .12) : AppColors.grey100, child: Icon(_eventIcon((d['type'] ?? '').toString()), color: unread ? accent : AppColors.grey500, size: 18)),
+                title: Text((d['title'] ?? 'Event').toString(), style: TextStyle(fontSize: 12, fontWeight: unread ? FontWeight.w800 : FontWeight.w600)),
+                subtitle: Text('${d['message'] ?? ''}${created == null ? '' : '\n${_ago(created)}'}', style: const TextStyle(fontSize: 10.5, color: AppColors.grey500)),
+                onTap: () async {
+                  await doc.reference.set({'readBy': FieldValue.arrayUnion([user!.authUid])}, SetOptions(merge: true));
+                },
+              );
+            },
+          )),
+        ]),
+      ),
+    );
+  }
+
+  IconData _eventIcon(String type) {
+    switch (type) {
+      case 'work_started': return Icons.login_rounded;
+      case 'work_ended': return Icons.logout_rounded;
+      case 'review': return Icons.star_outline_rounded;
+      case 'wage_cut': return Icons.money_off_csred_outlined;
+      case 'late_start': return Icons.schedule_rounded;
+      case 'missing': return Icons.person_off_outlined;
+      case 'account_created': return Icons.person_add_alt_1_rounded;
+      default: return Icons.notifications_active_outlined;
+    }
+  }
+
+  String _ago(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 }
 
