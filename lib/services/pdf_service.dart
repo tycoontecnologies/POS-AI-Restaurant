@@ -32,9 +32,12 @@ class PdfService {
       logoBytes = await _getImageData(user.restaurantLogoUrl!);
     }
 
-    final receiptId = DateFormat('ddMMyyHHmmss').format(sale.createdAt);
+    final receiptId = sale.id.isNotEmpty
+        ? sale.id
+        : DateFormat('ddMMyyHHmmss').format(sale.createdAt);
     final dateTime = DateFormat('dd MMM yyyy hh:mm a').format(sale.createdAt);
     final copyText = '${_ordinal(actualPrintNumber).toUpperCase()} PRINT';
+    final numberLabel = documentType.toUpperCase() == 'BILL' ? 'Bill No:' : 'Receipt No:';
 
     pdf.addPage(
       pw.Page(
@@ -43,12 +46,6 @@ class PdfService {
         build: (_) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            pw.Container(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-              color: PdfColors.black,
-              child: pw.Center(child: pw.Text(copyText, style: pw.TextStyle(color: PdfColors.white, fontSize: 11, fontWeight: pw.FontWeight.bold))),
-            ),
-            pw.SizedBox(height: 8),
             pw.Center(child: pw.Column(children: [
               if (logoBytes != null && logoBytes.isNotEmpty)
                 pw.Container(width: 56, height: 56, child: pw.Image(pw.MemoryImage(logoBytes))),
@@ -63,15 +60,14 @@ class PdfService {
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.grey600, width: .35),
               children: [
-                pw.TableRow(children: [_infoCell('Print:', label: true), _infoCell(copyText)]),
-                pw.TableRow(children: [_infoCell('Document:', label: true), _infoCell(receiptId)]),
+                pw.TableRow(children: [_infoCell(numberLabel, label: true), _infoCell(receiptId)]),
                 pw.TableRow(children: [_infoCell('Date:', label: true), _infoCell(dateTime)]),
                 if (sale.tableNumber != null && sale.tableNumber!.isNotEmpty)
                   pw.TableRow(children: [_infoCell('Table:', label: true), _infoCell(sale.tableNumber!)]),
                 if (sale.waiterName != null && sale.waiterName!.trim().isNotEmpty)
                   pw.TableRow(children: [_infoCell('Waiter:', label: true), _infoCell(sale.waiterName!)]),
                 if (showPayment)
-                  pw.TableRow(children: [_infoCell('Paid via:', label: true), _infoCell(sale.paymentMethod)]),
+                  pw.TableRow(children: [_infoCell('Paid via:', label: true), _infoCell(sale.paymentMethod.isEmpty ? 'Unknown' : sale.paymentMethod)]),
                 if (showPayment && sale.paymentReference != null && sale.paymentReference!.trim().isNotEmpty)
                   pw.TableRow(children: [_infoCell('Reference:', label: true), _infoCell(sale.paymentReference!)]),
                 if (sale.praInvoiceNo != null && sale.praInvoiceNo!.trim().isNotEmpty)
@@ -113,6 +109,8 @@ class PdfService {
             pw.Divider(),
             pw.Center(child: pw.Column(children: [
               pw.Text(showPayment ? 'Thank you for your purchase!' : 'Please present this bill at payment.', style: const pw.TextStyle(fontSize: 9.5)),
+              pw.SizedBox(height: 3),
+              pw.Text(copyText, style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold)),
               pw.SizedBox(height: 2),
               pw.Text('Powered by Tycoon POS', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
               pw.Text('Tycoon Technologies Pvt. Ltd • www.tycoon.technology', style: const pw.TextStyle(fontSize: 7.5)),
@@ -130,12 +128,14 @@ class PdfService {
     required user_model.UserModel? user,
     String? orderType,
     int? printNumber,
+    String? kotNumber,
   }) async {
     final pdf = pw.Document();
+    final documentId = kotNumber ?? table?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
     final actualPrintNumber = printNumber ?? await DocumentPrintService.nextPrintNumber(
       restaurantId: user?.id ?? 'unknown',
       documentType: 'KOT',
-      documentId: table?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      documentId: documentId,
       userId: user?.authUid ?? user?.id ?? 'unknown',
       branchId: user?.branchId,
     );
@@ -151,7 +151,7 @@ class PdfService {
       grouped[item.displayName] = (grouped[item.displayName] ?? 0) + item.quantity;
     }
     final now = DateTime.now();
-    final kotId = DateFormat('ddMMyyHHmmss').format(now);
+    final kotId = kotNumber ?? DateFormat('ddMMyyHHmmss').format(now);
     final time = DateFormat('hh:mm a').format(now);
 
     pdf.addPage(
@@ -159,12 +159,6 @@ class PdfService {
         pageFormat: PdfPageFormat.roll80,
         margin: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 14),
         build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.stretch, children: [
-          pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-            color: PdfColors.black,
-            child: pw.Center(child: pw.Text(copyText, style: pw.TextStyle(color: PdfColors.white, fontSize: 11, fontWeight: pw.FontWeight.bold))),
-          ),
-          pw.SizedBox(height: 7),
           pw.Center(child: pw.Column(children: [
             if (logoBytes != null && logoBytes.isNotEmpty) pw.Container(width: 46, height: 46, child: pw.Image(pw.MemoryImage(logoBytes))),
             pw.Text('KITCHEN ORDER TICKET', style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold)),
@@ -172,11 +166,10 @@ class PdfService {
           ])),
           pw.SizedBox(height: 8),
           pw.Table(border: pw.TableBorder.all(width: .45), children: [
-            pw.TableRow(children: [_infoCell('Print', label: true), _infoCell(copyText)]),
-            pw.TableRow(children: [_infoCell('KOT#', label: true), _infoCell(kotId)]),
-            if (table != null) pw.TableRow(children: [_infoCell('Table', label: true), _infoCell('Table ${table.tableNumber}')]),
-            pw.TableRow(children: [_infoCell('Time', label: true), _infoCell(time)]),
-            if (orderType != null) pw.TableRow(children: [_infoCell('Type', label: true), _infoCell(orderType)]),
+            pw.TableRow(children: [_infoCell('KOT No:', label: true), _infoCell(kotId)]),
+            if (table != null) pw.TableRow(children: [_infoCell('Table:', label: true), _infoCell('Table ${table.tableNumber}')]),
+            pw.TableRow(children: [_infoCell('Time:', label: true), _infoCell(time)]),
+            if (orderType != null) pw.TableRow(children: [_infoCell('Type:', label: true), _infoCell(orderType)]),
           ]),
           pw.SizedBox(height: 8),
           pw.Text('ITEMS ORDERED:', style: pw.TextStyle(fontSize: 11.5, fontWeight: pw.FontWeight.bold)),
@@ -186,7 +179,7 @@ class PdfService {
           ]),
           pw.SizedBox(height: 9),
           pw.Divider(),
-          pw.Center(child: pw.Text('*** $copyText • KOT ***', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold))),
+          pw.Center(child: pw.Text(copyText, style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold))),
         ]),
       ),
     );
