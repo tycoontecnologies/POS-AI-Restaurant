@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/models/user.dart';
 import 'package:pos/providers/auth_provider.dart';
+import 'package:pos/screens/employee_dashboard_screen.dart';
 import 'package:pos/screens/restaurant_command_center_screen.dart';
-import 'package:pos/screens/role_home_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -19,6 +19,6 @@ class DashboardScreen extends StatelessWidget {
       return const RestaurantCommandCenterScreen();
     }
 
-    return RoleHomeScreen(user: user);
+    return const EmployeeDashboardScreen();
   }
 }
