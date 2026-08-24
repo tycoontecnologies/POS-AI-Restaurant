@@ -5,6 +5,10 @@ class Sale {
   final double total;
   final DateTime createdAt;
   final String? tableNumber;
+  final String paymentMethod;
+  final String? paymentReference;
+  final String? praInvoiceId;
+  final String? praInvoiceNo;
 
   Sale({
     required this.id,
@@ -13,6 +17,10 @@ class Sale {
     required this.total,
     required this.createdAt,
     this.tableNumber,
+    this.paymentMethod = 'Cash',
+    this.paymentReference,
+    this.praInvoiceId,
+    this.praInvoiceNo,
   });
 
   Map<String, dynamic> toMap() {
@@ -23,6 +31,10 @@ class Sale {
       'total': total,
       'createdAt': createdAt.millisecondsSinceEpoch,
       'tableNumber': tableNumber,
+      'paymentMethod': paymentMethod,
+      'paymentReference': paymentReference,
+      'praInvoiceId': praInvoiceId,
+      'praInvoiceNo': praInvoiceNo,
     };
   }
 
@@ -36,6 +48,10 @@ class Sale {
       total: (map['total'] ?? 0.0).toDouble(),
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt'] ?? 0),
       tableNumber: map['tableNumber'] as String?,
+      paymentMethod: (map['paymentMethod'] ?? 'Cash').toString(),
+      paymentReference: map['paymentReference'] as String?,
+      praInvoiceId: map['praInvoiceId'] as String?,
+      praInvoiceNo: map['praInvoiceNo'] as String?,
     );
   }
 }
