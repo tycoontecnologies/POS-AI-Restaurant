@@ -32,9 +32,7 @@ class PdfService {
       logoBytes = await _getImageData(user.restaurantLogoUrl!);
     }
 
-    final receiptId = sale.id.isNotEmpty
-        ? sale.id
-        : DateFormat('ddMMyyHHmmss').format(sale.createdAt);
+    final receiptId = DateFormat('ddMMyyHHmmss').format(sale.createdAt);
     final dateTime = DateFormat('dd MMM yyyy hh:mm a').format(sale.createdAt);
     final copyText = '${_ordinal(actualPrintNumber).toUpperCase()} PRINT';
     final numberLabel = documentType.toUpperCase() == 'BILL' ? 'Bill No:' : 'Receipt No:';
