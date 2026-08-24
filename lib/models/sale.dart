@@ -9,6 +9,15 @@ class Sale {
   final String? paymentReference;
   final String? praInvoiceId;
   final String? praInvoiceNo;
+  final String? waiterId;
+  final String? waiterName;
+  final double tipAmount;
+  final double commissionAmount;
+  final double serviceChargeAmount;
+  final int pointsAwarded;
+  final double? customerRating;
+  final String? customerReview;
+  final int receiptPrintCount;
 
   Sale({
     required this.id,
@@ -21,6 +30,15 @@ class Sale {
     this.paymentReference,
     this.praInvoiceId,
     this.praInvoiceNo,
+    this.waiterId,
+    this.waiterName,
+    this.tipAmount = 0,
+    this.commissionAmount = 0,
+    this.serviceChargeAmount = 0,
+    this.pointsAwarded = 0,
+    this.customerRating,
+    this.customerReview,
+    this.receiptPrintCount = 0,
   });
 
   Map<String, dynamic> toMap() {
@@ -35,6 +53,15 @@ class Sale {
       'paymentReference': paymentReference,
       'praInvoiceId': praInvoiceId,
       'praInvoiceNo': praInvoiceNo,
+      'waiterId': waiterId,
+      'waiterName': waiterName,
+      'tipAmount': tipAmount,
+      'commissionAmount': commissionAmount,
+      'serviceChargeAmount': serviceChargeAmount,
+      'pointsAwarded': pointsAwarded,
+      'customerRating': customerRating,
+      'customerReview': customerReview,
+      'receiptPrintCount': receiptPrintCount,
     };
   }
 
@@ -52,6 +79,15 @@ class Sale {
       paymentReference: map['paymentReference'] as String?,
       praInvoiceId: map['praInvoiceId'] as String?,
       praInvoiceNo: map['praInvoiceNo'] as String?,
+      waiterId: map['waiterId']?.toString(),
+      waiterName: map['waiterName']?.toString(),
+      tipAmount: (map['tipAmount'] ?? 0).toDouble(),
+      commissionAmount: (map['commissionAmount'] ?? 0).toDouble(),
+      serviceChargeAmount: (map['serviceChargeAmount'] ?? 0).toDouble(),
+      pointsAwarded: (map['pointsAwarded'] ?? 0).toInt(),
+      customerRating: map['customerRating'] == null ? null : (map['customerRating'] as num).toDouble(),
+      customerReview: map['customerReview']?.toString(),
+      receiptPrintCount: (map['receiptPrintCount'] ?? 0).toInt(),
     );
   }
 }
