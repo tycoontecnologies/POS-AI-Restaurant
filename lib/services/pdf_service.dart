@@ -1,5 +1,3 @@
-// lib/services/pdf_service.dart
-
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -16,11 +14,14 @@ class PdfService {
     required Sale sale,
     required user_model.UserModel? user,
     int? printNumber,
+    String documentTitle = 'CUSTOMER RECEIPT',
+    String documentType = 'RECEIPT',
+    bool showPayment = true,
   }) async {
     final pdf = pw.Document();
     final actualPrintNumber = printNumber ?? await DocumentPrintService.nextPrintNumber(
       restaurantId: user?.id ?? sale.vendorId,
-      documentType: 'RECEIPT',
+      documentType: documentType,
       documentId: sale.id,
       userId: user?.authUid ?? user?.id ?? sale.vendorId,
       branchId: user?.branchId,
@@ -31,139 +32,95 @@ class PdfService {
       logoBytes = await _getImageData(user.restaurantLogoUrl!);
     }
 
-    final formattedReceiptId = DateFormat('ddMMyyHHmm').format(DateTime.now());
-    final formattedDateTime = DateFormat('dd MMM yyyy hh:mm a').format(sale.createdAt);
+    final receiptId = DateFormat('ddMMyyHHmmss').format(sale.createdAt);
+    final dateTime = DateFormat('dd MMM yyyy hh:mm a').format(sale.createdAt);
+    final copyText = '${_ordinal(actualPrintNumber).toUpperCase()} PRINT';
 
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.roll80,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        build: (context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            children: [
-              pw.Center(
-                child: pw.Column(
-                  children: [
-                    pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border.all(color: PdfColors.black, width: .6),
-                        borderRadius: pw.BorderRadius.circular(3),
-                      ),
-                      child: pw.Text(
-                        '${_ordinal(actualPrintNumber).toUpperCase()} PRINT',
-                        style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
-                      ),
-                    ),
-                    pw.SizedBox(height: 6),
-                    if (logoBytes != null && logoBytes.isNotEmpty)
-                      pw.Container(width: 60, height: 60, child: pw.Image(pw.MemoryImage(logoBytes))),
-                    pw.SizedBox(height: 6),
-                    pw.Text(
-                      user?.restaurantName.isNotEmpty == true ? user!.restaurantName : 'My Restaurant',
-                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
-                    ),
-                    if (user?.location.isNotEmpty == true)
-                      pw.Text(user!.location, style: pw.TextStyle(fontSize: 10), textAlign: pw.TextAlign.center),
-                    if (user?.phoneNo.isNotEmpty == true)
-                      pw.Text('Phone: ${user!.phoneNo}', style: pw.TextStyle(fontSize: 10)),
-                    pw.SizedBox(height: 10),
-                    pw.Text('CUSTOMER RECEIPT', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 12),
-              pw.Container(
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.grey600),
-                  borderRadius: pw.BorderRadius.circular(4),
-                ),
-                child: pw.Table(
-                  border: pw.TableBorder.all(color: PdfColors.grey600, width: 0.3),
-                  children: [
-                    pw.TableRow(children: [_infoCell('Receipt:', isLabel: true), _infoCell(formattedReceiptId)]),
-                    pw.TableRow(children: [_infoCell('Date:', isLabel: true), _infoCell(formattedDateTime)]),
-                    if (sale.tableNumber != null && sale.tableNumber!.isNotEmpty)
-                      pw.TableRow(children: [_infoCell('Table:', isLabel: true), _infoCell(sale.tableNumber!)]),
-                    if (sale.waiterName != null && sale.waiterName!.trim().isNotEmpty)
-                      pw.TableRow(children: [_infoCell('Waiter:', isLabel: true), _infoCell(sale.waiterName!)]),
-                    pw.TableRow(children: [_infoCell('Paid via:', isLabel: true), _infoCell(sale.paymentMethod)]),
-                    if (sale.paymentReference != null && sale.paymentReference!.trim().isNotEmpty)
-                      pw.TableRow(children: [_infoCell('Reference:', isLabel: true), _infoCell(sale.paymentReference!)]),
-                    if (sale.praInvoiceNo != null && sale.praInvoiceNo!.trim().isNotEmpty)
-                      pw.TableRow(children: [_infoCell('PRA Invoice:', isLabel: true), _infoCell(sale.praInvoiceNo!)]),
-                    if (sale.praInvoiceId != null && sale.praInvoiceId!.trim().isNotEmpty)
-                      pw.TableRow(children: [_infoCell('PRA ID:', isLabel: true), _infoCell(sale.praInvoiceId!)]),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 10),
-              pw.Text('ITEMS', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-              pw.Table(
-                border: pw.TableBorder.all(color: PdfColors.grey600, width: 0.5),
-                children: [
-                  pw.TableRow(
-                    decoration: pw.BoxDecoration(color: PdfColors.grey300),
-                    children: [
-                      pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Product', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('Amount', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-                      ),
-                    ],
-                  ),
-                  ...sale.items.map((item) => pw.TableRow(children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('${item.productName} x${item.quantity}')),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text((item.price * item.quantity).toStringAsFixed(0))),
-                        ),
-                      ])),
-                ],
-              ),
-              pw.SizedBox(height: 10),
-              if (sale.tipAmount > 0) ...[
-                pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                  pw.Text('Tip:', style: pw.TextStyle(fontSize: 10)),
-                  pw.Text(sale.tipAmount.toStringAsFixed(0), style: pw.TextStyle(fontSize: 10)),
-                ]),
-                pw.SizedBox(height: 5),
+        margin: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        build: (_) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+          children: [
+            pw.Container(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              color: PdfColors.black,
+              child: pw.Center(child: pw.Text(copyText, style: pw.TextStyle(color: PdfColors.white, fontSize: 11, fontWeight: pw.FontWeight.bold))),
+            ),
+            pw.SizedBox(height: 8),
+            pw.Center(child: pw.Column(children: [
+              if (logoBytes != null && logoBytes.isNotEmpty)
+                pw.Container(width: 56, height: 56, child: pw.Image(pw.MemoryImage(logoBytes))),
+              pw.SizedBox(height: 4),
+              pw.Text(user?.restaurantName.isNotEmpty == true ? user!.restaurantName : 'Restaurant', style: pw.TextStyle(fontSize: 17, fontWeight: pw.FontWeight.bold)),
+              if (user?.location.isNotEmpty == true) pw.Text(user!.location, style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center),
+              if (user?.phoneNo.isNotEmpty == true) pw.Text('Phone: ${user!.phoneNo}', style: const pw.TextStyle(fontSize: 9)),
+              pw.SizedBox(height: 7),
+              pw.Text(documentTitle, style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+            ])),
+            pw.SizedBox(height: 9),
+            pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey600, width: .35),
+              children: [
+                pw.TableRow(children: [_infoCell('Print:', label: true), _infoCell(copyText)]),
+                pw.TableRow(children: [_infoCell('Document:', label: true), _infoCell(receiptId)]),
+                pw.TableRow(children: [_infoCell('Date:', label: true), _infoCell(dateTime)]),
+                if (sale.tableNumber != null && sale.tableNumber!.isNotEmpty)
+                  pw.TableRow(children: [_infoCell('Table:', label: true), _infoCell(sale.tableNumber!)]),
+                if (sale.waiterName != null && sale.waiterName!.trim().isNotEmpty)
+                  pw.TableRow(children: [_infoCell('Waiter:', label: true), _infoCell(sale.waiterName!)]),
+                if (showPayment)
+                  pw.TableRow(children: [_infoCell('Paid via:', label: true), _infoCell(sale.paymentMethod)]),
+                if (showPayment && sale.paymentReference != null && sale.paymentReference!.trim().isNotEmpty)
+                  pw.TableRow(children: [_infoCell('Reference:', label: true), _infoCell(sale.paymentReference!)]),
+                if (sale.praInvoiceNo != null && sale.praInvoiceNo!.trim().isNotEmpty)
+                  pw.TableRow(children: [_infoCell('PRA Invoice:', label: true), _infoCell(sale.praInvoiceNo!)]),
+                if (sale.praInvoiceId != null && sale.praInvoiceId!.trim().isNotEmpty)
+                  pw.TableRow(children: [_infoCell('PRA ID:', label: true), _infoCell(sale.praInvoiceId!)]),
               ],
-              pw.Container(
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.grey300,
-                  borderRadius: pw.BorderRadius.circular(4),
-                  border: pw.Border.all(color: PdfColors.black),
-                ),
-                padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text('TOTAL:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                    pw.Text(sale.total.toStringAsFixed(0), style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                  ],
-                ),
+            ),
+            pw.SizedBox(height: 9),
+            pw.Text('ITEMS', style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold)),
+            pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey600, width: .45),
+              children: [
+                pw.TableRow(decoration: const pw.BoxDecoration(color: PdfColors.grey300), children: [
+                  _tableCell('Product', bold: true),
+                  _tableCell('Amount', bold: true, right: true),
+                ]),
+                ...sale.items.map((item) => pw.TableRow(children: [
+                  _tableCell('${item.productName} x${item.quantity}'),
+                  _tableCell((item.price * item.quantity).toStringAsFixed(0), right: true),
+                ])),
+              ],
+            ),
+            pw.SizedBox(height: 8),
+            if (sale.tipAmount > 0)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(bottom: 5),
+                child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Tip:', style: const pw.TextStyle(fontSize: 9.5)), pw.Text(sale.tipAmount.toStringAsFixed(0), style: const pw.TextStyle(fontSize: 9.5))]),
               ),
-              pw.SizedBox(height: 12),
-              pw.Divider(),
-              pw.Center(
-                child: pw.Column(
-                  children: [
-                    pw.Text('Thank you for your purchase!', style: pw.TextStyle(fontSize: 10)),
-                    pw.SizedBox(height: 2),
-                    pw.Text('Developed by Tycoon Technologies Pvt. Ltd', style: pw.TextStyle(fontSize: 9)),
-                    pw.Text('03060626699', style: pw.TextStyle(fontSize: 8)),
-                    pw.Text('www.tycoon.technology', style: pw.TextStyle(fontSize: 8)),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
+            pw.Container(
+              padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              decoration: pw.BoxDecoration(color: PdfColors.grey300, border: pw.Border.all(color: PdfColors.black), borderRadius: pw.BorderRadius.circular(3)),
+              child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+                pw.Text('TOTAL:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                pw.Text(sale.total.toStringAsFixed(0), style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+              ]),
+            ),
+            pw.SizedBox(height: 10),
+            pw.Divider(),
+            pw.Center(child: pw.Column(children: [
+              pw.Text(showPayment ? 'Thank you for your purchase!' : 'Please present this bill at payment.', style: const pw.TextStyle(fontSize: 9.5)),
+              pw.SizedBox(height: 2),
+              pw.Text('Powered by Tycoon POS', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
+              pw.Text('Tycoon Technologies Pvt. Ltd • www.tycoon.technology', style: const pw.TextStyle(fontSize: 7.5)),
+            ])),
+          ],
+        ),
       ),
     );
-
     return pdf;
   }
 
@@ -182,98 +139,72 @@ class PdfService {
       userId: user?.authUid ?? user?.id ?? 'unknown',
       branchId: user?.branchId,
     );
+    final copyText = '${_ordinal(actualPrintNumber).toUpperCase()} PRINT';
 
     Uint8List? logoBytes;
     if (user?.restaurantLogoUrl != null && user!.restaurantLogoUrl!.isNotEmpty) {
       logoBytes = await _getImageData(user.restaurantLogoUrl!);
     }
 
-    final Map<String, int> groupedItems = {};
+    final grouped = <String, int>{};
     for (final item in items) {
-      final name = item.displayName;
-      groupedItems[name] = (groupedItems[name] ?? 0) + item.quantity;
+      grouped[item.displayName] = (grouped[item.displayName] ?? 0) + item.quantity;
     }
-
     final now = DateTime.now();
-    final formattedKotId = DateFormat('ddMMyyHHmmss').format(now);
-    final formattedTime = DateFormat('hh:mm a').format(now);
+    final kotId = DateFormat('ddMMyyHHmmss').format(now);
+    final time = DateFormat('hh:mm a').format(now);
 
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.roll80,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 15),
-        build: (context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            children: [
-              pw.Center(
-                child: pw.Column(
-                  children: [
-                    pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: pw.BoxDecoration(border: pw.Border.all(width: .6), borderRadius: pw.BorderRadius.circular(3)),
-                      child: pw.Text('${_ordinal(actualPrintNumber).toUpperCase()} PRINT', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
-                    ),
-                    pw.SizedBox(height: 6),
-                    if (logoBytes != null && logoBytes.isNotEmpty)
-                      pw.Container(width: 50, height: 50, child: pw.Image(pw.MemoryImage(logoBytes))),
-                    pw.Text('KITCHEN ORDER TICKET', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-                    pw.Text(user?.restaurantName ?? 'Restaurant', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 10),
-              pw.Table(
-                border: pw.TableBorder.all(width: 0.5),
-                children: [
-                  pw.TableRow(children: [_infoCell('KOT#', isLabel: true), _infoCell(formattedKotId)]),
-                  if (table != null) pw.TableRow(children: [_infoCell('Table', isLabel: true), _infoCell('Table ${table.tableNumber}')]),
-                  pw.TableRow(children: [_infoCell('Time', isLabel: true), _infoCell(formattedTime)]),
-                  if (orderType != null) pw.TableRow(children: [_infoCell('Type', isLabel: true), _infoCell(orderType)]),
-                ],
-              ),
-              pw.SizedBox(height: 10),
-              pw.Text('ITEMS ORDERED:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-              pw.Table(
-                border: pw.TableBorder.all(width: 0.5),
-                children: [
-                  pw.TableRow(
-                    decoration: pw.BoxDecoration(color: PdfColors.grey300),
-                    children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(3),
-                        child: pw.Text('Qty', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
-                      ),
-                      pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text('Description', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-                    ],
-                  ),
-                  ...groupedItems.entries.map((entry) => pw.TableRow(children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text('${entry.value}', textAlign: pw.TextAlign.center)),
-                        pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(entry.key)),
-                      ])),
-                ],
-              ),
-              pw.SizedBox(height: 10),
-              pw.Divider(),
-              pw.Center(child: pw.Text('*** KOT ***', style: pw.TextStyle(fontSize: 10))),
-            ],
-          );
-        },
+        margin: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+        build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.stretch, children: [
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            color: PdfColors.black,
+            child: pw.Center(child: pw.Text(copyText, style: pw.TextStyle(color: PdfColors.white, fontSize: 11, fontWeight: pw.FontWeight.bold))),
+          ),
+          pw.SizedBox(height: 7),
+          pw.Center(child: pw.Column(children: [
+            if (logoBytes != null && logoBytes.isNotEmpty) pw.Container(width: 46, height: 46, child: pw.Image(pw.MemoryImage(logoBytes))),
+            pw.Text('KITCHEN ORDER TICKET', style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold)),
+            pw.Text(user?.restaurantName ?? 'Restaurant', style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold)),
+          ])),
+          pw.SizedBox(height: 8),
+          pw.Table(border: pw.TableBorder.all(width: .45), children: [
+            pw.TableRow(children: [_infoCell('Print', label: true), _infoCell(copyText)]),
+            pw.TableRow(children: [_infoCell('KOT#', label: true), _infoCell(kotId)]),
+            if (table != null) pw.TableRow(children: [_infoCell('Table', label: true), _infoCell('Table ${table.tableNumber}')]),
+            pw.TableRow(children: [_infoCell('Time', label: true), _infoCell(time)]),
+            if (orderType != null) pw.TableRow(children: [_infoCell('Type', label: true), _infoCell(orderType)]),
+          ]),
+          pw.SizedBox(height: 8),
+          pw.Text('ITEMS ORDERED:', style: pw.TextStyle(fontSize: 11.5, fontWeight: pw.FontWeight.bold)),
+          pw.Table(border: pw.TableBorder.all(width: .45), children: [
+            pw.TableRow(decoration: const pw.BoxDecoration(color: PdfColors.grey300), children: [_tableCell('Qty', bold: true), _tableCell('Description', bold: true)]),
+            ...grouped.entries.map((entry) => pw.TableRow(children: [_tableCell('${entry.value}'), _tableCell(entry.key)])),
+          ]),
+          pw.SizedBox(height: 9),
+          pw.Divider(),
+          pw.Center(child: pw.Text('*** $copyText • KOT ***', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold))),
+        ]),
       ),
     );
-
     return pdf;
   }
 
-  static pw.Widget _infoCell(String text, {bool isLabel = false}) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.all(4),
-      child: pw.Text(
-        text,
-        style: pw.TextStyle(fontSize: 10, fontWeight: isLabel ? pw.FontWeight.bold : pw.FontWeight.normal),
-      ),
-    );
-  }
+  static pw.Widget _infoCell(String text, {bool label = false}) => pw.Padding(
+        padding: const pw.EdgeInsets.all(4),
+        child: pw.Text(text, style: pw.TextStyle(fontSize: 9.5, fontWeight: label ? pw.FontWeight.bold : pw.FontWeight.normal)),
+      );
+
+  static pw.Widget _tableCell(String text, {bool bold = false, bool right = false}) => pw.Padding(
+        padding: const pw.EdgeInsets.all(4),
+        child: pw.Align(
+          alignment: right ? pw.Alignment.centerRight : pw.Alignment.centerLeft,
+          child: pw.Text(text, style: pw.TextStyle(fontSize: 9.5, fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal)),
+        ),
+      );
 
   static String _ordinal(int n) {
     final mod100 = n % 100;
