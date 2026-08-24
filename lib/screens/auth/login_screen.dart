@@ -215,17 +215,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ]),
                             ),
                           ),
-                          const SizedBox(height: 18),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(color: const Color(0xFFF9F5F6), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFE8D8DC))),
-                            child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Icon(Icons.key_rounded, size: 17, color: burgundy),
-                              SizedBox(width: 9),
-                              Expanded(child: Text('Demo: ali@gmail.com  •  Password: 123456', style: TextStyle(fontSize: 10.5, color: Color(0xFF6B4A52), height: 1.4))),
-                            ]),
-                          ),
                           const SizedBox(height: 22),
                           Center(
                             child: TextButton(
