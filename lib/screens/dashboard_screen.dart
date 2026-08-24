@@ -7,6 +7,7 @@ import 'package:pos/providers/auth_provider.dart';
 import 'package:pos/providers/sale_provider.dart';
 import 'package:pos/providers/table_provider.dart';
 import 'package:pos/routes/app_router.dart';
+import 'package:pos/screens/table_management_screen.dart';
 import 'package:pos/utils/app_colors.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -42,6 +43,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final user = auth.currentUser;
+
+    if (user != null && !user.isAdmin) {
+      return const TableManagementScreen();
+    }
+
     final tables = context.watch<TableProvider>();
     final sales = context.watch<SaleProvider>();
 
@@ -63,13 +71,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Restaurant Command Center', style: TextStyle(color: AppColors.grey900, fontSize: 27, fontWeight: FontWeight.w800)),
                 SizedBox(height: 5),
-                Text('Start orders, watch live service and track today at a glance.', style: TextStyle(color: AppColors.grey500, fontSize: 12.5)),
+                Text('Admin overview for sales, service and restaurant activity.', style: TextStyle(color: AppColors.grey500, fontSize: 12.5)),
               ]),
             ),
             FilledButton.icon(
               onPressed: () => context.go(AppRouter.tables),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('New Dine-In Order'),
+              icon: const Icon(Icons.table_restaurant_rounded),
+              label: const Text('Open Table Operations'),
               style: FilledButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11))),
             ),
           ]),
@@ -87,14 +95,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }),
 
           const SizedBox(height: 26),
-          const Text('Start a New Order', style: TextStyle(color: AppColors.grey900, fontSize: 17, fontWeight: FontWeight.w700)),
+          const Text('Quick Operations', style: TextStyle(color: AppColors.grey900, fontSize: 17, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Text('$available tables currently available', style: const TextStyle(color: AppColors.grey500, fontSize: 11.5)),
           const SizedBox(height: 12),
           LayoutBuilder(builder: (_, c) {
             final w = c.maxWidth >= 820 ? (c.maxWidth - 24) / 3 : c.maxWidth;
             return Wrap(spacing: 12, runSpacing: 12, children: [
-              SizedBox(width: w, child: _OrderType(icon: Icons.restaurant_rounded, title: 'Dine In', subtitle: 'Select a table and begin service', accent: true, onTap: () => context.go(AppRouter.tables))),
+              SizedBox(width: w, child: _OrderType(icon: Icons.table_restaurant_rounded, title: 'Table Operations', subtitle: 'Open operator floor view', accent: true, onTap: () => context.go(AppRouter.tables))),
               SizedBox(width: w, child: _OrderType(icon: Icons.shopping_bag_outlined, title: 'Take Away', subtitle: 'Fast counter order', onTap: () => context.go(AppRouter.sales))),
               SizedBox(width: w, child: _OrderType(icon: Icons.delivery_dining_outlined, title: 'Delivery', subtitle: 'Customer and delivery order', onTap: () => context.go(AppRouter.sales))),
             ]);
@@ -192,7 +200,7 @@ class _ActiveService extends StatelessWidget {
     return _Panel(
       title: 'Active Service',
       subtitle: 'Only tables currently in use are shown here.',
-      trailing: TextButton(onPressed: () => context.go(AppRouter.tables), child: const Text('View all tables')),
+      trailing: TextButton(onPressed: () => context.go(AppRouter.tables), child: const Text('View table operations')),
       child: loading && tables.isEmpty
           ? const SizedBox(height: 210, child: Center(child: CircularProgressIndicator()))
           : tables.isEmpty
@@ -201,7 +209,7 @@ class _ActiveService extends StatelessWidget {
                   SizedBox(height: 10),
                   Text('No active tables', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.grey700)),
                   SizedBox(height: 4),
-                  Text('New dine-in orders will appear here.', style: TextStyle(fontSize: 10.5, color: AppColors.grey500)),
+                  Text('Active service will appear here.', style: TextStyle(fontSize: 10.5, color: AppColors.grey500)),
                 ])))
               : LayoutBuilder(builder: (_, c) {
                   final cols = c.maxWidth >= 760 ? 3 : c.maxWidth >= 500 ? 2 : 1;
