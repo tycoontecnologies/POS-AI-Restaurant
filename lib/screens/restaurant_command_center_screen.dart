@@ -1,11 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/models/sale.dart';
 import 'package:pos/models/table.dart';
 import 'package:pos/providers/auth_provider.dart';
 import 'package:pos/providers/sale_provider.dart';
 import 'package:pos/providers/table_provider.dart';
+import 'package:pos/routes/app_router.dart';
 import 'package:pos/utils/app_colors.dart';
 
 class RestaurantCommandCenterScreen extends StatefulWidget {
@@ -38,10 +40,8 @@ class _RestaurantCommandCenterScreenState extends State<RestaurantCommandCenterS
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    final user = auth.currentUser;
+    final user = context.watch<AuthProvider>().currentUser;
     if (user == null) return const Center(child: CircularProgressIndicator());
-
     final tables = context.watch<TableProvider>().tables;
     final sales = context.watch<SaleProvider>().sales;
     final todaySales = sales.where((s) => _today(s.createdAt)).toList();
@@ -66,7 +66,7 @@ class _RestaurantCommandCenterScreenState extends State<RestaurantCommandCenterS
               child: Row(children: [
                 const Icon(Icons.hub_outlined, size: 17, color: AppColors.primary),
                 const SizedBox(width: 7),
-                Text(user.isSuperAdmin ? 'SUPER ADMIN' : 'ADMIN', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.grey700)),
+                Text(user.isSuperAdmin ? 'SUPER ADMIN' : user.role.name.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.grey700)),
               ]),
             ),
           ]),
@@ -74,18 +74,18 @@ class _RestaurantCommandCenterScreenState extends State<RestaurantCommandCenterS
           LayoutBuilder(builder: (_, c) {
             final width = c.maxWidth >= 1100 ? (c.maxWidth - 48) / 5 : c.maxWidth >= 760 ? (c.maxWidth - 24) / 3 : (c.maxWidth - 12) / 2;
             return Wrap(spacing: 12, runSpacing: 12, children: [
-              _Kpi(width: width, label: "Today's Revenue", value: 'Rs ${revenue.toStringAsFixed(0)}', icon: Icons.account_balance_wallet_outlined, accent: AppColors.primary),
-              _Kpi(width: width, label: "Today's Orders", value: '${todaySales.length}', icon: Icons.receipt_long_outlined, accent: AppColors.info),
-              _Kpi(width: width, label: 'Tables In Service', value: '$activeTables', icon: Icons.table_restaurant_outlined, accent: AppColors.warning),
-              _Kpi(width: width, label: 'Tables Available', value: '$availableTables', icon: Icons.event_available_outlined, accent: AppColors.success),
-              _LiveWorkforceKpi(width: width, restaurantId: user.id),
+              _Kpi(width: width, label: "Today's Revenue", value: 'Rs ${revenue.toStringAsFixed(0)}', icon: Icons.account_balance_wallet_outlined, accent: AppColors.primary, onTap: () => context.go(AppRouter.sales)),
+              _Kpi(width: width, label: "Today's Orders", value: '${todaySales.length}', icon: Icons.receipt_long_outlined, accent: AppColors.info, onTap: () => context.go(AppRouter.orders)),
+              _Kpi(width: width, label: 'Tables In Service', value: '$activeTables', icon: Icons.table_restaurant_outlined, accent: AppColors.warning, onTap: () => context.go(AppRouter.tables)),
+              _Kpi(width: width, label: 'Tables Available', value: '$availableTables', icon: Icons.event_available_outlined, accent: AppColors.success, onTap: () => context.go(AppRouter.tables)),
+              _LiveWorkforceKpi(width: width, restaurantId: user.id, onTap: () => context.go(AppRouter.usersRoles)),
             ]);
           }),
           const SizedBox(height: 18),
           LayoutBuilder(builder: (_, c) {
             final stacked = c.maxWidth < 980;
-            final floor = _LiveFloor(tables: tables);
-            final workforce = _WorkforceAudit(restaurantId: user.id);
+            final floor = _PanelLink(title: 'Live Floor', subtitle: 'Current table state across this branch.', onTap: () => context.go(AppRouter.tables), child: _LiveFloorBody(tables: tables));
+            final workforce = _PanelLink(title: 'Workforce & Login Audit', subtitle: 'Today’s logins, work sessions, branch and source.', onTap: () => context.go(AppRouter.usersRoles), child: _WorkforceAuditBody(restaurantId: user.id));
             if (stacked) return Column(children: [floor, const SizedBox(height: 14), workforce]);
             return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(flex: 5, child: floor),
@@ -94,7 +94,12 @@ class _RestaurantCommandCenterScreenState extends State<RestaurantCommandCenterS
             ]);
           }),
           const SizedBox(height: 14),
-          _RecentSales(sales: sales.take(8).toList()),
+          _PanelLink(
+            title: 'Recent Transactions',
+            subtitle: 'Latest sales recorded by the restaurant.',
+            onTap: () => context.go(AppRouter.sales),
+            child: _RecentSalesBody(sales: sales.take(8).toList()),
+          ),
         ]),
       ),
     );
@@ -107,30 +112,41 @@ class _Kpi extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color accent;
-  const _Kpi({required this.width, required this.label, required this.value, required this.icon, required this.accent});
+  final VoidCallback onTap;
+  const _Kpi({required this.width, required this.label, required this.value, required this.icon, required this.accent, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: width,
-    height: 96,
-    padding: const EdgeInsets.all(15),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(13), border: Border.all(color: AppColors.outlineLight)),
-    child: Row(children: [
-      Container(width: 40, height: 40, decoration: BoxDecoration(color: accent.withValues(alpha: .10), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: accent, size: 20)),
-      const SizedBox(width: 11),
-      Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: AppColors.grey900)),
-        const SizedBox(height: 3),
-        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: AppColors.grey500)),
-      ])),
-    ]),
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(13),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(13),
+      child: Container(
+        width: width,
+        height: 96,
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(13), border: Border.all(color: AppColors.outlineLight)),
+        child: Row(children: [
+          Container(width: 40, height: 40, decoration: BoxDecoration(color: accent.withValues(alpha: .10), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: accent, size: 20)),
+          const SizedBox(width: 11),
+          Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: AppColors.grey900)),
+            const SizedBox(height: 3),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: AppColors.grey500)),
+          ])),
+          const Icon(Icons.arrow_forward_rounded, size: 16, color: AppColors.grey400),
+        ]),
+      ),
+    ),
   );
 }
 
 class _LiveWorkforceKpi extends StatelessWidget {
   final double width;
   final String restaurantId;
-  const _LiveWorkforceKpi({required this.width, required this.restaurantId});
+  final VoidCallback onTap;
+  const _LiveWorkforceKpi({required this.width, required this.restaurantId, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -140,32 +156,27 @@ class _LiveWorkforceKpi extends StatelessWidget {
       stream: FirebaseFirestore.instance.collection('vendors').doc(restaurantId).collection('auditSessions').where('loginAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start)).snapshots(),
       builder: (_, snap) {
         final activeUsers = (snap.data?.docs ?? []).where((d) => d.data()['active'] == true).map((d) => d.data()['authUid']).toSet().length;
-        return _Kpi(width: width, label: 'Team Online', value: '$activeUsers', icon: Icons.groups_2_outlined, accent: AppColors.secondary);
+        return _Kpi(width: width, label: 'Team Online', value: '$activeUsers', icon: Icons.groups_2_outlined, accent: AppColors.secondary, onTap: onTap);
       },
     );
   }
 }
 
-class _LiveFloor extends StatelessWidget {
+class _LiveFloorBody extends StatelessWidget {
   final List<RestaurantTable> tables;
-  const _LiveFloor({required this.tables});
-
+  const _LiveFloorBody({required this.tables});
   @override
   Widget build(BuildContext context) {
     final available = tables.where((t) => t.status == TableStatus.empty).length;
     final occupied = tables.where((t) => t.status == TableStatus.occupied).length;
     final served = tables.where((t) => t.status == TableStatus.served).length;
     final billing = tables.where((t) => t.status == TableStatus.cleared).length;
-    return _Panel(
-      title: 'Live Floor',
-      subtitle: 'Current table state across this branch.',
-      child: Column(children: [
-        _StatusLine('Available', available, tables.length, AppColors.success),
-        _StatusLine('Occupied / Making', occupied, tables.length, AppColors.warning),
-        _StatusLine('Served', served, tables.length, AppColors.info),
-        _StatusLine('Billing', billing, tables.length, AppColors.primary),
-      ]),
-    );
+    return Column(children: [
+      _StatusLine('Available', available, tables.length, AppColors.success),
+      _StatusLine('Occupied / Making', occupied, tables.length, AppColors.warning),
+      _StatusLine('Served', served, tables.length, AppColors.info),
+      _StatusLine('Billing', billing, tables.length, AppColors.primary),
+    ]);
   }
 }
 
@@ -189,26 +200,21 @@ class _StatusLine extends StatelessWidget {
   }
 }
 
-class _WorkforceAudit extends StatelessWidget {
+class _WorkforceAuditBody extends StatelessWidget {
   final String restaurantId;
-  const _WorkforceAudit({required this.restaurantId});
-
+  const _WorkforceAuditBody({required this.restaurantId});
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final start = DateTime(now.year, now.month, now.day);
-    return _Panel(
-      title: 'Workforce & Login Audit',
-      subtitle: 'Today’s logins, work sessions, branch and source.',
-      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('vendors').doc(restaurantId).collection('auditSessions').where('loginAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start)).orderBy('loginAt', descending: true).limit(10).snapshots(),
-        builder: (_, snap) {
-          if (snap.connectionState == ConnectionState.waiting) return const SizedBox(height: 210, child: Center(child: CircularProgressIndicator()));
-          final docs = snap.data?.docs ?? [];
-          if (docs.isEmpty) return const SizedBox(height: 210, child: Center(child: Text('No login sessions recorded today.', style: TextStyle(color: AppColors.grey500))));
-          return Column(children: docs.map((d) => _SessionRow(data: d.data())).toList());
-        },
-      ),
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('vendors').doc(restaurantId).collection('auditSessions').where('loginAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start)).orderBy('loginAt', descending: true).limit(10).snapshots(),
+      builder: (_, snap) {
+        if (snap.connectionState == ConnectionState.waiting) return const SizedBox(height: 210, child: Center(child: CircularProgressIndicator()));
+        final docs = snap.data?.docs ?? [];
+        if (docs.isEmpty) return const SizedBox(height: 210, child: Center(child: Text('No login sessions recorded today.', style: TextStyle(color: AppColors.grey500))));
+        return Column(children: docs.map((d) => _SessionRow(data: d.data())).toList());
+      },
     );
   }
 }
@@ -242,47 +248,50 @@ class _SessionRow extends StatelessWidget {
   }
 }
 
-class _RecentSales extends StatelessWidget {
+class _RecentSalesBody extends StatelessWidget {
   final List<Sale> sales;
-  const _RecentSales({required this.sales});
+  const _RecentSalesBody({required this.sales});
   @override
-  Widget build(BuildContext context) {
-    return _Panel(
-      title: 'Recent Transactions',
-      subtitle: 'Latest sales recorded by the restaurant.',
-      child: sales.isEmpty
-          ? const SizedBox(height: 100, child: Center(child: Text('No recent sales.', style: TextStyle(color: AppColors.grey500))))
-          : Column(children: sales.map((s) => Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.outlineVariantLight))),
-              child: Row(children: [
-                const Icon(Icons.receipt_long_outlined, size: 17, color: AppColors.primary),
-                const SizedBox(width: 9),
-                Expanded(child: Text(s.tableNumber == null ? 'Order ${s.id}' : 'Table ${s.tableNumber}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))),
-                Text('${s.items.length} items', style: const TextStyle(fontSize: 9.5, color: AppColors.grey500)),
-                const SizedBox(width: 20),
-                Text('Rs ${s.total.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-              ]),
-            )).toList()),
-    );
-  }
+  Widget build(BuildContext context) => sales.isEmpty
+      ? const SizedBox(height: 100, child: Center(child: Text('No recent sales.', style: TextStyle(color: AppColors.grey500))))
+      : Column(children: sales.map((s) => Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.outlineVariantLight))),
+          child: Row(children: [
+            const Icon(Icons.receipt_long_outlined, size: 17, color: AppColors.primary),
+            const SizedBox(width: 9),
+            Expanded(child: Text(s.tableNumber == null ? 'Order ${s.id}' : 'Table ${s.tableNumber}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))),
+            Text('${s.items.length} items', style: const TextStyle(fontSize: 9.5, color: AppColors.grey500)),
+            const SizedBox(width: 20),
+            Text('Rs ${s.total.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+          ]),
+        )).toList());
 }
 
-class _Panel extends StatelessWidget {
+class _PanelLink extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget child;
-  const _Panel({required this.title, required this.subtitle, required this.child});
+  final VoidCallback onTap;
+  const _PanelLink({required this.title, required this.subtitle, required this.child, required this.onTap});
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(13), border: Border.all(color: AppColors.outlineLight)),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.grey900)),
-      const SizedBox(height: 2),
-      Text(subtitle, style: const TextStyle(fontSize: 9.5, color: AppColors.grey500)),
-      const SizedBox(height: 14),
-      child,
-    ]),
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(13),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(13),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(13), border: Border.all(color: AppColors.outlineLight)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [Expanded(child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.grey900))), const Icon(Icons.arrow_forward_rounded, size: 17, color: AppColors.grey400)]),
+          const SizedBox(height: 2),
+          Text(subtitle, style: const TextStyle(fontSize: 9.5, color: AppColors.grey500)),
+          const SizedBox(height: 14),
+          IgnorePointer(child: child),
+        ]),
+      ),
+    ),
   );
 }
