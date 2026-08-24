@@ -111,7 +111,7 @@ class PdfService {
               pw.Text(copyText, style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold)),
               pw.SizedBox(height: 2),
               pw.Text('Powered by Tycoon POS', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
-              pw.Text('Tycoon Technologies Pvt. Ltd • www.tycoon.technology', style: const pw.TextStyle(fontSize: 7.5)),
+              pw.Text('Tycoon Technologies Pvt. Ltd | www.tycoon.technology', style: const pw.TextStyle(fontSize: 7.5)),
             ])),
           ],
         ),
