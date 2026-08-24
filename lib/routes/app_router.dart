@@ -18,6 +18,9 @@ import 'package:pos/screens/sale_return_screen.dart';
 import 'package:pos/screens/table_order_screen.dart';
 import 'package:pos/screens/users_roles_screen.dart';
 import 'package:pos/screens/settings_hub_screen.dart';
+import 'package:pos/screens/expenses_screen.dart';
+import 'package:pos/screens/branches_screen.dart';
+import 'package:pos/screens/pra_settings_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/screens/category_products_screen.dart';
 import 'package:pos/providers/auth_provider.dart';
@@ -55,8 +58,11 @@ class AppRouter {
   static const String settings = '/settings';
   static const String profileSettings = '/settings/profile';
   static const String usersRoles = '/settings/users-roles';
+  static const String praSettings = '/settings/pra';
   static const String salesReturn = '/salesReturn';
   static const String storeOut = '/storeOut';
+  static const String expenses = '/expenses';
+  static const String branches = '/branches';
   static const String customers = '/customers';
   static const String discounts = '/discounts';
   static const String orders = '/orders';
@@ -108,9 +114,12 @@ class AppRouter {
           GoRoute(path: sales, name: 'sales', builder: (context, state) => const SaleScreen(), redirect: _checkSubscription),
           GoRoute(path: salesReturn, name: 'sales-return', builder: (context, state) => const SaleReturnScreen(), redirect: _checkSubscription),
           GoRoute(path: storeOut, name: 'store-out', builder: (context, state) => const StoreOutScreen(), redirect: _checkSubscription),
+          GoRoute(path: expenses, name: 'expenses', builder: (context, state) => const ExpensesScreen(), redirect: _checkSubscription),
+          GoRoute(path: branches, name: 'branches', builder: (context, state) => const BranchesScreen(), redirect: _checkSubscription),
           GoRoute(path: settings, name: 'settings', builder: (context, state) => const SettingsHubScreen(), redirect: _checkSubscription),
           GoRoute(path: profileSettings, name: 'profile-settings', builder: (context, state) => const SettingsScreen(), redirect: _checkSubscription),
           GoRoute(path: usersRoles, name: 'users-roles', builder: (context, state) => const UsersRolesScreen(), redirect: _checkSubscription),
+          GoRoute(path: praSettings, name: 'pra-settings', builder: (context, state) => const PraSettingsScreen(), redirect: _checkSubscription),
           GoRoute(path: pricing, name: 'pricing', builder: (context, state) => const PricingScreen(), redirect: _checkSubscription),
           GoRoute(path: '$payment/:plan', name: 'payment', builder: (context, state) => PaymentScreen(plan: state.pathParameters['plan']!)),
           GoRoute(path: ingredients, name: 'ingredients', builder: (context, state) => const IngredientsScreen(), redirect: _checkSubscription),
@@ -182,10 +191,14 @@ class AppRouter {
       NavigationItem(icon: Icons.table_restaurant_rounded, label: 'Tables', route: tables, roles: serviceRoles),
       NavigationItem(icon: role == UserRole.kitchen ? Icons.soup_kitchen_rounded : Icons.shopping_bag_rounded, label: role == UserRole.kitchen ? 'KOT' : 'Billing', route: orders, roles: orderRoles),
       NavigationItem(icon: Icons.inventory_2_rounded, label: 'Inventory', route: products, roles: inventoryRoles),
+      NavigationItem(icon: Icons.storefront_outlined, label: 'Store', route: storeOut, roles: [UserRole.superAdmin, UserRole.admin, UserRole.manager, UserRole.operations, UserRole.inventory]),
+      NavigationItem(icon: Icons.payments_outlined, label: 'Expenses', route: expenses, roles: [UserRole.superAdmin, UserRole.admin, UserRole.manager, UserRole.accounts]),
       NavigationItem(icon: Icons.people_alt_rounded, label: 'CRM', route: customers, roles: customerRoles),
       NavigationItem(icon: Icons.receipt_long_rounded, label: 'Operations', route: purchases, roles: operationsRoles),
       NavigationItem(icon: Icons.kitchen_rounded, label: 'Kitchen Recipes', route: ingredients, roles: [UserRole.superAdmin, UserRole.admin, UserRole.operations]),
       NavigationItem(icon: Icons.local_shipping_rounded, label: 'Vendors', route: suppliers, roles: [UserRole.superAdmin, UserRole.admin, UserRole.manager, UserRole.operations, UserRole.accounts, UserRole.inventory]),
+      NavigationItem(icon: Icons.account_tree_outlined, label: 'Branches', route: branches, roles: adminRoles),
+      NavigationItem(icon: Icons.verified_user_outlined, label: 'PRA', route: praSettings, roles: adminRoles),
       NavigationItem(icon: Icons.psychology_alt_rounded, label: 'Help AI', route: dashboard, roles: adminRoles),
       NavigationItem(icon: Icons.settings_rounded, label: 'Preferences', route: settings, roles: adminRoles),
     ];
@@ -230,26 +243,18 @@ class _TableOrderRouteResolverState extends State<_TableOrderRouteResolver> {
     }
 
     if (provider.isLoading || !_requestedLoad) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
       body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.table_restaurant_outlined, size: 42),
-            const SizedBox(height: 12),
-            const Text('Table could not be loaded.'),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () => context.go(AppRouter.tables),
-              child: const Text('Back to Tables'),
-            ),
-          ],
-        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.table_restaurant_outlined, size: 42),
+          const SizedBox(height: 12),
+          const Text('Table could not be loaded.'),
+          const SizedBox(height: 12),
+          FilledButton(onPressed: () => context.go(AppRouter.tables), child: const Text('Back to Tables')),
+        ]),
       ),
     );
   }
