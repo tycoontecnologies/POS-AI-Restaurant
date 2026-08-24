@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pos/models/user.dart';
 import 'package:pos/providers/auth_provider.dart';
@@ -11,25 +12,50 @@ class MainShell extends StatelessWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
 
+  bool _editingText() {
+    final c = FocusManager.instance.primaryFocus?.context;
+    if (c == null) return false;
+    if (c.widget is EditableText) return true;
+    return c.findAncestorWidgetOfExactType<EditableText>() != null;
+  }
+
+  void _shortcut(BuildContext context, String route) {
+    if (_editingText()) return;
+    context.go(route);
+  }
+
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
 
-    return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      body: SafeArea(
-        child: Row(
-          children: [
-            _IconRail(currentLocation: location),
-            Expanded(
-              child: Column(
-                children: [
-                  _QuickTopBar(currentLocation: location),
-                  Expanded(child: ColoredBox(color: AppColors.backgroundLight, child: child)),
-                ],
-              ),
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyT): () => _shortcut(context, AppRouter.tables),
+        const SingleActivator(LogicalKeyboardKey.keyI): () => _shortcut(context, AppRouter.products),
+        const SingleActivator(LogicalKeyboardKey.keyO): () => _shortcut(context, AppRouter.purchases),
+        const SingleActivator(LogicalKeyboardKey.keyB): () => _shortcut(context, AppRouter.orders),
+        const SingleActivator(LogicalKeyboardKey.keyS): () => _shortcut(context, AppRouter.sales),
+        const SingleActivator(LogicalKeyboardKey.keyC): () => _shortcut(context, AppRouter.customers),
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          backgroundColor: AppColors.backgroundLight,
+          body: SafeArea(
+            child: Row(
+              children: [
+                _IconRail(currentLocation: location),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _QuickTopBar(currentLocation: location),
+                      Expanded(child: ColoredBox(color: AppColors.backgroundLight, child: child)),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -76,7 +102,7 @@ class _IconRail extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 5),
                 child: Tooltip(
-                  message: item.label,
+                  message: _railTooltip(item),
                   preferBelow: false,
                   waitDuration: const Duration(milliseconds: 250),
                   child: Material(
@@ -114,6 +140,15 @@ class _IconRail extends StatelessWidget {
         const SizedBox(height: 8),
       ]),
     );
+  }
+
+  String _railTooltip(NavigationItem item) {
+    if (item.route == AppRouter.tables) return '${item.label}  [t]';
+    if (item.route == AppRouter.products) return '${item.label}  [i]';
+    if (item.route == AppRouter.purchases) return '${item.label}  [o]';
+    if (item.route == AppRouter.orders) return '${item.label}  [b]';
+    if (item.route == AppRouter.customers) return '${item.label}  [c]';
+    return item.label;
   }
 
   Future<void> _navigate(BuildContext context, NavigationItem item) async {
@@ -187,7 +222,7 @@ class _QuickTopBar extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: Tooltip(
-                  message: action.label,
+                  message: action.shortcut == null ? action.label : '${action.label}  [${action.shortcut}]',
                   waitDuration: const Duration(milliseconds: 200),
                   child: Material(
                     color: selected ? AppColors.primarySoft : Colors.white,
@@ -238,22 +273,23 @@ class _QuickTopBar extends StatelessWidget {
   List<_QuickAction> _quickActions(bool isAdmin) {
     if (!isAdmin) {
       return const [
-        _QuickAction('Tables', Icons.table_restaurant_outlined, AppRouter.tables),
-        _QuickAction('Bills', Icons.receipt_long_outlined, AppRouter.orders),
-        _QuickAction('Sales', Icons.point_of_sale_outlined, AppRouter.sales),
+        _QuickAction('Tables', Icons.table_restaurant_outlined, AppRouter.tables, 't'),
+        _QuickAction('Bills', Icons.receipt_long_outlined, AppRouter.orders, 'b'),
+        _QuickAction('Sales', Icons.point_of_sale_outlined, AppRouter.sales, 's'),
       ];
     }
     return const [
-      _QuickAction('Tables', Icons.table_restaurant_outlined, AppRouter.tables),
-      _QuickAction('Items', Icons.inventory_2_outlined, AppRouter.products),
-      _QuickAction('Add Item', Icons.add_box_outlined, AppRouter.products),
-      _QuickAction('Bill', Icons.receipt_long_outlined, AppRouter.orders),
-      _QuickAction('Sales', Icons.point_of_sale_outlined, AppRouter.sales),
-      _QuickAction('Sales Return', Icons.assignment_return_outlined, AppRouter.salesReturn),
-      _QuickAction('Stats', Icons.bar_chart_rounded, AppRouter.dashboard),
-      _QuickAction('CRM', Icons.people_alt_outlined, AppRouter.customers),
-      _QuickAction('Suppliers', Icons.local_shipping_outlined, AppRouter.suppliers),
-      _QuickAction('Recipe Management', Icons.menu_book_outlined, AppRouter.ingredients),
+      _QuickAction('Tables', Icons.table_restaurant_outlined, AppRouter.tables, 't'),
+      _QuickAction('Items', Icons.inventory_2_outlined, AppRouter.products, 'i'),
+      _QuickAction('Add Item', Icons.add_box_outlined, AppRouter.products, null),
+      _QuickAction('Bill', Icons.receipt_long_outlined, AppRouter.orders, 'b'),
+      _QuickAction('Sales', Icons.point_of_sale_outlined, AppRouter.sales, 's'),
+      _QuickAction('Sales Return', Icons.assignment_return_outlined, AppRouter.salesReturn, null),
+      _QuickAction('Stats', Icons.bar_chart_rounded, AppRouter.dashboard, null),
+      _QuickAction('CRM', Icons.people_alt_outlined, AppRouter.customers, 'c'),
+      _QuickAction('Operations', Icons.receipt_long_rounded, AppRouter.purchases, 'o'),
+      _QuickAction('Suppliers', Icons.local_shipping_outlined, AppRouter.suppliers, null),
+      _QuickAction('Recipe Management', Icons.menu_book_outlined, AppRouter.ingredients, null),
     ];
   }
 
@@ -266,6 +302,7 @@ class _QuickTopBar extends StatelessWidget {
     if (path.startsWith(AppRouter.purchases)) return 'Operations';
     if (path.startsWith(AppRouter.ingredients)) return 'Recipes';
     if (path.startsWith(AppRouter.suppliers)) return 'Suppliers';
+    if (path.startsWith(AppRouter.usersRoles)) return 'Users & Roles';
     if (path.startsWith(AppRouter.settings)) return 'Settings';
     if (path.startsWith(AppRouter.salesReturn)) return 'Sales Return';
     if (path.startsWith(AppRouter.sales)) return 'Sales';
@@ -277,5 +314,6 @@ class _QuickAction {
   final String label;
   final IconData icon;
   final String route;
-  const _QuickAction(this.label, this.icon, this.route);
+  final String? shortcut;
+  const _QuickAction(this.label, this.icon, this.route, this.shortcut);
 }
