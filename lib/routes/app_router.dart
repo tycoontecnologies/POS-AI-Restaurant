@@ -8,6 +8,7 @@ import 'package:pos/screens/auth/login_screen.dart';
 import 'package:pos/screens/auth/signup_screen.dart';
 import 'package:pos/screens/discounts_screen.dart';
 import 'package:pos/screens/orders_screen.dart';
+import 'package:pos/screens/kitchen_kot_screen.dart';
 import 'package:pos/screens/payment_screen.dart';
 import 'package:pos/screens/payment_success_screen.dart';
 import 'package:pos/screens/pricing_screen.dart';
@@ -115,7 +116,15 @@ class AppRouter {
           GoRoute(path: ingredients, name: 'ingredients', builder: (context, state) => const IngredientsScreen(), redirect: _checkSubscription),
           GoRoute(path: customers, name: 'customers', builder: (context, state) => const CustomersScreen(), redirect: _checkSubscription),
           GoRoute(path: discounts, name: 'Goodies', builder: (context, state) => const DiscountsScreen(), redirect: _checkSubscription),
-          GoRoute(path: orders, name: 'orders', builder: (context, state) => const OrdersScreen(), redirect: _checkSubscription),
+          GoRoute(
+            path: orders,
+            name: 'orders',
+            builder: (context, state) {
+              final role = context.watch<AuthProvider>().currentUser?.role;
+              return role == UserRole.kitchen ? const KitchenKotScreen() : const OrdersScreen();
+            },
+            redirect: _checkSubscription,
+          ),
           GoRoute(path: paymentSuccess, name: 'payment-success', builder: (context, state) => const PaymentSuccessScreen()),
           GoRoute(path: tables, name: 'tables', builder: (context, state) => const TableManagementScreen(), redirect: _checkSubscription),
           GoRoute(
@@ -171,7 +180,7 @@ class AppRouter {
     final allItems = [
       NavigationItem(icon: Icons.dashboard_rounded, label: 'Dashboard', route: dashboard, roles: [...managementRoles, UserRole.cashier, UserRole.waiter, UserRole.staff, UserRole.kitchen, UserRole.accounts, UserRole.operations, UserRole.auditor]),
       NavigationItem(icon: Icons.table_restaurant_rounded, label: 'Tables', route: tables, roles: serviceRoles),
-      NavigationItem(icon: Icons.shopping_bag_rounded, label: 'Billing', route: orders, roles: orderRoles),
+      NavigationItem(icon: role == UserRole.kitchen ? Icons.soup_kitchen_rounded : Icons.shopping_bag_rounded, label: role == UserRole.kitchen ? 'KOT' : 'Billing', route: orders, roles: orderRoles),
       NavigationItem(icon: Icons.inventory_2_rounded, label: 'Inventory', route: products, roles: inventoryRoles),
       NavigationItem(icon: Icons.people_alt_rounded, label: 'CRM', route: customers, roles: customerRoles),
       NavigationItem(icon: Icons.receipt_long_rounded, label: 'Operations', route: purchases, roles: operationsRoles),
