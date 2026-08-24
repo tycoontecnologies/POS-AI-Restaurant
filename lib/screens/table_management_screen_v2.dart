@@ -52,15 +52,30 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
   Color _statusColor(String status) {
     switch (status) {
       case 'Order in Making':
-        return AppColors.warning;
+        return const Color(0xFFF59E0B);
       case 'Occupied':
-        return AppColors.info;
+        return const Color(0xFFDC2626);
       case 'Served':
-        return AppColors.success;
+        return const Color(0xFF2563EB);
       case 'Billing':
-        return AppColors.primary;
+        return const Color(0xFF7C3AED);
       default:
-        return AppColors.success;
+        return const Color(0xFF10B981);
+    }
+  }
+
+  IconData _statusIcon(String status) {
+    switch (status) {
+      case 'Order in Making':
+        return Icons.soup_kitchen_outlined;
+      case 'Occupied':
+        return Icons.people_alt_outlined;
+      case 'Served':
+        return Icons.room_service_outlined;
+      case 'Billing':
+        return Icons.receipt_long_outlined;
+      default:
+        return Icons.check_circle_outline_rounded;
     }
   }
 
@@ -90,8 +105,10 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
         return tables.where((t) => t.status == TableStatus.occupied && orders.getOrderStatus(t.id) != 'making').toList();
       case 'Order in Making':
         return tables.where((t) => orders.getOrderStatus(t.id) == 'making').toList();
+      case 'Served':
+        return tables.where((t) => t.status == TableStatus.served || orders.getOrderStatus(t.id) == 'served').toList();
       case 'Billing':
-        return tables.where((t) => t.status == TableStatus.cleared || t.status == TableStatus.served).toList();
+        return tables.where((t) => t.status == TableStatus.cleared).toList();
       case 'Expected Vacant':
         return tables.where((t) => t.status != TableStatus.empty).toList();
       default:
@@ -193,7 +210,7 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
       builder: (context, provider, _) {
         final all = provider.tables;
         final tables = _visible(all, orders);
-        final filters = ['Available', 'Occupied', 'Order in Making', 'Billing', 'Expected Vacant'];
+        final filters = ['Available', 'Occupied', 'Order in Making', 'Served', 'Billing', 'Expected Vacant'];
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(22, 20, 22, 24),
@@ -214,15 +231,21 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
               children: filters.map((filter) {
                 final selected = _filter == filter;
                 final count = _count(all, orders, filter);
+                final statusColor = filter == 'Expected Vacant' ? AppColors.grey600 : _statusColor(filter);
                 return ChoiceChip(
                   avatar: Icon(
-                    filter == 'Available' ? Icons.check_circle_outline_rounded : filter == 'Occupied' ? Icons.people_alt_outlined : filter == 'Order in Making' ? Icons.soup_kitchen_outlined : filter == 'Billing' ? Icons.receipt_long_outlined : Icons.schedule_rounded,
+                    filter == 'Expected Vacant' ? Icons.schedule_rounded : _statusIcon(filter),
                     size: 16,
-                    color: selected ? Colors.white : AppColors.grey600,
+                    color: selected ? Colors.white : statusColor,
                   ),
-                  label: Text(filter == 'Expected Vacant' ? 'Expected Vacant  $count' : '$filter  $count'),
+                  label: Text('$filter  $count'),
                   selected: selected,
                   onSelected: (_) => setState(() => _filter = filter),
+                  selectedColor: statusColor,
+                  backgroundColor: statusColor.withValues(alpha: .08),
+                  side: BorderSide(color: statusColor.withValues(alpha: .22)),
+                  labelStyle: TextStyle(color: selected ? Colors.white : statusColor, fontWeight: FontWeight.w700),
+                  showCheckmark: false,
                 );
               }).toList(),
             ),
@@ -244,6 +267,7 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
                                 table: table,
                                 status: status,
                                 color: _statusColor(status),
+                                statusIcon: _statusIcon(status),
                                 expectedVacant: _expectedVacant(table, orders),
                                 isAdmin: isAdmin,
                                 onOpen: () => _openOrder(table),
@@ -265,13 +289,14 @@ class _OperatorTableCard extends StatelessWidget {
   final RestaurantTable table;
   final String status;
   final Color color;
+  final IconData statusIcon;
   final String expectedVacant;
   final bool isAdmin;
   final VoidCallback onOpen;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _OperatorTableCard({required this.table, required this.status, required this.color, required this.expectedVacant, required this.isAdmin, required this.onOpen, required this.onEdit, required this.onDelete});
+  const _OperatorTableCard({required this.table, required this.status, required this.color, required this.statusIcon, required this.expectedVacant, required this.isAdmin, required this.onOpen, required this.onEdit, required this.onDelete});
 
   String get action {
     if (status == 'Available') return 'Open table';
@@ -289,12 +314,23 @@ class _OperatorTableCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.outlineLight)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: .26), width: 1.25),
+            boxShadow: [BoxShadow(color: color.withValues(alpha: .045), blurRadius: 12, offset: const Offset(0, 4))],
+          ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-              const SizedBox(width: 6),
-              Expanded(child: Text(status.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: color, fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: .35))),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(color: color.withValues(alpha: .11), borderRadius: BorderRadius.circular(18)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(statusIcon, size: 14, color: color),
+                  const SizedBox(width: 5),
+                  Text(status.toUpperCase(), style: TextStyle(color: color, fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: .25)),
+                ]),
+              ),
+              const Spacer(),
               if (isAdmin)
                 PopupMenuButton<String>(
                   tooltip: 'Table settings',
@@ -323,9 +359,9 @@ class _OperatorTableCard extends StatelessWidget {
             const Divider(height: 1, color: AppColors.outlineLight),
             const SizedBox(height: 9),
             Row(children: [
-              Text(action, style: TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w700)),
+              Text(action, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800)),
               const Spacer(),
-              const Icon(Icons.arrow_forward_rounded, size: 15, color: AppColors.grey400),
+              Icon(Icons.arrow_forward_rounded, size: 15, color: color),
             ]),
           ]),
         ),
