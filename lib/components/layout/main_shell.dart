@@ -25,12 +25,7 @@ class MainShell extends StatelessWidget {
               child: Column(
                 children: [
                   _QuickTopBar(currentLocation: location),
-                  Expanded(
-                    child: ColoredBox(
-                      color: AppColors.backgroundLight,
-                      child: child,
-                    ),
-                  ),
+                  Expanded(child: ColoredBox(color: AppColors.backgroundLight, child: child)),
                 ],
               ),
             ),
@@ -48,112 +43,76 @@ class _IconRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final items = AppRouter.getNavigationItems(
-      auth.currentUser?.role ?? UserRole.admin,
-    );
+    final items = AppRouter.getNavigationItems(auth.currentUser?.role ?? UserRole.admin);
 
     return Container(
       width: 66,
       color: AppColors.sidebar,
-      child: Column(
-        children: [
-          const SizedBox(height: 10),
-          Tooltip(
-            message: 'Tycoon POS',
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => context.go(AppRouter.dashboard),
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.point_of_sale_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
+      child: Column(children: [
+        const SizedBox(height: 10),
+        Tooltip(
+          message: 'Tycoon POS',
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => context.go(AppRouter.dashboard),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.point_of_sale_rounded, color: Colors.white, size: 22),
             ),
           ),
-          const SizedBox(height: 10),
-          const Divider(height: 1, color: AppColors.sidebarBorder),
-          const SizedBox(height: 10),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 9),
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final item = items[index];
-                final selected = currentLocation == item.route ||
-                    (item.route != '/' && currentLocation.startsWith(item.route));
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 5),
-                  child: Tooltip(
-                    message: item.label,
-                    preferBelow: false,
-                    waitDuration: const Duration(milliseconds: 250),
-                    child: Material(
-                      color: selected
-                          ? AppColors.primary.withValues(alpha: .22)
-                          : Colors.transparent,
+        ),
+        const SizedBox(height: 10),
+        const Divider(height: 1, color: AppColors.sidebarBorder),
+        const SizedBox(height: 10),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 9),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final selected = currentLocation == item.route || (item.route != '/' && currentLocation.startsWith(item.route));
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Tooltip(
+                  message: item.label,
+                  preferBelow: false,
+                  waitDuration: const Duration(milliseconds: 250),
+                  child: Material(
+                    color: selected ? AppColors.primary.withValues(alpha: .22) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    child: InkWell(
                       borderRadius: BorderRadius.circular(10),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: () => _navigate(context, item),
-                        child: SizedBox(
-                          height: 44,
-                          child: Center(
-                            child: Icon(
-                              item.icon,
-                              size: 20,
-                              color: selected
-                                  ? Colors.white
-                                  : AppColors.sidebarMuted,
-                            ),
-                          ),
-                        ),
+                      onTap: () => _navigate(context, item),
+                      child: SizedBox(
+                        height: 44,
+                        child: Center(child: Icon(item.icon, size: 20, color: selected ? Colors.white : AppColors.sidebarMuted)),
                       ),
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-          const Divider(height: 1, color: AppColors.sidebarBorder),
-          const SizedBox(height: 8),
-          Tooltip(
-            message: auth.currentUser?.name ?? 'Account',
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: AppColors.primary.withValues(alpha: .20),
-              child: Text(
-                (auth.currentUser?.name ?? 'U').substring(0, 1).toUpperCase(),
-                style: const TextStyle(
-                  color: AppColors.primaryLight,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
                 ),
-              ),
-            ),
+              );
+            },
           ),
-          const SizedBox(height: 6),
-          Tooltip(
-            message: 'Logout',
-            child: IconButton(
-              onPressed: () => _confirmLogout(context, auth),
-              icon: const Icon(
-                Icons.logout_rounded,
-                color: AppColors.sidebarMuted,
-                size: 19,
-              ),
-            ),
+        ),
+        const Divider(height: 1, color: AppColors.sidebarBorder),
+        const SizedBox(height: 8),
+        Tooltip(
+          message: auth.currentUser?.name ?? 'Account',
+          child: CircleAvatar(
+            radius: 18,
+            backgroundColor: AppColors.primary.withValues(alpha: .20),
+            child: Text((auth.currentUser?.name ?? 'U').substring(0, 1).toUpperCase(), style: const TextStyle(color: AppColors.primaryLight, fontWeight: FontWeight.w800, fontSize: 12)),
           ),
-          const SizedBox(height: 8),
-        ],
-      ),
+        ),
+        const SizedBox(height: 6),
+        Tooltip(
+          message: 'Logout',
+          child: IconButton(onPressed: () => _confirmLogout(context, auth), icon: const Icon(Icons.logout_rounded, color: AppColors.sidebarMuted, size: 19)),
+        ),
+        const SizedBox(height: 8),
+      ]),
     );
   }
 
@@ -179,10 +138,7 @@ class _IconRail extends StatelessWidget {
         title: const Text('Sign out'),
         content: const Text('Are you sure you want to sign out of Tycoon POS?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
           FilledButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
@@ -205,139 +161,72 @@ class _QuickTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final title = _pageTitle(currentLocation);
-    final actions = _quickActions();
+    final isAdmin = auth.currentUser?.isAdmin ?? false;
+    final actions = _quickActions(isAdmin);
 
     return Container(
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 18),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppColors.outlineLight)),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 155,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.grey900,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Restaurant POS',
-                  style: TextStyle(
-                    color: AppColors.grey500,
-                    fontSize: 10.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(width: 1, height: 32, color: AppColors.outlineLight),
-          const SizedBox(width: 12),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: actions.map((action) {
-                  final selected = _isQuickSelected(action.route, currentLocation);
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: Tooltip(
-                      message: action.label,
-                      waitDuration: const Duration(milliseconds: 200),
-                      child: Material(
-                        color: selected ? AppColors.primarySoft : Colors.white,
-                        borderRadius: BorderRadius.circular(9),
-                        child: InkWell(
-                          onTap: () => context.go(action.route),
-                          borderRadius: BorderRadius.circular(9),
-                          child: Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(9),
-                              border: Border.all(
-                                color: selected
-                                    ? AppColors.primary.withValues(alpha: .35)
-                                    : AppColors.outlineLight,
-                              ),
-                            ),
-                            child: Icon(
-                              action.icon,
-                              size: 19,
-                              color: selected
-                                  ? AppColors.primary
-                                  : AppColors.grey700,
-                            ),
-                          ),
-                        ),
+      decoration: const BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: AppColors.outlineLight))),
+      child: Row(children: [
+        SizedBox(
+          width: 155,
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.grey900, fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 2),
+            Text(isAdmin ? 'Restaurant Admin' : 'Restaurant Operator', style: const TextStyle(color: AppColors.grey500, fontSize: 10.5)),
+          ]),
+        ),
+        Container(width: 1, height: 32, color: AppColors.outlineLight),
+        const SizedBox(width: 12),
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: actions.map((action) {
+              final selected = _isQuickSelected(action.route, currentLocation);
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Tooltip(
+                  message: action.label,
+                  waitDuration: const Duration(milliseconds: 200),
+                  child: Material(
+                    color: selected ? AppColors.primarySoft : Colors.white,
+                    borderRadius: BorderRadius.circular(9),
+                    child: InkWell(
+                      onTap: () => context.go(action.route),
+                      borderRadius: BorderRadius.circular(9),
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(borderRadius: BorderRadius.circular(9), border: Border.all(color: selected ? AppColors.primary.withValues(alpha: .35) : AppColors.outlineLight)),
+                        child: Icon(action.icon, size: 19, color: selected ? AppColors.primary : AppColors.grey700),
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.successSoft,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.circle, size: 7, color: AppColors.success),
-                SizedBox(width: 5),
-                Text(
-                  'Online',
-                  style: TextStyle(
-                    color: AppColors.successDark,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              ],
-            ),
+              );
+            }).toList()),
           ),
-          const SizedBox(width: 8),
-          Tooltip(
-            message: 'Notifications',
-            child: IconButton(
-              onPressed: () {},
-              icon: const Icon(
-                Icons.notifications_none_rounded,
-                color: AppColors.grey700,
-                size: 20,
-              ),
-            ),
-          ),
-          const SizedBox(width: 3),
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: AppColors.primarySoft,
-            child: Text(
-              (auth.currentUser?.name ?? 'U').substring(0, 1).toUpperCase(),
-              style: const TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w800,
-                fontSize: 11,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+          decoration: BoxDecoration(color: AppColors.successSoft, borderRadius: BorderRadius.circular(18)),
+          child: const Row(children: [
+            Icon(Icons.circle, size: 7, color: AppColors.success),
+            SizedBox(width: 5),
+            Text('Online', style: TextStyle(color: AppColors.successDark, fontSize: 10.5, fontWeight: FontWeight.w700)),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        Tooltip(message: 'Notifications', child: IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none_rounded, color: AppColors.grey700, size: 20))),
+        const SizedBox(width: 3),
+        CircleAvatar(
+          radius: 16,
+          backgroundColor: AppColors.primarySoft,
+          child: Text((auth.currentUser?.name ?? 'U').substring(0, 1).toUpperCase(), style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 11)),
+        ),
+      ]),
     );
   }
 
@@ -346,7 +235,14 @@ class _QuickTopBar extends StatelessWidget {
     return location.startsWith(route);
   }
 
-  List<_QuickAction> _quickActions() {
+  List<_QuickAction> _quickActions(bool isAdmin) {
+    if (!isAdmin) {
+      return const [
+        _QuickAction('Tables', Icons.table_restaurant_outlined, AppRouter.tables),
+        _QuickAction('Bills', Icons.receipt_long_outlined, AppRouter.orders),
+        _QuickAction('Sales', Icons.point_of_sale_outlined, AppRouter.sales),
+      ];
+    }
     return const [
       _QuickAction('Tables', Icons.table_restaurant_outlined, AppRouter.tables),
       _QuickAction('Items', Icons.inventory_2_outlined, AppRouter.products),
