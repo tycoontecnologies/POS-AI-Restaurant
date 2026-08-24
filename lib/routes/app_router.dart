@@ -15,6 +15,7 @@ import 'package:pos/screens/sale_screen.dart';
 import 'package:pos/screens/sale_return_screen.dart';
 import 'package:pos/screens/table_order_screen.dart';
 import 'package:pos/screens/users_roles_screen.dart';
+import 'package:pos/screens/settings_hub_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/screens/category_products_screen.dart';
 import 'package:pos/providers/auth_provider.dart';
@@ -50,6 +51,7 @@ class AppRouter {
   static const String paymentSuccess = '/payment-success';
   static const String ingredients = '/ingredients';
   static const String settings = '/settings';
+  static const String profileSettings = '/settings/profile';
   static const String usersRoles = '/settings/users-roles';
   static const String salesReturn = '/salesReturn';
   static const String storeOut = '/storeOut';
@@ -104,7 +106,8 @@ class AppRouter {
           GoRoute(path: sales, name: 'sales', builder: (context, state) => const SaleScreen(), redirect: _checkSubscription),
           GoRoute(path: salesReturn, name: 'sales-return', builder: (context, state) => const SaleReturnScreen(), redirect: _checkSubscription),
           GoRoute(path: storeOut, name: 'store-out', builder: (context, state) => const StoreOutScreen(), redirect: _checkSubscription),
-          GoRoute(path: settings, name: 'settings', builder: (context, state) => const SettingsScreen(), redirect: _checkSubscription),
+          GoRoute(path: settings, name: 'settings', builder: (context, state) => const SettingsHubScreen(), redirect: _checkSubscription),
+          GoRoute(path: profileSettings, name: 'profile-settings', builder: (context, state) => const SettingsScreen(), redirect: _checkSubscription),
           GoRoute(path: usersRoles, name: 'users-roles', builder: (context, state) => const UsersRolesScreen(), redirect: _checkSubscription),
           GoRoute(path: pricing, name: 'pricing', builder: (context, state) => const PricingScreen(), redirect: _checkSubscription),
           GoRoute(path: '$payment/:plan', name: 'payment', builder: (context, state) => PaymentScreen(plan: state.pathParameters['plan']!)),
