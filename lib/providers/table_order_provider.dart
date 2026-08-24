@@ -9,24 +9,18 @@ class TableOrderProvider with ChangeNotifier {
   final AuthProvider authProvider;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Map of tableId -> current order items
   final Map<String, List<CartItem>> _tableOrders = {};
-  // Map of tableId -> order status/info
   final Map<String, Map<String, dynamic>> _tableOrderInfo = {};
 
   TableOrderProvider(this.authProvider);
 
-  // Get current order for a specific table
-  List<CartItem> getOrderForTable(String tableId) {
-    return _tableOrders[tableId] ?? [];
+  List<CartItem> getOrderForTable(String tableId) => _tableOrders[tableId] ?? [];
+  Map<String, dynamic> getOrderInfo(String tableId) => _tableOrderInfo[tableId] ?? {};
+
+  String getOrderStatus(String tableId) {
+    return (_tableOrderInfo[tableId]?['status'] ?? 'empty').toString();
   }
 
-  // Get order info for a specific table
-  Map<String, dynamic> getOrderInfo(String tableId) {
-    return _tableOrderInfo[tableId] ?? {};
-  }
-
-  // Add item to table's order
   Future<void> addToTableOrder({
     required String tableId,
     required Product product,
@@ -36,63 +30,42 @@ class TableOrderProvider with ChangeNotifier {
     final vendorId = authProvider.currentUser?.id;
     if (vendorId == null) return;
 
-    // Initialize if needed
     if (!_tableOrders.containsKey(tableId)) {
       _tableOrders[tableId] = [];
       _tableOrderInfo[tableId] = {
         'tableId': tableId,
         'createdAt': DateTime.now(),
-        'status': 'active',
+        'status': 'open',
         'itemsCount': 0,
         'total': 0.0,
       };
     }
 
-    // Create cart item
-    final cartItem = CartItem(
-      product: product,
-      variant: variant,
-      quantity: quantity,
-    );
-
-    // Add to local cache
-    _tableOrders[tableId]!.add(cartItem);
-
-    // Update order info
+    _tableOrders[tableId]!.add(CartItem(product: product, variant: variant, quantity: quantity));
     _tableOrderInfo[tableId]!['itemsCount'] = _tableOrders[tableId]!.length;
     _tableOrderInfo[tableId]!['total'] = _getTableTotal(tableId);
     _tableOrderInfo[tableId]!['updatedAt'] = DateTime.now();
+    if ((_tableOrderInfo[tableId]!['status'] ?? '').toString().isEmpty) {
+      _tableOrderInfo[tableId]!['status'] = 'open';
+    }
 
-    // Save to Firestore (persist between sessions)
     await _saveTableOrderToFirestore(vendorId, tableId);
-
     notifyListeners();
   }
 
-  // Remove item from table's order
-  Future<void> removeFromTableOrder({
-    required String tableId,
-    required int itemIndex,
-  }) async {
+  Future<void> removeFromTableOrder({required String tableId, required int itemIndex}) async {
     final vendorId = authProvider.currentUser?.id;
     if (vendorId == null || !_tableOrders.containsKey(tableId)) return;
-
     if (itemIndex < _tableOrders[tableId]!.length) {
       _tableOrders[tableId]!.removeAt(itemIndex);
-
-      // Update order info
       _tableOrderInfo[tableId]!['itemsCount'] = _tableOrders[tableId]!.length;
       _tableOrderInfo[tableId]!['total'] = _getTableTotal(tableId);
       _tableOrderInfo[tableId]!['updatedAt'] = DateTime.now();
-
-      // Save to Firestore
       await _saveTableOrderToFirestore(vendorId, tableId);
-
       notifyListeners();
     }
   }
 
-  // Update item quantity in table's order
   Future<void> updateTableOrderQuantity({
     required String tableId,
     required int itemIndex,
@@ -103,8 +76,6 @@ class TableOrderProvider with ChangeNotifier {
 
     if (itemIndex < _tableOrders[tableId]!.length) {
       final item = _tableOrders[tableId]![itemIndex];
-
-      // Check stock availability
       final availableStock = item.variant?.quantity ?? item.product.quantity;
       if (quantity > availableStock) {
         throw Exception('Insufficient stock. Only $availableStock available.');
@@ -116,28 +87,47 @@ class TableOrderProvider with ChangeNotifier {
         item.quantity = quantity;
       }
 
-      // Update order info
       _tableOrderInfo[tableId]!['itemsCount'] = _tableOrders[tableId]!.length;
       _tableOrderInfo[tableId]!['total'] = _getTableTotal(tableId);
       _tableOrderInfo[tableId]!['updatedAt'] = DateTime.now();
-
-      // Save to Firestore
       await _saveTableOrderToFirestore(vendorId, tableId);
-
       notifyListeners();
     }
   }
 
-  // Clear table's order (when checkout is completed)
+  Future<void> setOrderStatus(String tableId, String status) async {
+    final vendorId = authProvider.currentUser?.id;
+    if (vendorId == null) return;
+
+    _tableOrderInfo.putIfAbsent(tableId, () => {
+      'tableId': tableId,
+      'createdAt': DateTime.now(),
+      'itemsCount': _tableOrders[tableId]?.length ?? 0,
+      'total': _getTableTotal(tableId),
+    });
+    _tableOrderInfo[tableId]!['status'] = status;
+    _tableOrderInfo[tableId]!['updatedAt'] = DateTime.now();
+
+    await _firestore
+        .collection('vendors')
+        .doc(vendorId)
+        .collection('tableOrders')
+        .doc(tableId)
+        .set({
+          'status': status,
+          'updatedAt': DateTime.now(),
+        }, SetOptions(merge: true));
+
+    notifyListeners();
+  }
+
   Future<void> clearTableOrder(String tableId) async {
     final vendorId = authProvider.currentUser?.id;
     if (vendorId == null) return;
 
-    // Clear local cache
     _tableOrders.remove(tableId);
     _tableOrderInfo.remove(tableId);
 
-    // Clear from Firestore
     await _firestore
         .collection('vendors')
         .doc(vendorId)
@@ -148,7 +138,6 @@ class TableOrderProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Load table order from Firestore (when opening table screen)
   Future<void> loadTableOrder(String tableId) async {
     final vendorId = authProvider.currentUser?.id;
     if (vendorId == null) return;
@@ -164,23 +153,40 @@ class TableOrderProvider with ChangeNotifier {
       if (doc.exists) {
         final data = doc.data()!;
         _tableOrderInfo[tableId] = Map<String, dynamic>.from(data);
-
-        // Convert stored items back to CartItems
         final itemsData = List<Map<String, dynamic>>.from(data['items'] ?? []);
         _tableOrders[tableId] = await _convertToCartItems(itemsData);
-
         notifyListeners();
       }
     } catch (e) {
-      print('Error loading table order: $e');
+      debugPrint('Error loading table order: $e');
     }
   }
 
-  // Helper: Save table order to Firestore
-  Future<void> _saveTableOrderToFirestore(
-    String vendorId,
-    String tableId,
-  ) async {
+  Future<void> loadAllTableOrders() async {
+    final vendorId = authProvider.currentUser?.id;
+    if (vendorId == null) return;
+
+    try {
+      final snapshot = await _firestore
+          .collection('vendors')
+          .doc(vendorId)
+          .collection('tableOrders')
+          .get();
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        _tableOrderInfo[doc.id] = Map<String, dynamic>.from(data);
+        final rawItems = data['items'] ?? [];
+        final itemsData = List<Map<String, dynamic>>.from(rawItems);
+        _tableOrders[doc.id] = await _convertToCartItems(itemsData);
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading table orders: $e');
+    }
+  }
+
+  Future<void> _saveTableOrderToFirestore(String vendorId, String tableId) async {
     try {
       final itemsData = _tableOrders[tableId]!.map((item) {
         return {
@@ -196,6 +202,7 @@ class TableOrderProvider with ChangeNotifier {
         };
       }).toList();
 
+      final info = _tableOrderInfo[tableId] ?? {};
       await _firestore
           .collection('vendors')
           .doc(vendorId)
@@ -206,21 +213,17 @@ class TableOrderProvider with ChangeNotifier {
             'items': itemsData,
             'total': _getTableTotal(tableId),
             'itemsCount': _tableOrders[tableId]!.length,
-            'status': 'active',
-            'createdAt': _tableOrderInfo[tableId]!['createdAt'],
+            'status': info['status'] ?? 'open',
+            'createdAt': info['createdAt'] ?? DateTime.now(),
             'updatedAt': DateTime.now(),
           }, SetOptions(merge: true));
     } catch (e) {
-      print('Error saving table order: $e');
+      debugPrint('Error saving table order: $e');
     }
   }
 
-  // Helper: Convert stored data back to CartItems
-  Future<List<CartItem>> _convertToCartItems(
-    List<Map<String, dynamic>> itemsData,
-  ) async {
+  Future<List<CartItem>> _convertToCartItems(List<Map<String, dynamic>> itemsData) async {
     final List<CartItem> cartItems = [];
-
     for (final itemData in itemsData) {
       try {
         final product = Product.fromJson(itemData['productData']);
@@ -228,44 +231,27 @@ class TableOrderProvider with ChangeNotifier {
         final ProductVariant? variant = variantData != null
             ? ProductVariant.fromJson(variantData)
             : null;
-
-        cartItems.add(
-          CartItem(
-            product: product,
-            variant: variant,
-            quantity: itemData['quantity'] ?? 1,
-          ),
-        );
+        cartItems.add(CartItem(product: product, variant: variant, quantity: itemData['quantity'] ?? 1));
       } catch (e) {
-        print('Error converting item: $e');
+        debugPrint('Error converting item: $e');
       }
     }
-
     return cartItems;
   }
 
-  // Helper: Calculate table total
   double _getTableTotal(String tableId) {
     if (!_tableOrders.containsKey(tableId)) return 0.0;
-
-    return _tableOrders[tableId]!.fold(
-      0.0,
-      (sum, item) => sum + item.totalPrice,
-    );
+    return _tableOrders[tableId]!.fold(0.0, (sum, item) => sum + item.totalPrice);
   }
 
-  // Check if table has active order
   bool hasActiveOrder(String tableId) {
-    return _tableOrders.containsKey(tableId) &&
-        _tableOrders[tableId]!.isNotEmpty;
+    return _tableOrders.containsKey(tableId) && _tableOrders[tableId]!.isNotEmpty;
   }
 
-  // Get all tables with active orders
   List<String> getTablesWithOrders() {
     return _tableOrders.entries
         .where((entry) => entry.value.isNotEmpty)
         .map((entry) => entry.key)
         .toList();
   }
-  
 }
