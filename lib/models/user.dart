@@ -33,6 +33,8 @@ class UserModel {
   final UserRole role;
   final String department;
   final List<String> permissions;
+  final String branchId;
+  final String branchName;
   final DateTime createdAt;
   final bool isActive;
   final DateTime trialEndsAt;
@@ -52,6 +54,8 @@ class UserModel {
     required this.role,
     this.department = '',
     this.permissions = const [],
+    this.branchId = 'main',
+    this.branchName = 'Main Branch',
     required this.createdAt,
     this.isActive = true,
     required this.trialEndsAt,
@@ -74,6 +78,8 @@ class UserModel {
       role: _parseRole((data['role'] ?? '').toString()),
       department: (data['department'] ?? '').toString(),
       permissions: List<String>.from(data['permissions'] ?? const <String>[]),
+      branchId: (data['branchId'] ?? 'main').toString(),
+      branchName: (data['branchName'] ?? 'Main Branch').toString(),
       createdAt: _toDate(data['createdAt']) ?? DateTime.now(),
       isActive: data['isActive'] ?? true,
       trialEndsAt: _toDate(data['trialEndsAt']) ?? DateTime.now().add(const Duration(days: 7)),
@@ -95,6 +101,8 @@ class UserModel {
       'department': department,
       'permissions': permissions,
       'ownerId': id,
+      'branchId': branchId,
+      'branchName': branchName,
       'createdAt': Timestamp.fromDate(createdAt),
       'isActive': isActive,
       'trialEndsAt': Timestamp.fromDate(trialEndsAt),
