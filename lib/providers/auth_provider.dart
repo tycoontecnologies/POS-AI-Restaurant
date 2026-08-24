@@ -2,11 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pos/services/auth_service.dart';
 import 'package:pos/services/session_audit_service.dart';
+import 'package:pos/services/notification_service.dart';
 import 'package:pos/models/user.dart';
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
   final SessionAuditService _auditService = SessionAuditService();
+  final NotificationService _notificationService = NotificationService();
   UserModel? _currentUser;
   bool _isLoading = false;
   String? _error;
@@ -73,6 +75,13 @@ class AuthProvider with ChangeNotifier {
 
       if (_currentUser != null) {
         await _auditService.startSession(_currentUser!);
+        await _notificationService.publish(
+          actor: _currentUser!,
+          type: 'work_started',
+          title: 'Work started',
+          message: '${_currentUser!.name} signed in and started work.',
+          severity: 'success',
+        );
       }
       return true;
     } catch (e) {
@@ -99,6 +108,17 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
       await _auditService.startSession(_currentUser!);
+      try {
+        await _notificationService.publish(
+          actor: _currentUser!,
+          type: 'work_started',
+          title: 'Work started',
+          message: '${_currentUser!.name} signed in to ${_currentUser!.branchName}.',
+          severity: 'success',
+        );
+      } catch (e) {
+        debugPrint('Login notification failed: $e');
+      }
       return true;
     } catch (e) {
       _error = e.toString();
@@ -118,6 +138,12 @@ class AuthProvider with ChangeNotifier {
       if (user != null) {
         try {
           await _auditService.endSession(user);
+          await _notificationService.publish(
+            actor: user,
+            type: 'work_ended',
+            title: 'Work ended',
+            message: '${user.name} signed out from ${user.branchName}.',
+          );
         } catch (e) {
           debugPrint('Session audit close failed: $e');
         }
