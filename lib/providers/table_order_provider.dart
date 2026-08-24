@@ -1,4 +1,5 @@
 // table_order_provider.dart
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pos/models/product.dart';
@@ -11,6 +12,7 @@ class TableOrderProvider with ChangeNotifier {
 
   final Map<String, List<CartItem>> _tableOrders = {};
   final Map<String, Map<String, dynamic>> _tableOrderInfo = {};
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _allOrdersSubscription;
 
   TableOrderProvider(this.authProvider);
 
@@ -121,6 +123,29 @@ class TableOrderProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setOrderMeta(String tableId, Map<String, dynamic> values) async {
+    final vendorId = authProvider.currentUser?.id;
+    if (vendorId == null || values.isEmpty) return;
+
+    _tableOrderInfo.putIfAbsent(tableId, () => {
+      'tableId': tableId,
+      'createdAt': DateTime.now(),
+      'itemsCount': _tableOrders[tableId]?.length ?? 0,
+      'total': _getTableTotal(tableId),
+    });
+    _tableOrderInfo[tableId]!.addAll(values);
+    _tableOrderInfo[tableId]!['updatedAt'] = DateTime.now();
+
+    await _firestore
+        .collection('vendors')
+        .doc(vendorId)
+        .collection('tableOrders')
+        .doc(tableId)
+        .set({...values, 'updatedAt': DateTime.now()}, SetOptions(merge: true));
+
+    notifyListeners();
+  }
+
   Future<void> clearTableOrder(String tableId) async {
     final vendorId = authProvider.currentUser?.id;
     if (vendorId == null) return;
@@ -173,17 +198,45 @@ class TableOrderProvider with ChangeNotifier {
           .collection('tableOrders')
           .get();
 
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        _tableOrderInfo[doc.id] = Map<String, dynamic>.from(data);
-        final rawItems = data['items'] ?? [];
-        final itemsData = List<Map<String, dynamic>>.from(rawItems);
-        _tableOrders[doc.id] = await _convertToCartItems(itemsData);
-      }
-      notifyListeners();
+      await _applySnapshot(snapshot);
     } catch (e) {
       debugPrint('Error loading table orders: $e');
     }
+  }
+
+  void watchAllTableOrders() {
+    final vendorId = authProvider.currentUser?.id;
+    if (vendorId == null) return;
+    _allOrdersSubscription?.cancel();
+    _allOrdersSubscription = _firestore
+        .collection('vendors')
+        .doc(vendorId)
+        .collection('tableOrders')
+        .snapshots()
+        .listen((snapshot) async {
+      await _applySnapshot(snapshot);
+    }, onError: (Object e) {
+      debugPrint('Error watching table orders: $e');
+    });
+  }
+
+  Future<void> _applySnapshot(QuerySnapshot<Map<String, dynamic>> snapshot) async {
+    final seen = <String>{};
+    for (final doc in snapshot.docs) {
+      seen.add(doc.id);
+      final data = doc.data();
+      _tableOrderInfo[doc.id] = Map<String, dynamic>.from(data);
+      final rawItems = data['items'] ?? [];
+      final itemsData = List<Map<String, dynamic>>.from(rawItems);
+      _tableOrders[doc.id] = await _convertToCartItems(itemsData);
+    }
+
+    final removed = _tableOrders.keys.where((id) => !seen.contains(id)).toList();
+    for (final id in removed) {
+      _tableOrders.remove(id);
+      _tableOrderInfo.remove(id);
+    }
+    notifyListeners();
   }
 
   Future<void> _saveTableOrderToFirestore(String vendorId, String tableId) async {
@@ -216,6 +269,11 @@ class TableOrderProvider with ChangeNotifier {
             'status': info['status'] ?? 'open',
             'createdAt': info['createdAt'] ?? DateTime.now(),
             'updatedAt': DateTime.now(),
+            if (info['waiterId'] != null) 'waiterId': info['waiterId'],
+            if (info['waiterName'] != null) 'waiterName': info['waiterName'],
+            if (info['customerCount'] != null) 'customerCount': info['customerCount'],
+            if (info['kotNumber'] != null) 'kotNumber': info['kotNumber'],
+            if (info['billNumber'] != null) 'billNumber': info['billNumber'],
           }, SetOptions(merge: true));
     } catch (e) {
       debugPrint('Error saving table order: $e');
@@ -253,5 +311,11 @@ class TableOrderProvider with ChangeNotifier {
         .where((entry) => entry.value.isNotEmpty)
         .map((entry) => entry.key)
         .toList();
+  }
+
+  @override
+  void dispose() {
+    _allOrdersSubscription?.cancel();
+    super.dispose();
   }
 }
