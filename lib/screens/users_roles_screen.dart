@@ -78,11 +78,17 @@ class _UsersRolesScreenState extends State<UsersRolesScreen> {
               padding: const EdgeInsets.all(12), itemCount: docs.length, separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (_, i) {
                 final doc = docs[i]; final data = doc.data(); final role = _parseRole((data['role'] ?? 'user').toString()); final preset = presets[role]; final active = data['isActive'] != false;
+                final photoUrl = data['photoUrl']?.toString();
                 return Container(
                   padding: const EdgeInsets.all(13),
                   decoration: BoxDecoration(color: AppColors.grey50, borderRadius: BorderRadius.circular(11), border: Border.all(color: AppColors.outlineLight)),
                   child: Row(children: [
-                    Container(width: 38, height: 38, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(10)), child: Icon(preset?.icon ?? Icons.person_outline, color: AppColors.primary, size: 19)),
+                    CircleAvatar(
+                      radius: 19,
+                      backgroundColor: AppColors.primarySoft,
+                      backgroundImage: photoUrl != null && photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                      child: photoUrl == null || photoUrl.isEmpty ? Icon(preset?.icon ?? Icons.person_outline, color: AppColors.primary, size: 19) : null,
+                    ),
                     const SizedBox(width: 11),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text((data['name'] ?? 'User').toString(), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
@@ -95,9 +101,26 @@ class _UsersRolesScreenState extends State<UsersRolesScreen> {
                       tooltip: 'Account actions',
                       onSelected: (value) async {
                         if (value == 'toggle') await doc.reference.update({'isActive': !active, 'updatedAt': FieldValue.serverTimestamp()});
-                        if (value == 'reset') { final email = (data['email'] ?? '').toString(); if (email.isNotEmpty) { await FirebaseAuth.instance.sendPasswordResetEmail(email: email); if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password reset email sent.'))); } }
+                        if (value == 'reset') { final accountEmail = (data['email'] ?? '').toString(); if (accountEmail.isNotEmpty) { await FirebaseAuth.instance.sendPasswordResetEmail(email: accountEmail); if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password reset email sent.'))); } }
+                        if (value == 'photo_on' || value == 'photo_off') {
+                          final allowed = value == 'photo_on';
+                          await doc.reference.update({'canChangePhoto': allowed, 'updatedAt': FieldValue.serverTimestamp()});
+                          final staffId = (data['staffId'] ?? doc.id).toString();
+                          await FirebaseFirestore.instance.collection('vendors').doc(owner.id).collection('staff').doc(staffId).set({'canChangePhoto': allowed}, SetOptions(merge: true));
+                        }
+                        if (value == 'commission_on' || value == 'commission_off') {
+                          final visible = value == 'commission_on';
+                          await doc.reference.update({'showCommissionToStaff': visible, 'updatedAt': FieldValue.serverTimestamp()});
+                          final staffId = (data['staffId'] ?? doc.id).toString();
+                          await FirebaseFirestore.instance.collection('vendors').doc(owner.id).collection('staff').doc(staffId).set({'showCommissionToStaff': visible}, SetOptions(merge: true));
+                        }
                       },
-                      itemBuilder: (_) => [PopupMenuItem(value: 'toggle', child: Text(active ? 'Disable account' : 'Enable account')), const PopupMenuItem(value: 'reset', child: Text('Send password reset'))],
+                      itemBuilder: (_) => [
+                        PopupMenuItem(value: 'toggle', child: Text(active ? 'Disable account' : 'Enable account')),
+                        const PopupMenuItem(value: 'reset', child: Text('Send password reset')),
+                        PopupMenuItem(value: data['canChangePhoto'] == true ? 'photo_off' : 'photo_on', child: Text(data['canChangePhoto'] == true ? 'Block profile photo changes' : 'Allow profile photo changes')),
+                        PopupMenuItem(value: data['showCommissionToStaff'] == true ? 'commission_off' : 'commission_on', child: Text(data['showCommissionToStaff'] == true ? 'Hide commission from user' : 'Show commission to user')),
+                      ],
                     ),
                   ]),
                 );
@@ -141,7 +164,7 @@ class _UsersRolesScreenState extends State<UsersRolesScreen> {
           TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Login email', border: OutlineInputBorder())), const SizedBox(height: 12),
           TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone (optional)', border: OutlineInputBorder())), const SizedBox(height: 12),
           TextField(controller: password, obscureText: obscure, decoration: InputDecoration(labelText: 'Temporary password', border: const OutlineInputBorder(), suffixIcon: IconButton(onPressed: () => setDialogState(() => obscure = !obscure), icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined)))),
-          const SizedBox(height: 12), Container(padding: const EdgeInsets.all(11), decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(10)), child: Text('This account will use ${owner.restaurantName} data and the ${p.label} permission preset.', style: const TextStyle(fontSize: 10.5, color: AppColors.grey700))),
+          const SizedBox(height: 12), Container(padding: const EdgeInsets.all(11), decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(10)), child: Text('This account will use ${owner.restaurantName} data and the ${p.label} permission preset. A linked staff performance profile will also be created.', style: const TextStyle(fontSize: 10.5, color: AppColors.grey700))),
         ]))),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
@@ -169,13 +192,44 @@ class _UsersRolesScreenState extends State<UsersRolesScreen> {
       final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
       final credential = await secondaryAuth.createUserWithEmailAndPassword(email: email, password: password);
       final uid = credential.user!.uid; final now = DateTime.now();
-      await FirebaseFirestore.instance.collection('vendors').doc(uid).set({
+      final accountRef = FirebaseFirestore.instance.collection('vendors').doc(uid);
+      final staffRef = FirebaseFirestore.instance.collection('vendors').doc(owner.id).collection('staff').doc(uid);
+      final batch = FirebaseFirestore.instance.batch();
+      batch.set(accountRef, {
         'ownerId': owner.id, 'restaurantId': owner.id, 'branchId': owner.branchId, 'branchName': owner.branchName,
-        'email': email, 'name': name, 'phoneNo': phone, 'role': role.name, 'department': preset.department, 'permissions': preset.permissions,
+        'staffId': uid, 'email': email, 'name': name, 'phoneNo': phone, 'role': role.name, 'department': preset.department, 'permissions': preset.permissions,
         'createdAt': Timestamp.fromDate(now), 'isActive': true, 'trialEndsAt': Timestamp.fromDate(owner.trialEndsAt), 'subscriptionType': owner.subscriptionType.name,
         'subscriptionEndsAt': owner.subscriptionEndsAt == null ? null : Timestamp.fromDate(owner.subscriptionEndsAt!), 'hasActiveSubscription': owner.hasActiveSubscription,
         'location': owner.location, 'restaurantName': owner.restaurantName, 'restaurantLogoUrl': owner.restaurantLogoUrl, 'createdBy': owner.authUid,
+        'photoUrl': null, 'canChangePhoto': false, 'showCommissionToStaff': false,
       });
+      batch.set(staffRef, {
+        'id': uid,
+        'authUid': uid,
+        'name': name,
+        'role': preset.label,
+        'dailyWage': 0.0,
+        'phone': phone,
+        'address': '',
+        'active': true,
+        'joinDate': now.toIso8601String(),
+        'searchKeywords': [name.toLowerCase(), preset.label.toLowerCase(), phone.toLowerCase()].where((x) => x.isNotEmpty).toList(),
+        'photoUrl': null,
+        'canChangePhoto': false,
+        'commissionRate': 0.0,
+        'showCommissionToStaff': false,
+        'tipsEarned': 0.0,
+        'commissionEarned': 0.0,
+        'serviceChargesEarned': 0.0,
+        'pointsEarned': 0,
+        'averageRating': 0.0,
+        'reviewCount': 0,
+        'leakageTotal': 0.0,
+        'deductionsTotal': 0.0,
+        'branchId': owner.branchId,
+        'branchName': owner.branchName,
+      });
+      await batch.commit();
       await secondaryAuth.signOut();
     } finally { await secondaryApp.delete(); }
   }
