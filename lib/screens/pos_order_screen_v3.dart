@@ -38,11 +38,15 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
     _loaded = true;
     final products = context.read<ProductProvider>();
     final categories = context.read<CategoryProvider>();
+    final orders = context.read<TableOrderProvider>();
     final vendorId = categories.authProvider?.currentUser?.id;
     if (vendorId != null && products.products.isEmpty && !products.isLoading) {
       products.loadProducts(vendorId);
     }
-    context.read<TableOrderProvider>().loadTableOrder(widget.table.id);
+    orders.loadTableOrder(widget.table.id).then((_) {
+      if (!mounted) return;
+      setState(() => _kotSent = orders.getOrderStatus(widget.table.id) == 'making');
+    });
   }
 
   List<String> _categories(List<Product> products) {
@@ -71,6 +75,7 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
       } else {
         await orders.addToTableOrder(tableId: widget.table.id, product: product, variant: variant, quantity: quantity);
       }
+      await orders.setOrderStatus(widget.table.id, 'open');
       await tables.updateTableStatus(widget.table.id, TableStatus.occupied);
       if (mounted) setState(() => _kotSent = false);
     }
@@ -109,15 +114,17 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
         orderType: 'Dine In',
       );
       await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
+      await orders.setOrderStatus(widget.table.id, 'making');
       if (!mounted) return;
       setState(() => _kotSent = true);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('KOT sent to kitchen'), backgroundColor: AppColors.success));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('KOT sent • Order in Making'), backgroundColor: AppColors.success));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _markServed() async {
+    await context.read<TableOrderProvider>().setOrderStatus(widget.table.id, 'served');
     await context.read<TableProvider>().updateTableStatus(widget.table.id, TableStatus.served);
     if (mounted) setState(() {});
   }
@@ -197,9 +204,11 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
     final products = _visibleProducts(productProvider.products);
     final tableStatus = context.watch<TableProvider>().tables.where((t) => t.id == widget.table.id).cast<RestaurantTable?>().firstOrNull?.status ?? widget.table.status;
     final served = tableStatus == TableStatus.served;
+    final orderStatus = orders.getOrderStatus(widget.table.id);
+    final making = orderStatus == 'making';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
+      backgroundColor: AppColors.backgroundLight,
       body: Row(children: [
         SizedBox(width: 164, child: _CategoryRail(categories: categories, selected: _category, onSelect: (v) => setState(() => _category = v))),
         Expanded(
@@ -228,19 +237,24 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
             table: widget.table,
             items: items,
             served: served,
-            kotSent: _kotSent,
+            kotSent: making || _kotSent,
             busy: _busy,
             onMinus: (i) async {
               final item = items[i];
               await orders.updateTableOrderQuantity(tableId: widget.table.id, itemIndex: i, quantity: item.quantity - 1);
+              await orders.setOrderStatus(widget.table.id, 'open');
               if (mounted) setState(() => _kotSent = false);
             },
             onPlus: (i) async {
               final item = items[i];
               await orders.updateTableOrderQuantity(tableId: widget.table.id, itemIndex: i, quantity: item.quantity + 1);
+              await orders.setOrderStatus(widget.table.id, 'open');
               if (mounted) setState(() => _kotSent = false);
             },
-            onDelete: (i) => orders.removeFromTableOrder(tableId: widget.table.id, itemIndex: i),
+            onDelete: (i) async {
+              await orders.removeFromTableOrder(tableId: widget.table.id, itemIndex: i);
+              await orders.setOrderStatus(widget.table.id, 'open');
+            },
             onKot: _sendKot,
             onServed: _markServed,
             onCheckout: _checkout,
@@ -260,30 +274,30 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 86,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      height: 80,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       decoration: const BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: AppColors.outlineLight))),
       child: Row(children: [
         IconButton(onPressed: onBack, icon: const Icon(Icons.arrow_back_rounded)),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         SizedBox(
-          width: 190,
+          width: 180,
           child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Table ${table.tableNumber}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.grey900)),
-            Text('${table.numberOfSeats} seats  •  Dine In', style: const TextStyle(fontSize: 11, color: AppColors.grey500)),
+            Text('Table ${table.tableNumber}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.grey900)),
+            Text('${table.numberOfSeats} seats • Dine In', style: const TextStyle(fontSize: 10.5, color: AppColors.grey500)),
           ]),
         ),
-        const SizedBox(width: 18),
+        const SizedBox(width: 14),
         Expanded(
           child: TextField(
             onChanged: onSearch,
             decoration: InputDecoration(
-              hintText: 'Search food, drinks or category...',
+              hintText: 'Search items...',
               prefixIcon: const Icon(Icons.search_rounded),
               filled: true,
-              fillColor: AppColors.grey50,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.outlineLight)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.outlineLight)),
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.outlineLight)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.outlineLight)),
             ),
           ),
         ),
@@ -304,8 +318,8 @@ class _CategoryRail extends StatelessWidget {
       decoration: const BoxDecoration(color: Colors.white, border: Border(right: BorderSide(color: AppColors.outlineLight))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Padding(
-          padding: EdgeInsets.fromLTRB(16, 22, 16, 12),
-          child: Text('CATEGORIES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.grey400, letterSpacing: 1.1)),
+          padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
+          child: Text('CATEGORIES', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: AppColors.grey400, letterSpacing: 1.1)),
         ),
         Expanded(
           child: ListView.builder(
@@ -318,13 +332,13 @@ class _CategoryRail extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 5),
                 child: Material(
                   color: active ? AppColors.primarySoft : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(9),
                   child: InkWell(
                     onTap: () => onSelect(c),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(9),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      child: Text(c, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? AppColors.primaryDark : AppColors.grey700)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                      child: Text(c, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? AppColors.primaryDark : AppColors.grey700)),
                     ),
                   ),
                 ),
@@ -346,25 +360,25 @@ class _ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.outlineLight)),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.outlineLight)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Container(width: 42, height: 42, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.restaurant_rounded, color: AppColors.primary, size: 20)),
+              Container(width: 38, height: 38, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.restaurant_rounded, color: AppColors.primary, size: 18)),
               const Spacer(),
-              Container(width: 32, height: 32, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.add_rounded, color: Colors.white, size: 19)),
+              Container(width: 30, height: 30, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.add_rounded, color: Colors.white, size: 18)),
             ]),
             const Spacer(),
-            Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.grey900)),
-            const SizedBox(height: 4),
-            Text(product.category, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: AppColors.grey500)),
-            const SizedBox(height: 10),
-            Text('Rs ${product.salePrice.toStringAsFixed(0)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.grey900)),
+            Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.grey900)),
+            const SizedBox(height: 3),
+            Text(product.category, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: AppColors.grey500)),
+            const SizedBox(height: 8),
+            Text('Rs ${product.salePrice.toStringAsFixed(0)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.grey900)),
           ]),
         ),
       ),
@@ -397,13 +411,25 @@ class _OrderPanel extends StatelessWidget {
       decoration: const BoxDecoration(color: Colors.white, border: Border(left: BorderSide(color: AppColors.outlineLight))),
       child: Column(children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              const Expanded(child: Text('Current Order', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.grey900))),
-              Text('Table ${table.tableNumber}', style: const TextStyle(fontSize: 11, color: AppColors.grey500)),
+              const Expanded(child: Text('Current Order', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.grey900))),
+              Text('Table ${table.tableNumber}', style: const TextStyle(fontSize: 10.5, color: AppColors.grey500)),
             ]),
-            const SizedBox(height: 13),
+            if (kotSent && !served) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: AppColors.warningSoft, borderRadius: BorderRadius.circular(8)),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.soup_kitchen_outlined, size: 15, color: AppColors.warningDark),
+                  SizedBox(width: 6),
+                  Text('ORDER IN MAKING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.warningDark)),
+                ]),
+              ),
+            ],
+            const SizedBox(height: 11),
             _StageBar(stage: stage),
           ]),
         ),
@@ -412,29 +438,29 @@ class _OrderPanel extends StatelessWidget {
           child: items.isEmpty
               ? const _EmptyOrder()
               : ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   itemCount: items.length,
                   separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.outlineVariantLight),
                   itemBuilder: (_, i) {
                     final item = items[i];
                     return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(item.displayName, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 4),
-                          Text('Rs ${item.unitPrice.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10.5, color: AppColors.grey500)),
-                          const SizedBox(height: 9),
+                          Text(item.displayName, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 3),
+                          Text('Rs ${item.unitPrice.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10, color: AppColors.grey500)),
+                          const SizedBox(height: 7),
                           Row(mainAxisSize: MainAxisSize.min, children: [
                             _Qty(icon: Icons.remove_rounded, onTap: () => onMinus(i)),
-                            SizedBox(width: 32, child: Text('${item.quantity}', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600))),
+                            SizedBox(width: 30, child: Text('${item.quantity}', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600))),
                             _Qty(icon: Icons.add_rounded, onTap: () => onPlus(i)),
                           ]),
                         ])),
                         const SizedBox(width: 8),
                         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                          Text('Rs ${item.totalPrice.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
-                          IconButton(onPressed: () => onDelete(i), visualDensity: VisualDensity.compact, icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.grey400)),
+                          Text('Rs ${item.totalPrice.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                          IconButton(onPressed: () => onDelete(i), visualDensity: VisualDensity.compact, icon: const Icon(Icons.delete_outline_rounded, size: 17, color: AppColors.grey400)),
                         ]),
                       ]),
                     );
@@ -442,26 +468,26 @@ class _OrderPanel extends StatelessWidget {
                 ),
         ),
         Container(
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
           decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: AppColors.outlineLight))),
           child: Column(children: [
             _BillLine(label: 'Items', value: '$count'),
-            const SizedBox(height: 7),
+            const SizedBox(height: 6),
             _BillLine(label: 'Subtotal', value: 'Rs ${total.toStringAsFixed(0)}'),
-            const Padding(padding: EdgeInsets.symmetric(vertical: 11), child: Divider(height: 1, color: AppColors.outlineLight)),
+            const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: AppColors.outlineLight)),
             _BillLine(label: 'Total', value: 'Rs ${total.toStringAsFixed(0)}', strong: true),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             if (items.isEmpty)
-              const SizedBox(width: double.infinity, height: 48, child: FilledButton(onPressed: null, child: Text('ADD ITEMS TO START')))
+              const SizedBox(width: double.infinity, height: 44, child: FilledButton(onPressed: null, child: Text('ADD ITEMS TO START')))
             else if (!kotSent && !served)
-              SizedBox(width: double.infinity, height: 48, child: FilledButton.icon(onPressed: busy ? null : onKot, icon: const Icon(Icons.soup_kitchen_outlined), label: const Text('SEND TO KITCHEN'), style: FilledButton.styleFrom(backgroundColor: AppColors.primary)))
+              SizedBox(width: double.infinity, height: 46, child: FilledButton.icon(onPressed: busy ? null : onKot, icon: const Icon(Icons.soup_kitchen_outlined), label: const Text('SEND KOT'), style: FilledButton.styleFrom(backgroundColor: AppColors.primary)))
             else if (!served)
-              SizedBox(width: double.infinity, height: 48, child: FilledButton.icon(onPressed: busy ? null : onServed, icon: const Icon(Icons.room_service_outlined), label: const Text('MARK AS SERVED'), style: FilledButton.styleFrom(backgroundColor: AppColors.primary)))
+              SizedBox(width: double.infinity, height: 46, child: FilledButton.icon(onPressed: busy ? null : onServed, icon: const Icon(Icons.room_service_outlined), label: const Text('MARK SERVED'), style: FilledButton.styleFrom(backgroundColor: AppColors.primary)))
             else
-              SizedBox(width: double.infinity, height: 50, child: FilledButton.icon(onPressed: busy ? null : onCheckout, icon: const Icon(Icons.payments_outlined), label: Text('CHECKOUT  •  Rs ${total.toStringAsFixed(0)}'), style: FilledButton.styleFrom(backgroundColor: AppColors.primary))),
+              SizedBox(width: double.infinity, height: 48, child: FilledButton.icon(onPressed: busy ? null : onCheckout, icon: const Icon(Icons.payments_outlined), label: Text('BILL / CHECKOUT • Rs ${total.toStringAsFixed(0)}'), style: FilledButton.styleFrom(backgroundColor: AppColors.primary))),
             if (items.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              SizedBox(width: double.infinity, height: 40, child: OutlinedButton.icon(onPressed: busy ? null : onKot, icon: const Icon(Icons.print_outlined, size: 17), label: Text(kotSent ? 'REPRINT KOT' : 'PRINT KOT'))),
+              const SizedBox(height: 7),
+              SizedBox(width: double.infinity, height: 38, child: OutlinedButton.icon(onPressed: busy ? null : onKot, icon: const Icon(Icons.print_outlined, size: 16), label: Text(kotSent ? 'REPRINT KOT' : 'PRINT KOT'))),
             ],
           ]),
         ),
@@ -479,9 +505,9 @@ class _StageBar extends StatelessWidget {
     return Row(children: List.generate(4, (i) {
       final active = i + 1 <= stage;
       return Expanded(child: Row(children: [
-        Container(width: 20, height: 20, alignment: Alignment.center, decoration: BoxDecoration(shape: BoxShape.circle, color: active ? AppColors.primary : AppColors.grey200), child: Text('${i + 1}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: active ? Colors.white : AppColors.grey500))),
+        Container(width: 19, height: 19, alignment: Alignment.center, decoration: BoxDecoration(shape: BoxShape.circle, color: active ? AppColors.primary : AppColors.grey200), child: Text('${i + 1}', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w700, color: active ? Colors.white : AppColors.grey500))),
         const SizedBox(width: 4),
-        Flexible(child: Text(labels[i], overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9.5, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? AppColors.grey800 : AppColors.grey400))),
+        Flexible(child: Text(labels[i], overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? AppColors.grey800 : AppColors.grey400))),
       ]));
     }));
   }
@@ -494,8 +520,8 @@ class _BillLine extends StatelessWidget {
   const _BillLine({required this.label, required this.value, this.strong = false});
   @override
   Widget build(BuildContext context) => Row(children: [
-    Expanded(child: Text(label, style: TextStyle(fontSize: strong ? 14 : 11, fontWeight: strong ? FontWeight.w700 : FontWeight.w500, color: strong ? AppColors.grey900 : AppColors.grey500))),
-    Text(value, style: TextStyle(fontSize: strong ? 20 : 11.5, fontWeight: strong ? FontWeight.w800 : FontWeight.w600, color: AppColors.grey900)),
+    Expanded(child: Text(label, style: TextStyle(fontSize: strong ? 13 : 10.5, fontWeight: strong ? FontWeight.w700 : FontWeight.w500, color: strong ? AppColors.grey900 : AppColors.grey500))),
+    Text(value, style: TextStyle(fontSize: strong ? 19 : 11, fontWeight: strong ? FontWeight.w800 : FontWeight.w600, color: AppColors.grey900)),
   ]);
 }
 
@@ -506,8 +532,8 @@ class _Qty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: onTap,
-    borderRadius: BorderRadius.circular(8),
-    child: Container(width: 28, height: 28, decoration: BoxDecoration(color: AppColors.grey50, border: Border.all(color: AppColors.outlineLight), borderRadius: BorderRadius.circular(8)), child: Icon(icon, size: 15, color: AppColors.grey700)),
+    borderRadius: BorderRadius.circular(7),
+    child: Container(width: 27, height: 27, decoration: BoxDecoration(color: AppColors.grey50, border: Border.all(color: AppColors.outlineLight), borderRadius: BorderRadius.circular(7)), child: Icon(icon, size: 14, color: AppColors.grey700)),
   );
 }
 
@@ -518,11 +544,11 @@ class _EmptyOrder extends StatelessWidget {
     child: Padding(
       padding: EdgeInsets.all(30),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.receipt_long_outlined, size: 34, color: AppColors.grey300),
-        SizedBox(height: 12),
-        Text('Start building the order', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.grey800)),
-        SizedBox(height: 5),
-        Text('Tap any menu item to add it here.', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppColors.grey500)),
+        Icon(Icons.receipt_long_outlined, size: 32, color: AppColors.grey300),
+        SizedBox(height: 10),
+        Text('Add items to this table', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.grey800)),
+        SizedBox(height: 4),
+        Text('Tap any menu item to add it.', textAlign: TextAlign.center, style: TextStyle(fontSize: 10.5, color: AppColors.grey500)),
       ]),
     ),
   );
@@ -532,8 +558,8 @@ class _NoProducts extends StatelessWidget {
   const _NoProducts();
   @override
   Widget build(BuildContext context) => const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-    Icon(Icons.search_off_rounded, size: 34, color: AppColors.grey300),
-    SizedBox(height: 10),
+    Icon(Icons.search_off_rounded, size: 32, color: AppColors.grey300),
+    SizedBox(height: 9),
     Text('No menu items found', style: TextStyle(color: AppColors.grey500)),
   ]));
 }
