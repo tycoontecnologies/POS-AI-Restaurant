@@ -21,11 +21,16 @@ class _KitchenKotScreenState extends State<KitchenKotScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<TableOrderProvider>().loadAllTableOrders();
+      if (!mounted) return;
+      final provider = context.read<TableOrderProvider>();
+      provider.loadAllTableOrders();
+      provider.watchAllTableOrders();
     });
   }
 
   String _kotNo(Map<String, dynamic> info) {
+    final saved = (info['kotNumber'] ?? '').toString().trim();
+    if (saved.isNotEmpty) return saved;
     final raw = info['createdAt'];
     DateTime d = DateTime.now();
     if (raw is DateTime) d = raw;
@@ -40,27 +45,35 @@ class _KitchenKotScreenState extends State<KitchenKotScreen> {
 
   Color _statusColor(String status) {
     switch (status) {
-      case 'making': return const Color(0xFFF59E0B);
+      case 'making':
+        return const Color(0xFFF59E0B);
+      case 'ready':
+        return const Color(0xFF10B981);
       case 'served':
-      case 'ready': return const Color(0xFF10B981);
-      default: return _purple;
+        return const Color(0xFF3B82F6);
+      default:
+        return _purple;
     }
   }
 
   String _statusLabel(String status) {
     switch (status) {
-      case 'making': return 'ORDER IN MAKING';
+      case 'making':
+        return 'ORDER IN MAKING';
+      case 'ready':
+        return 'READY TO SERVE';
       case 'served':
-      case 'ready': return 'READY TO SERVE';
-      default: return 'NEW KOT';
+        return 'SERVED';
+      default:
+        return 'NEW KOT';
     }
   }
 
   bool _visible(String status) {
     if (_filter == 'all') return true;
-    if (_filter == 'ready') return status == 'served' || status == 'ready';
+    if (_filter == 'ready') return status == 'ready';
     if (_filter == 'making') return status == 'making';
-    return status != 'served' && status != 'ready';
+    return status == 'open' || status == 'making';
   }
 
   @override
@@ -75,14 +88,20 @@ class _KitchenKotScreenState extends State<KitchenKotScreen> {
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Kitchen KOT', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: _ink)),
-              SizedBox(height: 3),
-              Text('Live kitchen queue • Start making • Ready to serve', style: TextStyle(fontSize: 11.5, color: _muted)),
-            ])),
+            const Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Kitchen KOT', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: _ink)),
+                SizedBox(height: 3),
+                Text('Live kitchen queue • New orders appear automatically', style: TextStyle(fontSize: 11.5, color: _muted)),
+              ]),
+            ),
             OutlinedButton.icon(
               onPressed: () => provider.loadAllTableOrders(),
-              style: OutlinedButton.styleFrom(side: const BorderSide(color: _line), foregroundColor: _purple, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9))),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: _line),
+                foregroundColor: _purple,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+              ),
               icon: const Icon(Icons.refresh_rounded, size: 17),
               label: const Text('Refresh'),
             ),
@@ -97,11 +116,13 @@ class _KitchenKotScreenState extends State<KitchenKotScreen> {
           const SizedBox(height: 16),
           Expanded(
             child: visible.isEmpty
-                ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.soup_kitchen_outlined, size: 44, color: Color(0xFFCBD5E1)),
-                    SizedBox(height: 10),
-                    Text('No KOTs in this queue', style: TextStyle(fontWeight: FontWeight.w700, color: _muted)),
-                  ]))
+                ? const Center(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.soup_kitchen_outlined, size: 44, color: Color(0xFFCBD5E1)),
+                      SizedBox(height: 10),
+                      Text('No KOTs in this queue', style: TextStyle(fontWeight: FontWeight.w700, color: _muted)),
+                    ]),
+                  )
                 : LayoutBuilder(builder: (_, c) {
                     final columns = c.maxWidth >= 1250 ? 4 : c.maxWidth >= 900 ? 3 : c.maxWidth >= 620 ? 2 : 1;
                     final width = (c.maxWidth - ((columns - 1) * 12)) / columns;
@@ -113,21 +134,21 @@ class _KitchenKotScreenState extends State<KitchenKotScreen> {
                           final status = provider.getOrderStatus(tableId);
                           final info = provider.getOrderInfo(tableId);
                           final items = provider.getOrderForTable(tableId);
+                          final tableNumber = (info['tableNumber'] ?? tableId).toString();
                           return SizedBox(
                             width: width,
                             child: _KotCard(
-                              tableId: tableId,
+                              tableNumber: tableNumber,
                               kotNo: _kotNo(info),
                               status: status,
                               label: _statusLabel(status),
                               accent: _statusColor(status),
                               waiter: (info['waiterName'] ?? 'Unassigned').toString(),
-                              guests: (info['guestCount'] ?? '—').toString(),
+                              guests: (info['customerCount'] ?? '—').toString(),
                               items: items.map((e) => '${e.quantity} × ${e.displayName}').toList(),
-                              total: items.fold<double>(0, (sum, e) => sum + e.totalPrice),
                               onAction: status == 'making'
-                                  ? () => provider.setOrderStatus(tableId, 'served')
-                                  : (status == 'served' || status == 'ready')
+                                  ? () => provider.setOrderStatus(tableId, 'ready')
+                                  : status == 'ready' || status == 'served'
                                       ? null
                                       : () => provider.setOrderStatus(tableId, 'making'),
                             ),
@@ -160,13 +181,16 @@ class _FilterChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: selected ? _purple : _line),
           ),
-          child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: selected ? _purple : const Color(0xFF334155))),
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: selected ? _purple : const Color(0xFF334155)),
+          ),
         ),
       );
 }
 
 class _KotCard extends StatelessWidget {
-  final String tableId;
+  final String tableNumber;
   final String kotNo;
   final String status;
   final String label;
@@ -174,10 +198,19 @@ class _KotCard extends StatelessWidget {
   final String waiter;
   final String guests;
   final List<String> items;
-  final double total;
   final VoidCallback? onAction;
 
-  const _KotCard({required this.tableId, required this.kotNo, required this.status, required this.label, required this.accent, required this.waiter, required this.guests, required this.items, required this.total, required this.onAction});
+  const _KotCard({
+    required this.tableNumber,
+    required this.kotNo,
+    required this.status,
+    required this.label,
+    required this.accent,
+    required this.waiter,
+    required this.guests,
+    required this.items,
+    required this.onAction,
+  });
 
   @override
   Widget build(BuildContext context) => Container(
@@ -199,7 +232,7 @@ class _KotCard extends StatelessWidget {
                 Text('KOT $kotNo', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: _muted)),
               ]),
               const SizedBox(height: 9),
-              Text('Table $tableId', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ink)),
+              Text('Table $tableNumber', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _ink)),
               const SizedBox(height: 2),
               Text('$waiter • $guests guests', style: const TextStyle(fontSize: 9.5, color: _muted)),
             ]),
@@ -217,19 +250,18 @@ class _KotCard extends StatelessWidget {
                       Expanded(child: Text(item, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _ink))),
                     ]),
                   )),
-              const Divider(height: 18),
-              Row(children: [
-                const Expanded(child: Text('Order total', style: TextStyle(fontSize: 10, color: _muted))),
-                Text('Rs ${total.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: _ink)),
-              ]),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               if (onAction != null)
                 SizedBox(
                   width: double.infinity,
                   height: 42,
                   child: FilledButton.icon(
                     onPressed: onAction,
-                    style: FilledButton.styleFrom(backgroundColor: accent, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: accent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
                     icon: Icon(status == 'making' ? Icons.check_circle_outline_rounded : Icons.soup_kitchen_outlined, size: 17),
                     label: Text(status == 'making' ? 'READY TO SERVE' : 'START MAKING', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900)),
                   ),
