@@ -48,6 +48,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
             final canChangePhoto = data['canChangePhoto'] == true;
             final tips = (data['tipsEarned'] ?? 0).toDouble();
             final commission = (data['commissionEarned'] ?? 0).toDouble();
+            final serviceCharges = (data['serviceChargesEarned'] ?? 0).toDouble();
             final showCommission = data['showCommissionToStaff'] == true;
             final points = (data['pointsEarned'] ?? 0).toInt();
             final rating = (data['averageRating'] ?? 0).toDouble();
@@ -77,13 +78,14 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                 ])),
                 if (show('profile')) const SizedBox(height: 12),
                 LayoutBuilder(builder: (_, c) {
-                  final cardWidth = c.maxWidth >= 1000 ? (c.maxWidth - 48) / 5 : c.maxWidth >= 700 ? (c.maxWidth - 24) / 3 : (c.maxWidth - 12) / 2;
+                  final cardWidth = c.maxWidth >= 1100 ? (c.maxWidth - 60) / 6 : c.maxWidth >= 700 ? (c.maxWidth - 24) / 3 : (c.maxWidth - 12) / 2;
                   return Wrap(spacing: 12, runSpacing: 12, children: [
                     if (show('hours')) _WorkedHours(width: cardWidth, user: user, onClose: () => _hide(user, 'hours')),
-                    if (show('tips')) _Metric(width: cardWidth, keyName: 'tips', label: 'Tips Earned', value: 'Rs ${tips.toStringAsFixed(0)}', icon: Icons.volunteer_activism_outlined, color: AppColors.success, onClose: () => _hide(user, 'tips')),
-                    if (showCommission && show('commission')) _Metric(width: cardWidth, keyName: 'commission', label: 'Commission', value: 'Rs ${commission.toStringAsFixed(0)}', icon: Icons.percent_rounded, color: AppColors.primary, onClose: () => _hide(user, 'commission')),
-                    if (show('points')) _Metric(width: cardWidth, keyName: 'points', label: 'Points', value: '$points', icon: Icons.stars_outlined, color: AppColors.warning, onClose: () => _hide(user, 'points')),
-                    if (show('rating')) _Metric(width: cardWidth, keyName: 'rating', label: 'Customer Rating', value: reviews == 0 ? 'No reviews' : '${rating.toStringAsFixed(1)} / 5', icon: Icons.rate_review_outlined, color: AppColors.info, onClose: () => _hide(user, 'rating')),
+                    if (show('tips')) _Metric(width: cardWidth, label: 'My Tips', value: 'Rs ${tips.toStringAsFixed(0)}', icon: Icons.volunteer_activism_outlined, color: AppColors.success, onClose: () => _hide(user, 'tips')),
+                    if (show('service')) _Metric(width: cardWidth, label: 'Service Charges', value: 'Rs ${serviceCharges.toStringAsFixed(0)}', icon: Icons.room_service_outlined, color: AppColors.secondary, onClose: () => _hide(user, 'service')),
+                    if (showCommission && show('commission')) _Metric(width: cardWidth, label: 'My Commission', value: 'Rs ${commission.toStringAsFixed(0)}', icon: Icons.percent_rounded, color: AppColors.primary, onClose: () => _hide(user, 'commission')),
+                    if (show('points')) _Metric(width: cardWidth, label: 'My Points', value: '$points', icon: Icons.stars_outlined, color: AppColors.warning, onClose: () => _hide(user, 'points')),
+                    if (show('rating')) _Metric(width: cardWidth, label: 'Customer Rating', value: reviews == 0 ? 'No reviews' : '${rating.toStringAsFixed(1)} / 5', icon: Icons.rate_review_outlined, color: AppColors.info, onClose: () => _hide(user, 'rating')),
                   ]);
                 }),
                 if (show('controls')) ...[
@@ -96,7 +98,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                 if (show('reviews')) ...[
                   const SizedBox(height: 12),
                   _WidgetBox(onClose: () => _hide(user, 'reviews'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Customer Reviews', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)), const SizedBox(height: 6),
+                    const Text('My Customer Reviews', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)), const SizedBox(height: 6),
                     Text(reviews == 0 ? 'No reviews recorded yet.' : '$reviews reviews • ${rating.toStringAsFixed(1)} / 5 average', style: const TextStyle(fontSize: 10.5, color: AppColors.grey500)),
                   ])),
                 ],
@@ -143,9 +145,10 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
   List<_Action> _actionsFor(UserRole role) {
     switch (role) {
       case UserRole.waiter:
+        return const [_Action('Tables', Icons.table_restaurant_outlined, AppRouter.tables), _Action('Billing', Icons.receipt_long_outlined, AppRouter.orders)];
       case UserRole.cashier:
       case UserRole.staff:
-        return const [_Action('Tables', Icons.table_restaurant_outlined, AppRouter.tables), _Action('Billing', Icons.receipt_long_outlined, AppRouter.orders), _Action('Sales', Icons.point_of_sale_outlined, AppRouter.sales)];
+        return const [_Action('Tables', Icons.table_restaurant_outlined, AppRouter.tables), _Action('Billing', Icons.receipt_long_outlined, AppRouter.orders)];
       case UserRole.kitchen:
         return const [_Action('Kitchen Orders', Icons.soup_kitchen_outlined, AppRouter.orders)];
       case UserRole.accounts:
@@ -189,15 +192,15 @@ class _WorkedHours extends StatelessWidget {
           final login = d['loginAt'] is Timestamp ? (d['loginAt'] as Timestamp).toDate() : null;
           minutes += d['active'] == true && login != null ? DateTime.now().difference(login).inMinutes : (d['durationMinutes'] as num?)?.toInt() ?? 0;
         }
-        return _Metric(width: width, keyName: 'hours', label: 'Worked Today', value: '${minutes ~/ 60}h ${minutes % 60}m', icon: Icons.schedule_outlined, color: AppColors.secondary, onClose: onClose);
+        return _Metric(width: width, label: 'Worked Today', value: '${minutes ~/ 60}h ${minutes % 60}m', icon: Icons.schedule_outlined, color: AppColors.secondary, onClose: onClose);
       },
     );
   }
 }
 
 class _Metric extends StatelessWidget {
-  final double width; final String keyName; final String label; final String value; final IconData icon; final Color color; final VoidCallback onClose;
-  const _Metric({required this.width, required this.keyName, required this.label, required this.value, required this.icon, required this.color, required this.onClose});
+  final double width; final String label; final String value; final IconData icon; final Color color; final VoidCallback onClose;
+  const _Metric({required this.width, required this.label, required this.value, required this.icon, required this.color, required this.onClose});
   @override
   Widget build(BuildContext context) => Container(width: width, height: 96, padding: const EdgeInsets.all(13), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.outlineLight)), child: Row(children: [Container(width:40,height:40,decoration:BoxDecoration(color:color.withValues(alpha:.10),borderRadius:BorderRadius.circular(10)),child:Icon(icon,color:color,size:20)),const SizedBox(width:10),Expanded(child:Column(mainAxisAlignment:MainAxisAlignment.center,crossAxisAlignment:CrossAxisAlignment.start,children:[Text(value,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w900)),Text(label,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:9.5,color:AppColors.grey500))])),Align(alignment:Alignment.topRight,child:InkWell(onTap:onClose,child:const Padding(padding:EdgeInsets.all(3),child:Icon(Icons.close_rounded,size:15,color:AppColors.grey400))))]));
 }
