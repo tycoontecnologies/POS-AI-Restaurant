@@ -9,14 +9,22 @@ import 'package:pos/models/sale.dart';
 import 'package:pos/models/table.dart';
 import 'package:pos/providers/cart_provider.dart';
 import 'package:pos/models/user.dart' as user_model;
+import 'package:pos/services/document_print_service.dart';
 
 class PdfService {
   static Future<pw.Document> createBillReceipt({
     required Sale sale,
     required user_model.UserModel? user,
-    int printNumber = 1,
+    int? printNumber,
   }) async {
     final pdf = pw.Document();
+    final actualPrintNumber = printNumber ?? await DocumentPrintService.nextPrintNumber(
+      restaurantId: user?.id ?? sale.vendorId,
+      documentType: 'RECEIPT',
+      documentId: sale.id,
+      userId: user?.authUid ?? user?.id ?? sale.vendorId,
+      branchId: user?.branchId,
+    );
 
     Uint8List? logoBytes;
     if (user?.restaurantLogoUrl != null && user!.restaurantLogoUrl!.isNotEmpty) {
@@ -44,7 +52,7 @@ class PdfService {
                         borderRadius: pw.BorderRadius.circular(3),
                       ),
                       child: pw.Text(
-                        '${_ordinal(printNumber).toUpperCase()} PRINT',
+                        '${_ordinal(actualPrintNumber).toUpperCase()} PRINT',
                         style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
                       ),
                     ),
@@ -164,9 +172,16 @@ class PdfService {
     RestaurantTable? table,
     required user_model.UserModel? user,
     String? orderType,
-    int printNumber = 1,
+    int? printNumber,
   }) async {
     final pdf = pw.Document();
+    final actualPrintNumber = printNumber ?? await DocumentPrintService.nextPrintNumber(
+      restaurantId: user?.id ?? 'unknown',
+      documentType: 'KOT',
+      documentId: table?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      userId: user?.authUid ?? user?.id ?? 'unknown',
+      branchId: user?.branchId,
+    );
 
     Uint8List? logoBytes;
     if (user?.restaurantLogoUrl != null && user!.restaurantLogoUrl!.isNotEmpty) {
@@ -197,7 +212,7 @@ class PdfService {
                     pw.Container(
                       padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                       decoration: pw.BoxDecoration(border: pw.Border.all(width: .6), borderRadius: pw.BorderRadius.circular(3)),
-                      child: pw.Text('${_ordinal(printNumber).toUpperCase()} PRINT', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+                      child: pw.Text('${_ordinal(actualPrintNumber).toUpperCase()} PRINT', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
                     ),
                     pw.SizedBox(height: 6),
                     if (logoBytes != null && logoBytes.isNotEmpty)
