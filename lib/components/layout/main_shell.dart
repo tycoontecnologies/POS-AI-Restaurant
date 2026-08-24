@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,8 +19,8 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  static const brandRed = Color(0xFF8D0200);
-  Color _accent = brandRed;
+  static const mpsPurple = Color(0xFF6C3BFF);
+  Color _accent = mpsPurple;
   bool _loadedPreference = false;
 
   bool _editingText() {
@@ -46,17 +48,17 @@ class _MainShellState extends State<MainShell> {
     try {
       final snap = await FirebaseFirestore.instance.collection('vendors').doc(user.authUid).get();
       if (!mounted) return;
-      setState(() => _accent = _accentFor((snap.data()?['uiColorScheme'] ?? 'burgundy').toString()));
+      setState(() => _accent = _accentFor((snap.data()?['uiColorScheme'] ?? 'purple').toString()));
     } catch (_) {}
   }
 
   Color _accentFor(String name) {
     switch (name) {
-      case 'purple': return const Color(0xFF6C3BFF);
+      case 'burgundy': return const Color(0xFF9E1B1B);
       case 'navy': return const Color(0xFF183B66);
       case 'emerald': return const Color(0xFF087F5B);
       case 'graphite': return const Color(0xFF374151);
-      default: return brandRed;
+      default: return mpsPurple;
     }
   }
 
@@ -131,8 +133,8 @@ class _MainShellState extends State<MainShell> {
         backgroundColor: Colors.white,
         title: const Text('Interface color'),
         content: Wrap(spacing: 12, runSpacing: 12, children: [
-          _SchemeDot('burgundy', brandRed, _setScheme),
-          _SchemeDot('purple', const Color(0xFF6C3BFF), _setScheme),
+          _SchemeDot('purple', mpsPurple, _setScheme),
+          _SchemeDot('burgundy', const Color(0xFF9E1B1B), _setScheme),
           _SchemeDot('navy', const Color(0xFF183B66), _setScheme),
           _SchemeDot('emerald', const Color(0xFF087F5B), _setScheme),
           _SchemeDot('graphite', const Color(0xFF374151), _setScheme),
@@ -146,7 +148,7 @@ class _IconRail extends StatelessWidget {
   final String currentLocation;
   const _IconRail({required this.currentLocation});
 
-  static const brandRed = Color(0xFF8D0200);
+  static const tycoonRed = Color(0xFFD80000);
 
   @override
   Widget build(BuildContext context) {
@@ -154,31 +156,27 @@ class _IconRail extends StatelessWidget {
     final items = AppRouter.getNavigationItems(auth.currentUser?.role ?? UserRole.admin);
 
     return Container(
-      width: 66,
-      color: brandRed,
+      width: 64,
+      color: tycoonRed,
       child: Column(children: [
         const SizedBox(height: 8),
         Tooltip(
           message: 'Tycoon POS',
           child: InkWell(
             onTap: () => context.go(AppRouter.dashboard),
-            child: SizedBox(
-              width: 54,
-              height: 54,
-              child: Image.asset(
-                'assets/tycoon_logo.png',
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Icon(Icons.shield_outlined, color: Colors.white, size: 32),
-              ),
+            child: const SizedBox(
+              width: 52,
+              height: 52,
+              child: Icon(Icons.point_of_sale_rounded, color: Colors.white, size: 30),
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        Divider(height: 1, color: Colors.white.withValues(alpha: .20)),
+        const SizedBox(height: 6),
+        Divider(height: 1, color: Colors.white.withValues(alpha: .28)),
         const SizedBox(height: 8),
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 9),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             itemCount: items.length,
             itemBuilder: (context, index) {
               final item = items[index];
@@ -194,8 +192,8 @@ class _IconRail extends StatelessWidget {
                       onTap: () => context.go(item.route),
                       borderRadius: BorderRadius.circular(10),
                       child: SizedBox(
-                        height: 44,
-                        child: Center(child: Icon(item.icon, size: 20, color: selected ? Colors.white : const Color(0xFFF2CFCF))),
+                        height: 43,
+                        child: Center(child: Icon(item.icon, size: 20, color: Colors.white)),
                       ),
                     ),
                   ),
@@ -204,7 +202,7 @@ class _IconRail extends StatelessWidget {
             },
           ),
         ),
-        Divider(height: 1, color: Colors.white.withValues(alpha: .20)),
+        Divider(height: 1, color: Colors.white.withValues(alpha: .28)),
         const SizedBox(height: 8),
         CircleAvatar(
           radius: 18,
@@ -214,7 +212,7 @@ class _IconRail extends StatelessWidget {
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 5),
         Tooltip(
           message: 'Logout',
           child: IconButton(
@@ -225,35 +223,54 @@ class _IconRail extends StatelessWidget {
             icon: const Icon(Icons.logout_rounded, color: Colors.white, size: 19),
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 5),
       ]),
     );
   }
 }
 
-class _QuickTopBar extends StatelessWidget {
+class _QuickTopBar extends StatefulWidget {
   final String currentLocation;
   final Color accent;
   final VoidCallback onChooseColor;
   const _QuickTopBar({required this.currentLocation, required this.accent, required this.onChooseColor});
 
   @override
+  State<_QuickTopBar> createState() => _QuickTopBarState();
+}
+
+class _QuickTopBarState extends State<_QuickTopBar> {
+  final ScrollController _menuController = ScrollController();
+
+  @override
+  void dispose() {
+    _menuController.dispose();
+    super.dispose();
+  }
+
+  void _scroll(double amount) {
+    if (!_menuController.hasClients) return;
+    final target = (_menuController.offset + amount).clamp(0.0, _menuController.position.maxScrollExtent);
+    _menuController.animateTo(target, duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().currentUser;
-    final title = _pageTitle(currentLocation);
+    final title = _pageTitle(widget.currentLocation);
     final actions = _quickActions(user?.role ?? UserRole.user);
-    final onDashboard = currentLocation == AppRouter.dashboard;
+    final onDashboard = widget.currentLocation == AppRouter.dashboard;
 
     return Container(
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppColors.outlineLight)),
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
       child: Row(children: [
         SizedBox(
-          width: 220,
+          width: 210,
           child: Row(children: [
             if (!onDashboard)
               IconButton(
@@ -269,57 +286,63 @@ class _QuickTopBar extends StatelessWidget {
                   Row(children: [
                     InkWell(
                       onTap: () => context.go(AppRouter.dashboard),
-                      child: const Text('Home', style: TextStyle(color: AppColors.grey500, fontSize: 10)),
+                      child: const Text('Home', style: TextStyle(color: Color(0xFF64748B), fontSize: 10)),
                     ),
                     if (!onDashboard) ...[
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 5),
-                        child: Icon(Icons.chevron_right_rounded, size: 13, color: AppColors.grey400),
+                        child: Icon(Icons.chevron_right_rounded, size: 13, color: Color(0xFF94A3B8)),
                       ),
-                      Expanded(child: Text(title, overflow: TextOverflow.ellipsis, style: TextStyle(color: accent, fontSize: 10, fontWeight: FontWeight.w700))),
+                      Expanded(child: Text(title, overflow: TextOverflow.ellipsis, style: TextStyle(color: widget.accent, fontSize: 10, fontWeight: FontWeight.w700))),
                     ],
                   ]),
                   const SizedBox(height: 3),
-                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.grey900, fontSize: 17, fontWeight: FontWeight.w800)),
+                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF0F172A), fontSize: 17, fontWeight: FontWeight.w800)),
                 ],
               ),
             ),
           ]),
         ),
-        Container(width: 1, height: 34, color: AppColors.outlineLight),
-        const SizedBox(width: 12),
+        Container(width: 1, height: 34, color: const Color(0xFFE2E8F0)),
+        const SizedBox(width: 10),
+        IconButton(
+          tooltip: 'Previous menu items',
+          onPressed: () => _scroll(-360),
+          icon: const Icon(Icons.chevron_left_rounded, size: 21, color: Color(0xFF475569)),
+        ),
         Expanded(
           child: SingleChildScrollView(
+            controller: _menuController,
             scrollDirection: Axis.horizontal,
             child: Row(
               children: actions.map((a) {
-                final selected = _selected(a.route, currentLocation);
+                final selected = _selected(a.route, widget.currentLocation);
                 return Padding(
                   padding: const EdgeInsets.only(right: 7),
                   child: Tooltip(
                     message: '${a.label} [${a.shortcut}]',
                     child: Material(
-                      color: selected ? accent.withValues(alpha: .08) : Colors.white,
-                      borderRadius: BorderRadius.circular(9),
+                      color: selected ? widget.accent.withValues(alpha: .08) : Colors.white,
+                      borderRadius: BorderRadius.circular(8),
                       child: InkWell(
                         onTap: () => context.go(a.route),
-                        borderRadius: BorderRadius.circular(9),
+                        borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          height: 40,
+                          height: 39,
                           padding: const EdgeInsets.symmetric(horizontal: 11),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(9),
-                            border: Border.all(color: selected ? accent : AppColors.outlineLight),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: selected ? widget.accent : const Color(0xFFE2E8F0)),
                           ),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(a.icon, size: 16, color: selected ? accent : AppColors.grey700),
+                            Icon(a.icon, size: 16, color: selected ? widget.accent : const Color(0xFF334155)),
                             const SizedBox(width: 6),
                             Text(
                               a.label,
                               style: TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                                color: selected ? accent : AppColors.grey800,
+                                color: selected ? widget.accent : const Color(0xFF1E293B),
                               ),
                             ),
                           ]),
@@ -332,24 +355,29 @@ class _QuickTopBar extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 5),
-        IconButton(tooltip: 'Interface color', onPressed: onChooseColor, icon: Icon(Icons.palette_outlined, color: accent, size: 19)),
+        IconButton(
+          tooltip: 'More menu items',
+          onPressed: () => _scroll(360),
+          icon: Icon(Icons.chevron_right_rounded, size: 22, color: widget.accent),
+        ),
+        const SizedBox(width: 4),
+        IconButton(tooltip: 'Interface color', onPressed: widget.onChooseColor, icon: Icon(Icons.palette_outlined, color: widget.accent, size: 19)),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(color: AppColors.successSoft, borderRadius: BorderRadius.circular(18)),
+          decoration: BoxDecoration(color: const Color(0xFFE8FFF4), borderRadius: BorderRadius.circular(18)),
           child: const Row(children: [
-            Icon(Icons.circle, size: 7, color: AppColors.success),
+            Icon(Icons.circle, size: 7, color: Color(0xFF10B981)),
             SizedBox(width: 5),
-            Text('Online', style: TextStyle(color: AppColors.successDark, fontSize: 10.5, fontWeight: FontWeight.w700)),
+            Text('Online', style: TextStyle(color: Color(0xFF047857), fontSize: 10.5, fontWeight: FontWeight.w700)),
           ]),
         ),
         const SizedBox(width: 5),
-        _NotificationBell(user: user, accent: accent),
+        _NotificationBell(user: user, accent: widget.accent),
         const SizedBox(width: 4),
         CircleAvatar(
           radius: 16,
-          backgroundColor: accent.withValues(alpha: .10),
-          child: Text((user?.name ?? 'U').substring(0, 1).toUpperCase(), style: TextStyle(color: accent, fontWeight: FontWeight.w800, fontSize: 11)),
+          backgroundColor: widget.accent.withValues(alpha: .10),
+          child: Text((user?.name ?? 'U').substring(0, 1).toUpperCase(), style: TextStyle(color: widget.accent, fontWeight: FontWeight.w800, fontSize: 11)),
         ),
       ]),
     );
@@ -385,7 +413,7 @@ class _QuickTopBar extends StatelessWidget {
     if (role == UserRole.kitchen) {
       return const [
         _QuickAction('Dashboard', Icons.dashboard_outlined, AppRouter.dashboard, 'd'),
-        _QuickAction('Kitchen', Icons.soup_kitchen_outlined, AppRouter.orders, 'b'),
+        _QuickAction('KOT', Icons.soup_kitchen_outlined, AppRouter.orders, 'b'),
       ];
     }
     if (role == UserRole.accounts) {
@@ -407,7 +435,7 @@ class _QuickTopBar extends StatelessWidget {
     if (path.startsWith('/table-order')) return 'POS';
     if (path.startsWith(AppRouter.tables)) return 'Tables';
     if (path.startsWith(AppRouter.products)) return 'Inventory';
-    if (path.startsWith(AppRouter.orders)) return 'Billing';
+    if (path.startsWith(AppRouter.orders)) return 'Billing / KOT';
     if (path.startsWith(AppRouter.customers)) return 'CRM';
     if (path.startsWith(AppRouter.purchases)) return 'Operations';
     if (path.startsWith(AppRouter.ingredients)) return 'Kitchen Recipes';
@@ -444,7 +472,7 @@ class _NotificationBell extends StatelessWidget {
           IconButton(
             tooltip: 'Notifications',
             onPressed: () => _show(context, visible),
-            icon: const Icon(Icons.notifications_none_rounded, color: AppColors.grey700, size: 20),
+            icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF334155), size: 20),
           ),
           if (unread > 0)
             Positioned(
@@ -454,7 +482,7 @@ class _NotificationBell extends StatelessWidget {
                 constraints: const BoxConstraints(minWidth: 15),
                 height: 15,
                 padding: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(10)),
                 alignment: Alignment.center,
                 child: Text(unread > 9 ? '9+' : '$unread', style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white)),
               ),
@@ -465,57 +493,58 @@ class _NotificationBell extends StatelessWidget {
   }
 
   void _show(BuildContext context, List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (sheet) => SizedBox(
-        height: MediaQuery.of(sheet).size.height * .62,
-        child: Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 12, 10),
-            child: Row(children: [
-              const Expanded(child: Text('Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900))),
-              Text('${docs.length} events', style: const TextStyle(fontSize: 10, color: AppColors.grey500)),
-              const SizedBox(width: 4),
-              IconButton(
-                tooltip: 'Close',
-                onPressed: () => Navigator.pop(sheet),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ]),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: docs.isEmpty
-                ? const Center(child: Text('No notifications yet.', style: TextStyle(color: AppColors.grey500)))
-                : ListView.separated(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: docs.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (_, i) {
-                      final doc = docs[i];
-                      final d = doc.data();
-                      final readBy = List<String>.from(d['readBy'] ?? const <String>[]);
-                      final unread = !readBy.contains(user!.authUid);
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        leading: CircleAvatar(
-                          backgroundColor: unread ? accent.withValues(alpha: .10) : AppColors.grey100,
-                          child: Icon(_eventIcon((d['type'] ?? '').toString()), color: unread ? accent : AppColors.grey500, size: 18),
-                        ),
-                        title: Text((d['title'] ?? 'Event').toString(), style: TextStyle(fontSize: 12, fontWeight: unread ? FontWeight.w800 : FontWeight.w600)),
-                        subtitle: Text((d['message'] ?? '').toString(), style: const TextStyle(fontSize: 10.5, color: AppColors.grey500)),
-                        onTap: () async {
-                          await doc.reference.set({'readBy': FieldValue.arrayUnion([user!.authUid])}, SetOptions(merge: true));
-                        },
-                      );
-                    },
-                  ),
-          ),
-        ]),
+      builder: (dialog) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: SizedBox(
+          width: math.min(MediaQuery.sizeOf(dialog).width * .72, 760),
+          height: math.min(MediaQuery.sizeOf(dialog).height * .68, 620),
+          child: Column(children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 10, 10),
+              child: Row(children: [
+                const Expanded(child: Text('Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900))),
+                Text('${docs.length} events', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                const SizedBox(width: 6),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.pop(dialog),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ]),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: docs.isEmpty
+                  ? const Center(child: Text('No notifications yet.', style: TextStyle(color: Color(0xFF64748B))))
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: docs.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final doc = docs[i];
+                        final d = doc.data();
+                        final readBy = List<String>.from(d['readBy'] ?? const <String>[]);
+                        final unread = !readBy.contains(user!.authUid);
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          leading: CircleAvatar(
+                            backgroundColor: unread ? accent.withValues(alpha: .10) : const Color(0xFFF1F5F9),
+                            child: Icon(_eventIcon((d['type'] ?? '').toString()), color: unread ? accent : const Color(0xFF64748B), size: 18),
+                          ),
+                          title: Text((d['title'] ?? 'Event').toString(), style: TextStyle(fontSize: 12, fontWeight: unread ? FontWeight.w800 : FontWeight.w600)),
+                          subtitle: Text((d['message'] ?? '').toString(), style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                          onTap: () async {
+                            await doc.reference.set({'readBy': FieldValue.arrayUnion([user!.authUid])}, SetOptions(merge: true));
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ]),
+        ),
       ),
     );
   }
