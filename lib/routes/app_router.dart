@@ -165,14 +165,14 @@ class AppRouter {
     final allItems = [
       NavigationItem(icon: Icons.dashboard_rounded, label: 'Dashboard', route: dashboard, roles: [...managementRoles, UserRole.cashier, UserRole.waiter, UserRole.staff, UserRole.kitchen, UserRole.accounts, UserRole.operations, UserRole.auditor]),
       NavigationItem(icon: Icons.table_restaurant_rounded, label: 'Tables', route: tables, roles: serviceRoles),
-      NavigationItem(icon: Icons.shopping_bag_rounded, label: 'Orders', route: orders, roles: orderRoles),
+      NavigationItem(icon: Icons.shopping_bag_rounded, label: 'Billing', route: orders, roles: orderRoles),
       NavigationItem(icon: Icons.inventory_2_rounded, label: 'Inventory', route: products, roles: inventoryRoles),
-      NavigationItem(icon: Icons.people_alt_rounded, label: 'Customers', route: customers, roles: customerRoles),
+      NavigationItem(icon: Icons.people_alt_rounded, label: 'CRM', route: customers, roles: customerRoles),
       NavigationItem(icon: Icons.receipt_long_rounded, label: 'Operations', route: purchases, roles: operationsRoles),
-      NavigationItem(icon: Icons.kitchen_rounded, label: 'Recipe Management', route: ingredients, roles: [UserRole.superAdmin, UserRole.admin, UserRole.operations]),
-      NavigationItem(icon: Icons.local_shipping_rounded, label: 'Suppliers', route: suppliers, roles: [UserRole.superAdmin, UserRole.admin, UserRole.manager, UserRole.operations, UserRole.accounts, UserRole.inventory]),
-      NavigationItem(icon: Icons.psychology_alt_rounded, label: 'AI Assistant', route: dashboard, roles: adminRoles),
-      NavigationItem(icon: Icons.settings_rounded, label: 'Settings', route: settings, roles: adminRoles),
+      NavigationItem(icon: Icons.kitchen_rounded, label: 'Kitchen Recipes', route: ingredients, roles: [UserRole.superAdmin, UserRole.admin, UserRole.operations]),
+      NavigationItem(icon: Icons.local_shipping_rounded, label: 'Vendors', route: suppliers, roles: [UserRole.superAdmin, UserRole.admin, UserRole.manager, UserRole.operations, UserRole.accounts, UserRole.inventory]),
+      NavigationItem(icon: Icons.psychology_alt_rounded, label: 'Help AI', route: dashboard, roles: adminRoles),
+      NavigationItem(icon: Icons.settings_rounded, label: 'Preferences', route: settings, roles: adminRoles),
     ];
     return allItems.where((item) => item.roles.contains(role)).toList();
   }
