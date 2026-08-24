@@ -16,11 +16,10 @@ class MainShell extends StatelessWidget {
   bool _editingText() {
     final c = FocusManager.instance.primaryFocus?.context;
     if (c == null) return false;
-    if (c.widget is EditableText) return true;
-    return c.findAncestorWidgetOfExactType<EditableText>() != null;
+    return c.widget is EditableText || c.findAncestorWidgetOfExactType<EditableText>() != null;
   }
 
-  void _shortcut(BuildContext context, String route) {
+  void _go(BuildContext context, String route) {
     if (!_editingText()) context.go(route);
   }
 
@@ -28,9 +27,8 @@ class MainShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.currentUser;
-    final location = GoRouterState.of(context).uri.toString();
     if (user == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-
+    final location = GoRouterState.of(context).uri.toString();
     final canSeeSales = user.role != UserRole.waiter && user.role != UserRole.reception && user.role != UserRole.kitchen;
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -40,19 +38,19 @@ class MainShell extends StatelessWidget {
         final accent = _accentFor(scheme);
         return CallbackShortcuts(
           bindings: {
-            const SingleActivator(LogicalKeyboardKey.keyD): () => _shortcut(context, AppRouter.dashboard),
-            const SingleActivator(LogicalKeyboardKey.keyT): () => _shortcut(context, AppRouter.tables),
-            const SingleActivator(LogicalKeyboardKey.keyI): () => _shortcut(context, AppRouter.products),
-            const SingleActivator(LogicalKeyboardKey.keyA): () => _shortcut(context, AppRouter.products),
-            const SingleActivator(LogicalKeyboardKey.keyB): () => _shortcut(context, AppRouter.orders),
-            if (canSeeSales) const SingleActivator(LogicalKeyboardKey.keyS): () => _shortcut(context, AppRouter.sales),
-            if (canSeeSales) const SingleActivator(LogicalKeyboardKey.keyR): () => _shortcut(context, AppRouter.salesReturn),
-            const SingleActivator(LogicalKeyboardKey.keyC): () => _shortcut(context, AppRouter.customers),
-            const SingleActivator(LogicalKeyboardKey.keyO): () => _shortcut(context, AppRouter.purchases),
-            const SingleActivator(LogicalKeyboardKey.keyV): () => _shortcut(context, AppRouter.suppliers),
-            const SingleActivator(LogicalKeyboardKey.keyK): () => _shortcut(context, AppRouter.ingredients),
-            const SingleActivator(LogicalKeyboardKey.keyU): () => _shortcut(context, AppRouter.usersRoles),
-            const SingleActivator(LogicalKeyboardKey.keyP): () => _shortcut(context, AppRouter.settings),
+            const SingleActivator(LogicalKeyboardKey.keyD): () => _go(context, AppRouter.dashboard),
+            const SingleActivator(LogicalKeyboardKey.keyT): () => _go(context, AppRouter.tables),
+            const SingleActivator(LogicalKeyboardKey.keyI): () => _go(context, AppRouter.products),
+            const SingleActivator(LogicalKeyboardKey.keyA): () => _go(context, AppRouter.products),
+            const SingleActivator(LogicalKeyboardKey.keyB): () => _go(context, AppRouter.orders),
+            if (canSeeSales) const SingleActivator(LogicalKeyboardKey.keyS): () => _go(context, AppRouter.sales),
+            if (canSeeSales) const SingleActivator(LogicalKeyboardKey.keyR): () => _go(context, AppRouter.salesReturn),
+            const SingleActivator(LogicalKeyboardKey.keyC): () => _go(context, AppRouter.customers),
+            const SingleActivator(LogicalKeyboardKey.keyO): () => _go(context, AppRouter.purchases),
+            const SingleActivator(LogicalKeyboardKey.keyV): () => _go(context, AppRouter.suppliers),
+            const SingleActivator(LogicalKeyboardKey.keyK): () => _go(context, AppRouter.ingredients),
+            const SingleActivator(LogicalKeyboardKey.keyU): () => _go(context, AppRouter.usersRoles),
+            const SingleActivator(LogicalKeyboardKey.keyP): () => _go(context, AppRouter.settings),
           },
           child: Focus(
             autofocus: true,
@@ -62,7 +60,6 @@ class MainShell extends StatelessWidget {
                 scaffoldBackgroundColor: AppColors.backgroundLight,
               ),
               child: Scaffold(
-                backgroundColor: AppColors.backgroundLight,
                 body: SafeArea(
                   child: Container(
                     decoration: const BoxDecoration(
@@ -73,7 +70,7 @@ class MainShell extends StatelessWidget {
                       ),
                     ),
                     child: Row(children: [
-                      _IconRail(currentLocation: location, accent: accent),
+                      _IconRail(currentLocation: location),
                       Expanded(child: Column(children: [
                         _QuickTopBar(currentLocation: location, accent: accent),
                         Expanded(child: child),
@@ -102,8 +99,7 @@ class MainShell extends StatelessWidget {
 
 class _IconRail extends StatelessWidget {
   final String currentLocation;
-  final Color accent;
-  const _IconRail({required this.currentLocation, required this.accent});
+  const _IconRail({required this.currentLocation});
 
   @override
   Widget build(BuildContext context) {
@@ -112,11 +108,7 @@ class _IconRail extends StatelessWidget {
     return Container(
       width: 66,
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF5A0D18), Color(0xFF2B0710)],
-        ),
+        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF5A0D18), Color(0xFF2B0710)]),
       ),
       child: Column(children: [
         const SizedBox(height: 10),
@@ -140,70 +132,56 @@ class _IconRail extends StatelessWidget {
         const SizedBox(height: 10),
         Divider(height: 1, color: Colors.white.withValues(alpha: .10)),
         const SizedBox(height: 10),
-        Expanded(child: ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 9),
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final item = items[index];
-            final selected = currentLocation == item.route || (item.route != '/' && currentLocation.startsWith(item.route));
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 5),
-              child: Tooltip(
-                message: _railTooltip(item),
-                preferBelow: false,
-                waitDuration: const Duration(milliseconds: 180),
-                child: Material(
-                  color: selected ? Colors.white.withValues(alpha: .16) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  child: InkWell(
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 9),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final selected = currentLocation == item.route || (item.route != '/' && currentLocation.startsWith(item.route));
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Tooltip(
+                  message: _tooltip(item),
+                  child: Material(
+                    color: selected ? Colors.white.withValues(alpha: .16) : Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
-                    onTap: () => _navigate(context, item),
-                    child: SizedBox(
-                      height: 44,
-                      child: Center(
-                        child: Icon(item.icon, size: 20, color: selected ? Colors.white : const Color(0xFFD5BFC4)),
-                      ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () => _navigate(context, item),
+                      child: SizedBox(height: 44, child: Center(child: Icon(item.icon, size: 20, color: selected ? Colors.white : const Color(0xFFD5BFC4)))),
                     ),
                   ),
                 ),
-              ),
-            );
-          },
-        )),
+              );
+            },
+          ),
+        ),
         Divider(height: 1, color: Colors.white.withValues(alpha: .10)),
         const SizedBox(height: 8),
         Tooltip(
           message: 'Account & colors',
           child: InkWell(
-            onTap: () => _showAccountMenu(context, auth),
+            onTap: () => _accountSheet(context, auth),
             borderRadius: BorderRadius.circular(30),
             child: CircleAvatar(
               radius: 18,
               backgroundColor: Colors.white.withValues(alpha: .14),
-              child: Text(
-                (auth.currentUser?.name ?? 'U').substring(0, 1).toUpperCase(),
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
-              ),
+              child: Text((auth.currentUser?.name ?? 'U').substring(0, 1).toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
             ),
           ),
         ),
         const SizedBox(height: 6),
-        Tooltip(
-          message: 'Logout',
-          child: IconButton(
-            onPressed: () => _confirmLogout(context, auth),
-            icon: const Icon(Icons.logout_rounded, color: Color(0xFFD5BFC4), size: 19),
-          ),
-        ),
+        Tooltip(message: 'Logout', child: IconButton(onPressed: () => _logout(context, auth), icon: const Icon(Icons.logout_rounded, color: Color(0xFFD5BFC4), size: 19))),
         const SizedBox(height: 8),
       ]),
     );
   }
 
-  String _railTooltip(NavigationItem item) {
+  String _tooltip(NavigationItem item) {
     const keys = {'Dashboard':'d','Tables':'t','Billing':'b','Inventory':'i','CRM':'c','Operations':'o','Kitchen Recipes':'k','Vendors':'v','Preferences':'p'};
     final key = keys[item.label];
-    return key == null ? item.label : '${item.label}  [$key]';
+    return key == null ? item.label : '${item.label} [$key]';
   }
 
   Future<void> _navigate(BuildContext context, NavigationItem item) async {
@@ -216,11 +194,11 @@ class _IconRail extends StatelessWidget {
     }
   }
 
-  void _showAccountMenu(BuildContext context, AuthProvider auth) {
+  void _accountSheet(BuildContext context, AuthProvider auth) {
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
-      builder: (sheet) => Padding(
+      builder: (_) => Padding(
         padding: const EdgeInsets.fromLTRB(22, 4, 22, 26),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(auth.currentUser?.name ?? 'Account', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
@@ -241,7 +219,7 @@ class _IconRail extends StatelessWidget {
     );
   }
 
-  void _confirmLogout(BuildContext context, AuthProvider auth) {
+  void _logout(BuildContext context, AuthProvider auth) {
     showDialog(
       context: context,
       builder: (d) => AlertDialog(
@@ -259,15 +237,11 @@ class _IconRail extends StatelessWidget {
 class _TycoonMark extends StatelessWidget {
   final double size;
   const _TycoonMark({required this.size});
-
   @override
-  Widget build(BuildContext context) => Stack(
-        alignment: Alignment.center,
-        children: [
-          Icon(Icons.shield_outlined, color: Colors.white, size: size),
-          Text('T', style: TextStyle(color: Colors.white, fontSize: size * .40, fontWeight: FontWeight.w900, height: 1)),
-        ],
-      );
+  Widget build(BuildContext context) => Stack(alignment: Alignment.center, children: [
+        Icon(Icons.shield_outlined, color: Colors.white, size: size),
+        Text('T', style: TextStyle(color: Colors.white, fontSize: size * .40, fontWeight: FontWeight.w900, height: 1)),
+      ]);
 }
 
 class _SchemeDot extends StatelessWidget {
@@ -289,12 +263,7 @@ class _SchemeDot extends StatelessWidget {
           child: Container(
             width: 34,
             height: 34,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
-              boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 5)],
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3), boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 5)]),
           ),
         ),
       );
@@ -307,8 +276,7 @@ class _QuickTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    final user = auth.currentUser;
+    final user = context.watch<AuthProvider>().currentUser;
     final title = _pageTitle(currentLocation);
     final actions = _quickActions(user?.role ?? UserRole.user);
     final onDashboard = currentLocation == AppRouter.dashboard;
@@ -325,8 +293,7 @@ class _QuickTopBar extends StatelessWidget {
         SizedBox(
           width: 208,
           child: Row(children: [
-            if (!onDashboard)
-              Tooltip(message: 'Back', child: IconButton(onPressed: () => _goBack(context), icon: const Icon(Icons.arrow_back_rounded, size: 19))),
+            if (!onDashboard) Tooltip(message: 'Back', child: IconButton(onPressed: () => _back(context), icon: const Icon(Icons.arrow_back_rounded, size: 19))),
             Expanded(
               child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
@@ -349,11 +316,11 @@ class _QuickTopBar extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: actions.map((a) {
-                final selected = _isSelected(a.route, currentLocation);
+                final selected = _selected(a.route, currentLocation);
                 return Padding(
                   padding: const EdgeInsets.only(right: 7),
                   child: Tooltip(
-                    message: '${a.label}  [${a.shortcut}]',
+                    message: '${a.label} [${a.shortcut}]',
                     child: Material(
                       color: selected ? accent.withValues(alpha: .10) : Colors.white,
                       borderRadius: BorderRadius.circular(9),
@@ -370,14 +337,7 @@ class _QuickTopBar extends StatelessWidget {
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             Icon(a.icon, size: 17, color: selected ? accent : AppColors.grey700),
                             const SizedBox(width: 7),
-                            Text(
-                              a.label,
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: selected ? FontWeight.w800 : FontWeight.w650,
-                                color: selected ? accent : AppColors.grey800,
-                              ),
-                            ),
+                            Text(a.label, style: TextStyle(fontSize: 10.5, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, color: selected ? accent : AppColors.grey800)),
                           ]),
                         ),
                       ),
@@ -389,40 +349,28 @@ class _QuickTopBar extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Tooltip(message: 'Change interface color', child: IconButton(onPressed: () => _openColorPicker(context), icon: Icon(Icons.palette_outlined, color: accent, size: 20))),
+        Tooltip(message: 'Change interface color', child: IconButton(onPressed: () => _colors(context), icon: Icon(Icons.palette_outlined, color: accent, size: 20))),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
           decoration: BoxDecoration(color: AppColors.successSoft, borderRadius: BorderRadius.circular(18)),
-          child: const Row(children: [
-            Icon(Icons.circle, size: 7, color: AppColors.success),
-            SizedBox(width: 5),
-            Text('Online', style: TextStyle(color: AppColors.successDark, fontSize: 10.5, fontWeight: FontWeight.w700)),
-          ]),
+          child: const Row(children: [Icon(Icons.circle, size: 7, color: AppColors.success), SizedBox(width: 5), Text('Online', style: TextStyle(color: AppColors.successDark, fontSize: 10.5, fontWeight: FontWeight.w700))]),
         ),
         const SizedBox(width: 7),
         _NotificationBell(user: user, accent: accent),
         const SizedBox(width: 4),
-        CircleAvatar(
-          radius: 16,
-          backgroundColor: accent.withValues(alpha: .10),
-          child: Text((user?.name ?? 'U').substring(0, 1).toUpperCase(), style: TextStyle(color: accent, fontWeight: FontWeight.w800, fontSize: 11)),
-        ),
+        CircleAvatar(radius: 16, backgroundColor: accent.withValues(alpha: .10), child: Text((user?.name ?? 'U').substring(0, 1).toUpperCase(), style: TextStyle(color: accent, fontWeight: FontWeight.w800, fontSize: 11))),
       ]),
     );
   }
 
-  void _goBack(BuildContext context) {
-    if (context.canPop()) {
-      context.pop();
-      return;
-    }
-    context.go(AppRouter.dashboard);
+  void _back(BuildContext context) {
+    if (context.canPop()) context.pop(); else context.go(AppRouter.dashboard);
   }
 
-  void _openColorPicker(BuildContext context) {
+  void _colors(BuildContext context) {
     showDialog(
       context: context,
-      builder: (d) => const AlertDialog(
+      builder: (_) => const AlertDialog(
         title: Text('Interface color'),
         content: Wrap(spacing: 12, runSpacing: 12, children: [
           _SchemeDot('burgundy', Color(0xFF5A0D18)),
@@ -435,7 +383,7 @@ class _QuickTopBar extends StatelessWidget {
     );
   }
 
-  bool _isSelected(String route, String location) => route == AppRouter.dashboard ? location == route : location.startsWith(route);
+  bool _selected(String route, String location) => route == AppRouter.dashboard ? location == route : location.startsWith(route);
 
   List<_QuickAction> _quickActions(UserRole role) {
     if (role == UserRole.superAdmin || role == UserRole.admin) {
@@ -520,26 +468,14 @@ class _NotificationBell extends StatelessWidget {
         }).toList();
         final unread = visible.where((doc) => !List<String>.from(doc.data()['readBy'] ?? const <String>[]).contains(user!.authUid)).length;
         return Stack(clipBehavior: Clip.none, children: [
-          IconButton(onPressed: () => _showNotifications(context, visible), icon: const Icon(Icons.notifications_none_rounded, color: AppColors.grey700, size: 20)),
-          if (unread > 0)
-            Positioned(
-              right: 5,
-              top: 5,
-              child: Container(
-                minWidth: 15,
-                height: 15,
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(10)),
-                alignment: Alignment.center,
-                child: Text(unread > 9 ? '9+' : '$unread', style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white)),
-              ),
-            ),
+          IconButton(onPressed: () => _show(context, visible), icon: const Icon(Icons.notifications_none_rounded, color: AppColors.grey700, size: 20)),
+          if (unread > 0) Positioned(right: 5, top: 5, child: Container(minWidth: 15, height: 15, padding: const EdgeInsets.symmetric(horizontal: 3), decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(10)), alignment: Alignment.center, child: Text(unread > 9 ? '9+' : '$unread', style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white)))),
         ]);
       },
     );
   }
 
-  void _showNotifications(BuildContext context, List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
+  void _show(BuildContext context, List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
@@ -547,13 +483,7 @@ class _NotificationBell extends StatelessWidget {
       builder: (sheet) => SizedBox(
         height: MediaQuery.of(sheet).size.height * .68,
         child: Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 2, 12, 12),
-            child: Row(children: [
-              const Expanded(child: Text('Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900))),
-              Text('${docs.length} events', style: const TextStyle(fontSize: 10, color: AppColors.grey500)),
-            ]),
-          ),
+          Padding(padding: const EdgeInsets.fromLTRB(20, 2, 12, 12), child: Row(children: [const Expanded(child: Text('Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900))), Text('${docs.length} events', style: const TextStyle(fontSize: 10, color: AppColors.grey500))])),
           const Divider(height: 1),
           Expanded(
             child: docs.isEmpty
@@ -565,20 +495,14 @@ class _NotificationBell extends StatelessWidget {
                     itemBuilder: (_, i) {
                       final doc = docs[i];
                       final d = doc.data();
-                      final created = d['createdAt'] is Timestamp ? (d['createdAt'] as Timestamp).toDate() : null;
                       final readBy = List<String>.from(d['readBy'] ?? const <String>[]);
                       final unread = !readBy.contains(user!.authUid);
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        leading: CircleAvatar(
-                          backgroundColor: unread ? accent.withValues(alpha: .12) : AppColors.grey100,
-                          child: Icon(_eventIcon((d['type'] ?? '').toString()), color: unread ? accent : AppColors.grey500, size: 18),
-                        ),
+                        leading: CircleAvatar(backgroundColor: unread ? accent.withValues(alpha: .12) : AppColors.grey100, child: Icon(_eventIcon((d['type'] ?? '').toString()), color: unread ? accent : AppColors.grey500, size: 18)),
                         title: Text((d['title'] ?? 'Event').toString(), style: TextStyle(fontSize: 12, fontWeight: unread ? FontWeight.w800 : FontWeight.w600)),
-                        subtitle: Text('${d['message'] ?? ''}${created == null ? '' : '\n${_ago(created)}'}', style: const TextStyle(fontSize: 10.5, color: AppColors.grey500)),
-                        onTap: () async {
-                          await doc.reference.set({'readBy': FieldValue.arrayUnion([user!.authUid])}, SetOptions(merge: true));
-                        },
+                        subtitle: Text((d['message'] ?? '').toString(), style: const TextStyle(fontSize: 10.5, color: AppColors.grey500)),
+                        onTap: () async => doc.reference.set({'readBy': FieldValue.arrayUnion([user!.authUid])}, SetOptions(merge: true)),
                       );
                     },
                   ),
@@ -599,14 +523,6 @@ class _NotificationBell extends StatelessWidget {
       case 'account_created': return Icons.person_add_alt_1_rounded;
       default: return Icons.notifications_active_outlined;
     }
-  }
-
-  String _ago(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
   }
 }
 
