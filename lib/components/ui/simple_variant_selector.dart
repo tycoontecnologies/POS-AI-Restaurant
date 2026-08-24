@@ -77,7 +77,6 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-
               ...List.generate(activeVariants.length, (index) {
                 final variant = activeVariants[index];
                 final isSelected = _selectedVariant?.id == variant.id;
@@ -93,9 +92,7 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                           ? AppColors.primary.withOpacity(0.1)
                           : Colors.white,
                       border: Border.all(
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.grey300,
+                        color: isSelected ? AppColors.primary : AppColors.grey300,
                         width: isSelected ? 2 : 1,
                       ),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -108,25 +105,16 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: isSelected
-                                  ? AppColors.primary
-                                  : AppColors.grey400,
+                              color: isSelected ? AppColors.primary : AppColors.grey400,
                               width: 2,
                             ),
-                            color: isSelected
-                                ? AppColors.primary
-                                : Colors.transparent,
+                            color: isSelected ? AppColors.primary : Colors.transparent,
                           ),
                           child: isSelected
-                              ? const Icon(
-                                  Icons.check,
-                                  size: 12,
-                                  color: Colors.white,
-                                )
+                              ? const Icon(Icons.check, size: 12, color: Colors.white)
                               : null,
                         ),
                         const SizedBox(width: AppSpacing.md),
-
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,9 +125,7 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                                     variant.name,
                                     style: AppTypography.labelLarge.copyWith(
                                       fontWeight: FontWeight.w600,
-                                      color: isSelected
-                                          ? AppColors.primary
-                                          : AppColors.grey800,
+                                      color: isSelected ? AppColors.primary : AppColors.grey800,
                                     ),
                                   ),
                                   const Spacer(),
@@ -147,9 +133,7 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                                     price.toStringAsFixed(0),
                                     style: AppTypography.h6.copyWith(
                                       fontWeight: FontWeight.w700,
-                                      color: isSelected
-                                          ? AppColors.primary
-                                          : AppColors.grey800,
+                                      color: isSelected ? AppColors.primary : AppColors.grey800,
                                     ),
                                   ),
                                 ],
@@ -165,9 +149,7 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                                     color: variant.priceModifier >= 0
                                         ? AppColors.success.withOpacity(0.1)
                                         : AppColors.primary.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(
-                                      AppSpacing.radiusXs,
-                                    ),
+                                    borderRadius: BorderRadius.circular(AppSpacing.radiusXs),
                                   ),
                                   child: Text(
                                     '${variant.priceModifier >= 0 ? '+' : ''}${variant.priceModifier.toStringAsFixed(0)} vs base',
@@ -188,10 +170,8 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                   ),
                 );
               }),
-
               if (_selectedVariant != null) ...[
                 const SizedBox(height: AppSpacing.lg),
-
                 Row(
                   children: [
                     Text(
@@ -202,13 +182,10 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                       ),
                     ),
                     const Spacer(),
-
                     Container(
                       decoration: BoxDecoration(
                         border: Border.all(color: AppColors.grey300),
-                        borderRadius: BorderRadius.circular(
-                          AppSpacing.radiusSm,
-                        ),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -218,9 +195,7 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                                 ? () => setState(() => _quantity--)
                                 : null,
                             icon: const Icon(Icons.remove, size: 18),
-                            style: IconButton.styleFrom(
-                              minimumSize: const Size(40, 40),
-                            ),
+                            style: IconButton.styleFrom(minimumSize: const Size(40, 40)),
                           ),
                           Container(
                             width: 50,
@@ -237,26 +212,20 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                                 ? () => setState(() => _quantity++)
                                 : null,
                             icon: const Icon(Icons.add, size: 18),
-                            style: IconButton.styleFrom(
-                              minimumSize: const Size(40, 40),
-                            ),
+                            style: IconButton.styleFrom(minimumSize: const Size(40, 40)),
                           ),
                         ],
                       ),
                     ),
                   ],
                 ),
-
                 const SizedBox(height: AppSpacing.md),
-
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.sm),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                    border: Border.all(
-                      color: AppColors.primary.withOpacity(0.3),
-                    ),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                   ),
                   child: Column(
                     children: [
@@ -265,15 +234,11 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                         children: [
                           Text(
                             '${_selectedVariant!.name} × $_quantity',
-                            style: AppTypography.bodyMedium.copyWith(
-                              color: AppColors.grey700,
-                            ),
+                            style: AppTypography.bodyMedium.copyWith(color: AppColors.grey700),
                           ),
                           Text(
                             '${_selectedVariant!.getPrice(widget.product.salePrice).toStringAsFixed(0)} each',
-                            style: AppTypography.bodyMedium.copyWith(
-                              color: AppColors.grey700,
-                            ),
+                            style: AppTypography.bodyMedium.copyWith(color: AppColors.grey700),
                           ),
                         ],
                       ),
@@ -283,15 +248,10 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
                         children: [
                           Text(
                             'Total',
-                            style: AppTypography.labelLarge.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w600),
                           ),
                           Text(
-                            (_selectedVariant!.getPrice(
-                                      widget.product.salePrice,
-                                    ) *
-                                    _quantity)
+                            (_selectedVariant!.getPrice(widget.product.salePrice) * _quantity)
                                 .toStringAsFixed(0),
                             style: AppTypography.h6.copyWith(
                               fontWeight: FontWeight.w700,
@@ -319,7 +279,6 @@ class _SimpleVariantSelectorState extends State<SimpleVariantSelector> {
           onPressed: _selectedVariant != null && _quantity > 0
               ? () {
                   widget.onAddToCart(_selectedVariant!, _quantity);
-                  Navigator.pop(context);
                 }
               : null,
         ),
