@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pos/models/table.dart';
 import 'package:pos/models/user.dart';
 import 'package:pos/providers/subscription_provider.dart';
+import 'package:pos/providers/table_provider.dart';
 import 'package:pos/screens/auth/login_screen.dart';
 import 'package:pos/screens/auth/signup_screen.dart';
 import 'package:pos/screens/discounts_screen.dart';
@@ -120,8 +121,13 @@ class AppRouter {
           GoRoute(
             path: '/table-order/:tableId',
             builder: (context, state) {
-              final table = state.extra as RestaurantTable;
-              return TableOrderScreen(table: table);
+              final extra = state.extra;
+              if (extra is RestaurantTable) {
+                return TableOrderScreen(table: extra);
+              }
+              return _TableOrderRouteResolver(
+                tableId: state.pathParameters['tableId'] ?? '',
+              );
             },
           ),
         ],
@@ -175,6 +181,68 @@ class AppRouter {
       NavigationItem(icon: Icons.settings_rounded, label: 'Preferences', route: settings, roles: adminRoles),
     ];
     return allItems.where((item) => item.roles.contains(role)).toList();
+  }
+}
+
+class _TableOrderRouteResolver extends StatefulWidget {
+  final String tableId;
+  const _TableOrderRouteResolver({required this.tableId});
+
+  @override
+  State<_TableOrderRouteResolver> createState() => _TableOrderRouteResolverState();
+}
+
+class _TableOrderRouteResolverState extends State<_TableOrderRouteResolver> {
+  bool _requestedLoad = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final provider = context.read<TableProvider>();
+    if (!_requestedLoad && provider.tables.every((t) => t.id != widget.tableId)) {
+      _requestedLoad = true;
+      provider.loadTables();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<TableProvider>();
+    RestaurantTable? table;
+    for (final item in provider.tables) {
+      if (item.id == widget.tableId) {
+        table = item;
+        break;
+      }
+    }
+
+    if (table != null) {
+      return TableOrderScreen(table: table);
+    }
+
+    if (provider.isLoading || !_requestedLoad) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.table_restaurant_outlined, size: 42),
+            const SizedBox(height: 12),
+            const Text('Table could not be loaded.'),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => context.go(AppRouter.tables),
+              child: const Text('Back to Tables'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
