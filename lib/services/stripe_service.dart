@@ -1,7 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:universal_html/html.dart' as html;
 
 class StripeService {
@@ -13,6 +13,10 @@ class StripeService {
     required String planType,
   }) async {
     try {
+      if (amount <= 0) {
+        throw Exception('Payment amount must be greater than zero.');
+      }
+      final origin = html.window.location.origin;
       final response = await http
           .post(
             Uri.parse('$backendUrl/create-checkout-session'),
@@ -21,8 +25,10 @@ class StripeService {
               'amount': amount,
               'currency': currency,
               'planType': planType,
-              'successUrl': '${html.window.location.origin}/payment-success',
-              'cancelUrl': '${html.window.location.origin}/pricing',
+              // Stripe replaces this placeholder after a successful checkout.
+              // PaymentSuccessScreen requires the session id to verify payment.
+              'successUrl': '$origin/payment-success?session_id={CHECKOUT_SESSION_ID}&planType=$planType',
+              'cancelUrl': '$origin/pricing',
             }),
           )
           .timeout(const Duration(seconds: 30));
@@ -30,14 +36,12 @@ class StripeService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['url'] != null) {
-          html.window.open(data['url'], '_blank');
+          html.window.location.assign(data['url'].toString());
           return true;
-        } 
+        }
       }
 
-      throw Exception(
-        'Failed to create checkout session. Status: ${response.statusCode}',
-      );
+      throw Exception('Failed to create checkout session. Status: ${response.statusCode}');
     } on TimeoutException {
       throw Exception('Payment request timed out');
     } catch (e) {
@@ -45,18 +49,18 @@ class StripeService {
     }
   }
 
-  // Verify payment status after redirect
   static Future<Map<String, dynamic>> verifyPayment(String sessionId) async {
     try {
-      final response = await http.get(
-        Uri.parse('$backendUrl/verify-payment?session_id=$sessionId'),
-      );
+      final response = await http
+          .get(Uri.parse('$backendUrl/verify-payment?session_id=$sessionId'))
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        throw Exception('Failed to verify payment: ${response.body}');
+        return Map<String, dynamic>.from(json.decode(response.body));
       }
+      throw Exception('Failed to verify payment: ${response.body}');
+    } on TimeoutException {
+      throw Exception('Payment verification timed out');
     } catch (e) {
       throw Exception('Verification failed: $e');
     }
