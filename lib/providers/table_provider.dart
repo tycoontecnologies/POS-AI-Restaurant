@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pos/models/table.dart';
@@ -10,114 +11,71 @@ class TableProvider extends ChangeNotifier {
   List<RestaurantTable> _tables = [];
   bool _isLoading = false;
   String? _error;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _tablesSubscription;
+  String? _listeningVendorId;
 
   TableProvider(this.authProvider);
 
-  // Getters
   List<RestaurantTable> get tables => _tables;
   bool get isLoading => _isLoading;
   String? get error => _error;
-
   String get _vendorId => authProvider.currentUser?.id ?? '';
 
   Future<void> loadTables() async {
-    if (_vendorId.isEmpty) return;
+    final vendorId = _vendorId;
+    if (vendorId.isEmpty) return;
+    if (_listeningVendorId == vendorId && _tablesSubscription != null) return;
 
+    await _tablesSubscription?.cancel();
+    _listeningVendorId = vendorId;
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    try {
-      final snapshot = await _firestore
-          .collection('vendors')
-          .doc(_vendorId)
-          .collection('tables')
-          .orderBy('tableNumber')
-          .get();
-
+    _tablesSubscription = _firestore
+        .collection('vendors')
+        .doc(vendorId)
+        .collection('tables')
+        .orderBy('tableNumber')
+        .snapshots()
+        .listen((snapshot) {
       _tables = snapshot.docs
           .map((doc) => RestaurantTable.fromMap({...doc.data(), 'id': doc.id}))
           .toList();
-
-      _error = null;
-    } catch (e) {
-      _error = e.toString();
-    } finally {
       _isLoading = false;
+      _error = null;
       notifyListeners();
-    }
+    }, onError: (Object error) {
+      _isLoading = false;
+      _error = error.toString();
+      notifyListeners();
+    });
   }
 
   Future<void> addTable(String tableNumber, int numberOfSeats) async {
-    // Changed from int to String
     if (_vendorId.isEmpty) return;
-
     try {
-      final docRef = await _firestore
-          .collection('vendors')
-          .doc(_vendorId)
-          .collection('tables')
-          .add({
-            'tableNumber': tableNumber, // Already String
-            'numberOfSeats': numberOfSeats,
-            'status': 'empty',
-            'createdAt': DateTime.now().millisecondsSinceEpoch,
-          });
-
-      final newTable = RestaurantTable(
-        id: docRef.id,
-        tableNumber: tableNumber,
-        numberOfSeats: numberOfSeats,
-        status: TableStatus.empty,
-        createdAt: DateTime.now(),
-      );
-
-      _tables.add(newTable);
-      // Sort tables by converting to numbers if possible, otherwise alphabetically
-      _tables.sort((a, b) {
-        final aNum = int.tryParse(a.tableNumber);
-        final bNum = int.tryParse(b.tableNumber);
-
-        if (aNum != null && bNum != null) {
-          return aNum.compareTo(bNum);
-        } else {
-          return a.tableNumber.compareTo(b.tableNumber);
-        }
+      await _firestore.collection('vendors').doc(_vendorId).collection('tables').add({
+        'tableNumber': tableNumber,
+        'numberOfSeats': numberOfSeats,
+        'status': 'empty',
+        'createdAt': DateTime.now().millisecondsSinceEpoch,
+        'updatedAt': FieldValue.serverTimestamp(),
       });
-      notifyListeners();
     } catch (e) {
       _error = e.toString();
       notifyListeners();
     }
   }
 
-  Future<void> updateTable(
-    String id, {
-    int? numberOfSeats,
-    TableStatus? status,
-  }) async {
+  Future<void> updateTable(String id, {int? numberOfSeats, TableStatus? status}) async {
     if (_vendorId.isEmpty) return;
-
     try {
-      final updates = <String, dynamic>{};
+      final updates = <String, dynamic>{'updatedAt': FieldValue.serverTimestamp()};
       if (numberOfSeats != null) updates['numberOfSeats'] = numberOfSeats;
       if (status != null) updates['status'] = status.toString().split('.').last;
-
-      await _firestore
-          .collection('vendors')
-          .doc(_vendorId)
-          .collection('tables')
-          .doc(id)
-          .update(updates);
-
-      final index = _tables.indexWhere((t) => t.id == id);
-      if (index != -1) {
-        _tables[index] = _tables[index].copyWith(
-          numberOfSeats: numberOfSeats ?? _tables[index].numberOfSeats,
-          status: status ?? _tables[index].status,
-        );
-        notifyListeners();
-      }
+      await _firestore.collection('vendors').doc(_vendorId).collection('tables').doc(id).update(updates);
+      // The snapshot listener is the single source of truth and updates every logged-in terminal.
     } catch (e) {
       _error = e.toString();
       notifyListeners();
@@ -130,17 +88,8 @@ class TableProvider extends ChangeNotifier {
 
   Future<void> deleteTable(String id) async {
     if (_vendorId.isEmpty) return;
-
     try {
-      await _firestore
-          .collection('vendors')
-          .doc(_vendorId)
-          .collection('tables')
-          .doc(id)
-          .delete();
-
-      _tables.removeWhere((t) => t.id == id);
-      notifyListeners();
+      await _firestore.collection('vendors').doc(_vendorId).collection('tables').doc(id).delete();
     } catch (e) {
       _error = e.toString();
       notifyListeners();
@@ -148,6 +97,16 @@ class TableProvider extends ChangeNotifier {
   }
 
   Future<void> refreshTables() async {
+    // Realtime listeners make manual refresh unnecessary. Restart the listener if requested.
+    await _tablesSubscription?.cancel();
+    _tablesSubscription = null;
+    _listeningVendorId = null;
     await loadTables();
+  }
+
+  @override
+  void dispose() {
+    _tablesSubscription?.cancel();
+    super.dispose();
   }
 }
