@@ -54,12 +54,16 @@ class SaleProvider with ChangeNotifier {
       final rate = rawRate is num ? rawRate.toDouble() : 1.0;
       tx.set(usageRef, {
         'receiptId': sale.id,
+        'saleId': sale.id,
         'saleTotal': sale.total,
         'rate': rate,
+        'amount': rate,
         'billableAmount': rate,
         'status': 'billable',
         'paymentMethod': sale.paymentMethod,
+        'completedAt': Timestamp.fromDate(sale.createdAt),
         'createdAt': FieldValue.serverTimestamp(),
+        'source': 'checkout',
       });
       tx.set(vendorRef, {
         'successfulReceiptCount': FieldValue.increment(1),
@@ -85,11 +89,12 @@ class SaleProvider with ChangeNotifier {
       final usageData = usage.data() ?? <String, dynamic>{};
       if ((usageData['status'] ?? '').toString() != 'billable') return;
 
-      final rawRate = usageData['billableAmount'] ?? usageData['rate'] ?? 1;
+      final rawRate = usageData['amount'] ?? usageData['billableAmount'] ?? usageData['rate'] ?? 1;
       final rate = rawRate is num ? rawRate.toDouble() : 1.0;
       tx.set(usageRef, {
         'status': 'cancelled',
         'billableAmount': 0,
+        'amount': 0,
         'cancelledAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       tx.set(vendorRef, {
