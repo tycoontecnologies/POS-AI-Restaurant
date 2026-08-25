@@ -1,32 +1,31 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/sale.dart';
 import '../services/sale_service.dart';
 
 class SaleProvider with ChangeNotifier {
   final SaleService _saleService = SaleService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<Sale> _sales = [];
   bool _isLoading = false;
   String? _error;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _salesSubscription;
+  String? _listeningVendorId;
 
   List<Sale> get sales => _sales;
   bool get isLoading => _isLoading;
-  String? get error => _error; // Add getter
+  String? get error => _error;
 
   Future<void> createSale(String vendorId, Sale sale) async {
     try {
-      _isLoading = true;
       _error = null;
-      notifyListeners();
-
       await _saleService.createSale(vendorId, sale);
-
-      // Add to local list
-      _sales.insert(0, sale);
-
-      _isLoading = false;
-      notifyListeners();
+      if (_listeningVendorId != vendorId) {
+        _sales.insert(0, sale);
+        notifyListeners();
+      }
     } catch (e) {
-      _isLoading = false;
       _error = e.toString();
       notifyListeners();
       rethrow;
@@ -34,37 +33,40 @@ class SaleProvider with ChangeNotifier {
   }
 
   Future<void> fetchSales(String vendorId) async {
-    try {
-      _isLoading = true;
+    if (_listeningVendorId == vendorId && _salesSubscription != null) return;
+    await _salesSubscription?.cancel();
+    _listeningVendorId = vendorId;
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    _salesSubscription = _firestore
+        .collection('vendors')
+        .doc(vendorId)
+        .collection('sales')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .listen((snapshot) {
+      _sales = snapshot.docs.map((doc) => Sale.fromMap(doc.data())).toList();
+      _isLoading = false;
       _error = null;
-      _sales = await _saleService.getSales(vendorId);
-      _isLoading = false;
       notifyListeners();
-    } catch (e) {
+    }, onError: (Object error) {
       _isLoading = false;
-      _error = e.toString();
+      _error = error.toString();
       notifyListeners();
-      rethrow;
-    }
+    });
   }
 
   Future<void> updateSale(String vendorId, Sale sale) async {
     try {
-      _isLoading = true;
-      notifyListeners();
-
       await _saleService.updateSale(vendorId, sale);
-
-      // Update local list
-      final index = _sales.indexWhere((s) => s.id == sale.id);
-      if (index != -1) {
-        _sales[index] = sale;
+      if (_listeningVendorId != vendorId) {
+        final index = _sales.indexWhere((s) => s.id == sale.id);
+        if (index != -1) _sales[index] = sale;
+        notifyListeners();
       }
-
-      _isLoading = false;
-      notifyListeners();
     } catch (e) {
-      _isLoading = false;
       _error = e.toString();
       notifyListeners();
       rethrow;
@@ -73,18 +75,12 @@ class SaleProvider with ChangeNotifier {
 
   Future<void> deleteSale(String vendorId, String saleId) async {
     try {
-      _isLoading = true;
-      notifyListeners();
-
       await _saleService.deleteSale(vendorId, saleId);
-
-      // Remove from local list
-      _sales.removeWhere((s) => s.id == saleId);
-
-      _isLoading = false;
-      notifyListeners();
+      if (_listeningVendorId != vendorId) {
+        _sales.removeWhere((s) => s.id == saleId);
+        notifyListeners();
+      }
     } catch (e) {
-      _isLoading = false;
       _error = e.toString();
       notifyListeners();
       rethrow;
@@ -95,5 +91,11 @@ class SaleProvider with ChangeNotifier {
     _sales.clear();
     _error = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _salesSubscription?.cancel();
+    super.dispose();
   }
 }
