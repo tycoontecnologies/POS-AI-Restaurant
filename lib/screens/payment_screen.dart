@@ -1,16 +1,15 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:pos/providers/auth_provider.dart';
 import 'package:pos/routes/app_router.dart';
-import 'package:pos/utils/app_spacing.dart';
-import 'package:pos/components/ui/custom_button.dart';
-import 'package:pos/components/ui/custom_card.dart';
 import 'package:pos/services/stripe_service.dart';
 
 class PaymentScreen extends StatefulWidget {
   final String plan;
-
   const PaymentScreen({super.key, required this.plan});
 
   @override
@@ -18,222 +17,125 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
+  static const burgundy = Color(0xFF7A1026);
   bool _isProcessing = false;
   String? _errorMessage;
 
   Map<String, dynamic> get _planDetails {
     switch (widget.plan) {
+      case 'perTransaction':
+        return {'name': 'Pay per Transaction', 'price': 'Rs 1', 'period': 'per successful receipt', 'amount': 0};
       case 'monthly':
-        return {
-          'name': 'Monthly',
-          'price': 'PKR 6,000',
-          'period': 'per month',
-          'amount': 6000,
-        };
+        return {'name': 'Monthly', 'price': 'PKR 7,000', 'period': 'per month', 'amount': 7000};
       case 'yearly':
-        return {
-          'name': 'Yearly',
-          'price': 'PKR 60,000',
-          'period': 'per year',
-          'amount': 60000,
-        };
-      case 'lifetime':
-        return {
-          'name': 'Lifetime',
-          'price': 'PKR 150,000',
-          'period': 'one-time payment',
-          'amount': 150000,
-        };
+        return {'name': 'Yearly', 'price': 'PKR 80,000', 'period': 'per year', 'amount': 80000};
+      case 'fiveYears':
+        return {'name': '5 Years', 'price': 'PKR 200,000', 'period': 'five-year package', 'amount': 200000};
       default:
-        return {
-          'name': 'Monthly',
-          'price': 'PKR 6,000',
-          'period': 'per month',
-          'amount': 6000,
-        };
+        return {'name': 'Monthly', 'price': 'PKR 7,000', 'period': 'per month', 'amount': 7000};
     }
   }
 
-  Future<void> _processPayment() async {
-    setState(() {
-      _isProcessing = true;
-      _errorMessage = null;
-    });
-
+  Future<void> _process() async {
+    setState(() { _isProcessing = true; _errorMessage = null; });
     try {
+      if (widget.plan == 'perTransaction') {
+        final user = context.read<AuthProvider>().currentUser;
+        if (user == null) throw Exception('Please sign in again.');
+        await FirebaseFirestore.instance.collection('vendors').doc(user.id).set({
+          'billingPlanId': 'perTransaction',
+          'transactionRate': 1,
+          'successfulReceiptCount': FieldValue.increment(0),
+          'billingStatus': 'active',
+          'accessMode': 'full',
+          'hasActiveSubscription': true,
+          'packageActivatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pay per Transaction package activated.'), backgroundColor: Color(0xFF059669)));
+        context.go(AppRouter.dashboard);
+        return;
+      }
+
       final success = await StripeService.processPayment(
         amount: (_planDetails['amount'] as int) * 100,
         currency: 'pkr',
         planType: widget.plan,
-      ).timeout(const Duration(seconds: 30)); // ADD TIMEOUT HERE
+      ).timeout(const Duration(seconds: 30));
 
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            duration: Duration(seconds: 1),
-            content: Text('Redirecting to secure payment...'),
-            backgroundColor: Colors.blue,
-          ),
-        );
-        await Future.delayed(const Duration(seconds: 2));
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(duration: Duration(seconds: 1), content: Text('Redirecting to secure payment...'), backgroundColor: Color(0xFF2563EB)));
       }
     } on TimeoutException {
-      setState(() {
-        _errorMessage = 'Payment request timed out. Please try again.';
-      });
+      if (mounted) setState(() => _errorMessage = 'Payment request timed out. Please try again.');
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
-      // ... rest of error handling
+      if (mounted) setState(() => _errorMessage = e.toString());
     } finally {
-      setState(() => _isProcessing = false);
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isUsagePlan = widget.plan == 'perTransaction';
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Payment - ${_planDetails['name']}'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(AppRouter.pricing),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_errorMessage != null)
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: Colors.red[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error, color: Colors.red),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: TextStyle(color: Colors.red[700]),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            if (_errorMessage != null) const SizedBox(height: AppSpacing.lg),
-
-            // Plan Summary
-            CustomCard(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _planDetails['name'],
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.headlineSmall,
-                              ),
-                              Text(_planDetails['period']),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          _planDetails['price'],
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: AppSpacing.xl),
-
-            Text(
-              'Secure Payment',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // Web payment UI
-            CustomCard(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(
-                  children: [
-                    const Icon(Icons.credit_card, size: 48, color: Colors.blue),
-                    const SizedBox(height: AppSpacing.md),
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 650),
+            child: Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0)), boxShadow: const [BoxShadow(color: Color(0x0A0F172A), blurRadius: 16, offset: Offset(0, 5))]),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  IconButton(onPressed: () => context.go(AppRouter.pricing), icon: const Icon(Icons.arrow_back_rounded)),
+                  const SizedBox(width: 6),
+                  const Text('TYCOON POS', style: TextStyle(fontSize: 11, letterSpacing: 1.2, color: Color(0xFFD80000), fontWeight: FontWeight.w900)),
+                ]),
+                const SizedBox(height: 16),
+                Text(_planDetails['name'] as String, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                const SizedBox(height: 8),
+                Text(_planDetails['price'] as String, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: burgundy)),
+                Text(_planDetails['period'] as String, style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                const SizedBox(height: 24),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(isUsagePlan ? 'How usage billing works' : 'Secure payment', style: const TextStyle(fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 8),
                     Text(
-                      'Secure Payment with Stripe',
-                      style: Theme.of(context).textTheme.titleMedium,
-                      textAlign: TextAlign.center,
+                      isUsagePlan
+                          ? 'Only successfully completed receipts are counted. Cancelled receipts are excluded. Your restaurant admin can see the successful receipt count and running usage amount from the Tycoon account menu.'
+                          : widget.plan == 'monthly'
+                              ? 'The monthly payment window opens on the 25th. Payment should be completed by month-end. If payment remains overdue, the system moves to Basic Mode until payment is recorded.'
+                              : 'You will be redirected to the configured secure payment flow for this package.',
+                      style: const TextStyle(fontSize: 11.5, height: 1.5, color: Color(0xFF475569)),
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    const Text(
-                      'You will be redirected to Stripe Checkout to complete your payment securely. We accept all major credit and debit cards.',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.lock, size: 16, color: Colors.green),
-                        SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            'SSL encrypted and PCI compliant',
-                            style: TextStyle(color: Colors.green),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-
-                    // Pay Button
-                    CustomButton(
-                      text: 'Pay ${_planDetails['price']}',
-                      onPressed: _isProcessing ? null : _processPayment,
-                      isLoading: _isProcessing,
-                      fullWidth: true,
-                    ),
-                  ],
+                  ]),
                 ),
-              ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  Container(width: double.infinity, padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFFFF1F2), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFFDA4AF))), child: Text(_errorMessage!, style: const TextStyle(color: Color(0xFFBE123C), fontSize: 11.5))),
+                ],
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton(
+                    onPressed: _isProcessing ? null : _process,
+                    style: FilledButton.styleFrom(backgroundColor: burgundy, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                    child: _isProcessing ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text(isUsagePlan ? 'Activate Rs 1 / receipt plan' : 'Proceed to payment', style: const TextStyle(fontWeight: FontWeight.w900)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Center(child: TextButton(onPressed: () => context.go(AppRouter.dashboard), child: const Text('Cancel and return to dashboard'))),
+              ]),
             ),
-
-            const SizedBox(height: AppSpacing.xl * 2),
-
-            // Cancel Button
-            TextButton(
-              onPressed: _isProcessing
-                  ? null
-                  : () => context.go(AppRouter.pricing),
-              style: TextButton.styleFrom(
-                minimumSize: const Size(double.infinity, 48),
-              ),
-              child: const Text('Cancel'),
-            ),
-          ],
+          ),
         ),
       ),
     );
