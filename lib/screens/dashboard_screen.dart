@@ -15,7 +15,8 @@ class DashboardScreen extends StatelessWidget {
 
     return ColoredBox(
       color: const Color(0xFFF9FAFB),
-      child: (user.role == UserRole.superAdmin ||
+      child:
+          (user.role == UserRole.superAdmin ||
               user.role == UserRole.admin ||
               user.role == UserRole.auditor)
           ? const RestaurantDashboardScreenV3()
