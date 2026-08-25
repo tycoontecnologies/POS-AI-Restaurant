@@ -380,11 +380,7 @@ class _TopBarState extends State<_TopBar> {
         ),
         IconButton(tooltip: 'More menu items', onPressed: () => _move(360), icon: Icon(Icons.chevron_right_rounded, size: 22, color: widget.accent)),
         IconButton(tooltip: 'Interface color', onPressed: widget.onChooseColor, icon: Icon(Icons.palette_outlined, color: widget.accent, size: 19)),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(color: const Color(0xFFE8FFF4), borderRadius: BorderRadius.circular(18)),
-          child: const Row(children: [Icon(Icons.circle, size: 7, color: Color(0xFF10B981)), SizedBox(width: 5), Text('Online', style: TextStyle(color: Color(0xFF047857), fontSize: 10.5, fontWeight: FontWeight.w700))]),
-        ),
+        _PresenceToggle(user: user),
         const SizedBox(width: 4),
         _Notifications(user: user),
         const SizedBox(width: 4),
@@ -411,6 +407,76 @@ class _TopBarState extends State<_TopBar> {
     if (path.startsWith(AppRouter.salesReturn)) return 'Returns';
     if (path.startsWith(AppRouter.sales)) return 'Sales';
     return 'Dashboard';
+  }
+}
+
+class _PresenceToggle extends StatelessWidget {
+  final UserModel? user;
+  const _PresenceToggle({required this.user});
+
+  Future<void> _setPresence(BuildContext context, bool online) async {
+    if (user == null) return;
+    final ref = FirebaseFirestore.instance
+        .collection('vendors')
+        .doc(user!.id)
+        .collection('presence')
+        .doc(user!.authUid);
+    await ref.set({
+      'authUid': user!.authUid,
+      'name': user!.name,
+      'role': user!.role.name,
+      'branchId': user!.branchId,
+      'branchName': user!.branchName,
+      'online': online,
+      'manualOffline': !online,
+      'source': 'web',
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await NotificationService().publish(
+      actor: user!,
+      type: online ? 'presence_online' : 'presence_offline',
+      title: online ? 'Staff online' : 'Staff offline',
+      message: '${user!.name} is now ${online ? 'online' : 'offline'} at ${user!.branchName}.',
+      targetRoles: const ['admin', 'superAdmin'],
+      metadata: {'online': online},
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (user == null) return const SizedBox.shrink();
+    final ref = FirebaseFirestore.instance
+        .collection('vendors')
+        .doc(user!.id)
+        .collection('presence')
+        .doc(user!.authUid);
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: ref.snapshots(),
+      builder: (_, snap) {
+        final online = snap.hasData ? (snap.data!.data()?['online'] ?? true) == true : true;
+        final bg = online ? const Color(0xFFE8FFF4) : const Color(0xFFF1F5F9);
+        final fg = online ? const Color(0xFF047857) : const Color(0xFF64748B);
+        return PopupMenuButton<bool>(
+          tooltip: 'Presence status',
+          onSelected: (value) => _setPresence(context, value),
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: true, child: Row(children: [Icon(Icons.circle, size: 9, color: Color(0xFF10B981)), SizedBox(width: 9), Text('Go online')])),
+            PopupMenuItem(value: false, child: Row(children: [Icon(Icons.circle_outlined, size: 13, color: Color(0xFF64748B)), SizedBox(width: 9), Text('Go offline')])),
+          ],
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(18)),
+            child: Row(children: [
+              Icon(online ? Icons.circle : Icons.circle_outlined, size: 7, color: fg),
+              const SizedBox(width: 5),
+              Text(online ? 'Online' : 'Offline', style: TextStyle(color: fg, fontSize: 10.5, fontWeight: FontWeight.w700)),
+              const SizedBox(width: 2),
+              Icon(Icons.arrow_drop_down_rounded, size: 16, color: fg),
+            ]),
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -560,11 +626,20 @@ List<QueryDocumentSnapshot<Map<String, dynamic>>> _visibleNotifications(
   UserModel user,
   List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
 ) {
+  final isAdmin = user.role == UserRole.admin || user.role == UserRole.superAdmin;
   return docs.where((doc) {
     final data = doc.data();
     final target = data['targetAuthUid']?.toString();
     final roles = List<String>.from(data['targetRoles'] ?? const <String>[]);
-    return (target == null || target.isEmpty || target == user.authUid) && (roles.isEmpty || roles.contains(user.role.name));
+
+    // A directly targeted notification belongs only to that user.
+    if (target != null && target.isNotEmpty) return target == user.authUid;
+
+    // Role-targeted notifications belong only to the requested roles.
+    if (roles.isNotEmpty) return roles.contains(user.role.name);
+
+    // Untargeted operational notifications flow upward to management only.
+    return isAdmin;
   }).toList();
 }
 
