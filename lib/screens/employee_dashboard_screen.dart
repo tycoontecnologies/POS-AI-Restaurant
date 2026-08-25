@@ -61,7 +61,18 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       builder: (c) => StatefulBuilder(
         builder: (_, setModal) => AlertDialog(
           title: const Text('Add Widgets'),
-          content: SizedBox(width: 440, child: SingleChildScrollView(child: Column(children: addable.map((k) => CheckboxListTile(value: selected.contains(k), title: Text(available[k]!), onChanged: (v) => setModal(() => v == true ? selected.add(k) : selected.remove(k)))).toList()))),
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                children: addable.map((k) => CheckboxListTile(
+                  value: selected.contains(k),
+                  title: Text(available[k]!),
+                  onChanged: (v) => setModal(() => v == true ? selected.add(k) : selected.remove(k)),
+                )).toList(),
+              ),
+            ),
+          ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
             FilledButton(onPressed: () => Navigator.pop(c, selected), child: const Text('Add')),
@@ -70,7 +81,9 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       ),
     );
     if (result != null) {
-      for (final key in result) { await _show(user, key); }
+      for (final key in result) {
+        await _show(user, key);
+      }
     }
   }
 
@@ -116,14 +129,39 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                     OutlinedButton.icon(onPressed: () => _restore(user), icon: const Icon(Icons.restore_rounded, size: 16), label: const Text('Restore')),
                   ]),
                   const SizedBox(height: 14),
-                  if (show('profile')) _WidgetBox(title: 'Profile', onClose: () => _hide(user, 'profile'), child: Row(children: [
-                    Stack(clipBehavior: Clip.none, children: [
-                      CircleAvatar(radius: 34, backgroundColor: AppColors.primarySoft, backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null, child: photoUrl.isEmpty ? Text(user.name.isEmpty ? 'U' : user.name.substring(0,1).toUpperCase(), style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: AppColors.primary)) : null),
-                      if (canChangePhoto) Positioned(right: -3, bottom: -2, child: Material(color: AppColors.primary, shape: const CircleBorder(), child: InkWell(customBorder: const CircleBorder(), onTap: _uploading ? null : () => _pickPhoto(user), child: SizedBox(width: 28, height: 28, child: Center(child: _uploading ? const SizedBox(width:12,height:12,child:CircularProgressIndicator(strokeWidth:2,color:Colors.white)) : const Icon(Icons.camera_alt_outlined,size:14,color:Colors.white))))))
+                  if (show('profile')) _WidgetBox(
+                    title: 'Profile',
+                    onClose: () => _hide(user, 'profile'),
+                    child: Row(children: [
+                      Stack(clipBehavior: Clip.none, children: [
+                        CircleAvatar(
+                          radius: 34,
+                          backgroundColor: AppColors.primarySoft,
+                          backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                          child: photoUrl.isEmpty ? Text(user.name.isEmpty ? 'U' : user.name.substring(0, 1).toUpperCase(), style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: AppColors.primary)) : null,
+                        ),
+                        if (canChangePhoto)
+                          Positioned(
+                            right: -3,
+                            bottom: -2,
+                            child: Material(
+                              color: AppColors.primary,
+                              shape: const CircleBorder(),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: _uploading ? null : () => _pickPhoto(user),
+                                child: SizedBox(width: 28, height: 28, child: Center(child: _uploading ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.camera_alt_outlined, size: 14, color: Colors.white))),
+                              ),
+                            ),
+                          ),
+                      ]),
+                      const SizedBox(width: 15),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(user.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                        Text(user.email, style: const TextStyle(fontSize: 10.5, color: AppColors.grey500)),
+                      ])),
                     ]),
-                    const SizedBox(width: 15),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(user.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)), Text(user.email, style: const TextStyle(fontSize: 10.5, color: AppColors.grey500))])),
-                  ])),
+                  ),
                   if (show('profile')) const SizedBox(height: 12),
                   LayoutBuilder(builder: (_, c) {
                     final cardWidth = c.maxWidth >= 1100 ? (c.maxWidth - 60) / 6 : c.maxWidth >= 700 ? (c.maxWidth - 24) / 3 : (c.maxWidth - 12) / 2;
@@ -139,7 +177,11 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                   const SizedBox(height: 14),
                   LayoutBuilder(builder: (_, c) {
                     final width = c.maxWidth >= 900 ? (c.maxWidth - 24) / 3 : c.maxWidth >= 620 ? (c.maxWidth - 12) / 2 : c.maxWidth;
-                    return Wrap(spacing: 12, runSpacing: 12, children: actions.where((a) => show('feature_${a.route}')).map((a) => SizedBox(width: width, child: _FeatureWidget(action: a, onClose: () => _hide(user, 'feature_${a.route}')))).toList());
+                    return Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: actions.where((a) => show('feature_${a.route}')).map((a) => SizedBox(width: width, child: _FeatureWidget(action: a, onClose: () => _hide(user, 'feature_${a.route}')))).toList(),
+                    );
                   }),
                   if (show('reviews')) ...[
                     const SizedBox(height: 12),
@@ -191,19 +233,41 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       case UserRole.waiter:
       case UserRole.cashier:
       case UserRole.staff:
-        return const [_Action('Tables', 'Open and manage assigned tables', Icons.table_restaurant_outlined, AppRouter.tables), _Action('Billing / KOT', 'Orders, KOT and checkout', Icons.receipt_long_outlined, AppRouter.orders)];
+        return const [
+          _Action('Tables', 'Open and manage assigned tables', Icons.table_restaurant_outlined, AppRouter.tables),
+          _Action('Billing / KOT', 'Orders, KOT and checkout', Icons.receipt_long_outlined, AppRouter.orders),
+        ];
       case UserRole.kitchen:
         return const [_Action('Kitchen Orders', 'Live KOT preparation queue', Icons.soup_kitchen_outlined, AppRouter.orders)];
       case UserRole.accounts:
-        return const [_Action('Sales', 'Sales and receipt records', Icons.point_of_sale_outlined, AppRouter.sales), _Action('Operations', 'Purchases and operational transactions', Icons.receipt_long_outlined, AppRouter.purchases), _Action('Returns', 'Sales returns and refunds', Icons.assignment_return_outlined, AppRouter.salesReturn)];
+        return const [
+          _Action('Sales', 'Sales and receipt records', Icons.point_of_sale_outlined, AppRouter.sales),
+          _Action('Operations', 'Purchases and operational transactions', Icons.receipt_long_outlined, AppRouter.purchases),
+          _Action('Returns', 'Sales returns and refunds', Icons.assignment_return_outlined, AppRouter.salesReturn),
+        ];
       case UserRole.operations:
-        return const [_Action('Operations', 'Purchases and operations', Icons.receipt_long_outlined, AppRouter.purchases), _Action('Inventory', 'Products and stock', Icons.inventory_2_outlined, AppRouter.products), _Action('Vendors', 'Supplier management', Icons.local_shipping_outlined, AppRouter.suppliers), _Action('Recipes', 'Recipe and ingredient control', Icons.menu_book_outlined, AppRouter.ingredients)];
+        return const [
+          _Action('Operations', 'Purchases and operations', Icons.receipt_long_outlined, AppRouter.purchases),
+          _Action('Inventory', 'Products and stock', Icons.inventory_2_outlined, AppRouter.products),
+          _Action('Vendors', 'Supplier management', Icons.local_shipping_outlined, AppRouter.suppliers),
+          _Action('Recipes', 'Recipe and ingredient control', Icons.menu_book_outlined, AppRouter.ingredients),
+        ];
       case UserRole.inventory:
-        return const [_Action('Inventory', 'Products and stock', Icons.inventory_2_outlined, AppRouter.products), _Action('Vendors', 'Supplier management', Icons.local_shipping_outlined, AppRouter.suppliers), _Action('Operations', 'Purchases and inward stock', Icons.receipt_long_outlined, AppRouter.purchases)];
+        return const [
+          _Action('Inventory', 'Products and stock', Icons.inventory_2_outlined, AppRouter.products),
+          _Action('Vendors', 'Supplier management', Icons.local_shipping_outlined, AppRouter.suppliers),
+          _Action('Operations', 'Purchases and inward stock', Icons.receipt_long_outlined, AppRouter.purchases),
+        ];
       case UserRole.delivery:
-        return const [_Action('Orders', 'Delivery order queue', Icons.delivery_dining_outlined, AppRouter.orders), _Action('CRM', 'Customer details', Icons.people_alt_outlined, AppRouter.customers)];
+        return const [
+          _Action('Orders', 'Delivery order queue', Icons.delivery_dining_outlined, AppRouter.orders),
+          _Action('CRM', 'Customer details', Icons.people_alt_outlined, AppRouter.customers),
+        ];
       case UserRole.reception:
-        return const [_Action('Tables', 'Floor and guest seating', Icons.table_restaurant_outlined, AppRouter.tables), _Action('CRM', 'Customer details', Icons.people_alt_outlined, AppRouter.customers)];
+        return const [
+          _Action('Tables', 'Floor and guest seating', Icons.table_restaurant_outlined, AppRouter.tables),
+          _Action('CRM', 'Customer details', Icons.people_alt_outlined, AppRouter.customers),
+        ];
       default: return const [];
     }
   }
@@ -277,18 +341,32 @@ class _FeatureWidget extends StatelessWidget {
   final _Action action;
   final VoidCallback onClose;
   const _FeatureWidget({required this.action, required this.onClose});
+
   @override
   Widget build(BuildContext context) => Container(
-    height: 132,
-    padding: const EdgeInsets.all(14),
+    constraints: const BoxConstraints(minHeight: 146),
+    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.outlineLight)),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [Container(width: 36, height: 36, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(9)), child: Icon(action.icon, color: AppColors.primary, size: 18)), const Spacer(), IconButton(tooltip: 'Remove widget', onPressed: onClose, icon: const Icon(Icons.close_rounded, size: 15, color: AppColors.grey400))]),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      Row(children: [
+        Container(width: 36, height: 36, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(9)), child: Icon(action.icon, color: AppColors.primary, size: 18)),
+        const Spacer(),
+        IconButton(tooltip: 'Remove widget', visualDensity: VisualDensity.compact, onPressed: onClose, icon: const Icon(Icons.close_rounded, size: 15, color: AppColors.grey400)),
+      ]),
+      const SizedBox(height: 4),
       Text(action.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
       const SizedBox(height: 2),
-      Text(action.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9.5, color: AppColors.grey500)),
-      const Spacer(),
-      Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: () => context.go(action.route), icon: const Icon(Icons.arrow_forward_rounded, size: 15), label: const Text('Open'))),
+      Text(action.subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9.5, color: AppColors.grey500)),
+      const SizedBox(height: 10),
+      Align(
+        alignment: Alignment.centerRight,
+        child: OutlinedButton.icon(
+          onPressed: () => context.go(action.route),
+          icon: const Icon(Icons.arrow_forward_rounded, size: 14),
+          label: const Text('Open'),
+          style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact, minimumSize: const Size(88, 34), padding: const EdgeInsets.symmetric(horizontal: 12)),
+        ),
+      ),
     ]),
   );
 }
