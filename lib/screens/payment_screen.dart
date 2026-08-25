@@ -21,6 +21,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   static const burgundy = Color(0xFF7A1026);
   static const ink = Color(0xFF0F172A);
   static const muted = Color(0xFF64748B);
+  static const line = Color(0xFFE2E8F0);
   bool _isProcessing = false;
   String? _errorMessage;
 
@@ -65,7 +66,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
       await context.read<SubscriptionProvider>().activatePerTransactionPlan();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rs 1 per successful receipt package activated.'), backgroundColor: Color(0xFF059669)));
-      context.go(AppRouter.dashboard);
     } catch (e) {
       if (mounted) setState(() => _errorMessage = e.toString());
     } finally {
@@ -80,11 +80,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
     setState(() { _isProcessing = true; _errorMessage = null; });
     try {
-      await StripeService.processPayment(
+      final opened = await StripeService.processPayment(
         amount: (amount * 100).round(),
         currency: 'pkr',
         planType: 'perTransaction',
       ).timeout(const Duration(seconds: 30));
+      if (opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Opening payment for Rs ${amount.toStringAsFixed(0)} transaction usage…'), backgroundColor: const Color(0xFF2563EB)));
+      }
     } on TimeoutException {
       if (mounted) setState(() => _errorMessage = 'Payment request timed out. Please try again.');
     } catch (e) {
@@ -141,8 +144,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
           final lifetimeReceipts = (data['successfulReceiptCount'] is num) ? (data['successfulReceiptCount'] as num).toInt() : 0;
           final unbilled = (data['unbilledReceiptCount'] is num) ? (data['unbilledReceiptCount'] as num).toInt() : 0;
           final rate = (data['transactionRate'] is num) ? (data['transactionRate'] as num).toDouble() : 1.0;
-          final due = (data['transactionUsageAmount'] is num) ? (data['transactionUsageAmount'] as num).toDouble() : unbilled * rate;
+          final rawDue = (data['transactionUsageAmount'] is num) ? (data['transactionUsageAmount'] as num).toDouble() : unbilled * rate;
+          final due = rawDue < 0 ? 0.0 : rawDue;
           final paid = (data['transactionPaidTotal'] is num) ? (data['transactionPaidTotal'] as num).toDouble() : 0.0;
+          final paidReceipts = (data['transactionPaidReceiptTotal'] is num) ? (data['transactionPaidReceiptTotal'] as num).toInt() : 0;
           final dueRaw = data['nextPaymentDueAt'];
           final dueDate = dueRaw is Timestamp ? dueRaw.toDate() : null;
           final status = (data['billingStatus'] ?? (active ? 'active' : 'not active')).toString();
@@ -151,7 +156,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 820),
+                constraints: const BoxConstraints(maxWidth: 980),
                 child: _panel(children: [
                   _topRow(context),
                   const SizedBox(height: 14),
@@ -159,30 +164,34 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text('Pay per Transaction', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: ink)),
                       SizedBox(height: 5),
-                      Text('Pay only for successful completed receipts. Cancelled receipts are automatically removed from billable usage.', style: TextStyle(color: muted, fontSize: 12.5, height: 1.45)),
+                      Text('Rs 1 is charged only when a receipt is successfully completed. Cancelled or deleted receipts are automatically removed while still unpaid.', style: TextStyle(color: muted, fontSize: 12.5, height: 1.45)),
                     ])),
                     Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9), decoration: BoxDecoration(color: const Color(0xFFFBECEF), borderRadius: BorderRadius.circular(12)), child: const Text('Rs 1 / receipt', style: TextStyle(color: burgundy, fontWeight: FontWeight.w900, fontSize: 16))),
                   ]),
                   const SizedBox(height: 22),
                   LayoutBuilder(builder: (_, c) {
-                    final w = c.maxWidth > 650 ? (c.maxWidth - 24) / 3 : c.maxWidth;
+                    final cols = c.maxWidth > 820 ? 4 : c.maxWidth > 560 ? 2 : 1;
+                    final w = (c.maxWidth - ((cols - 1) * 12)) / cols;
                     return Wrap(spacing: 12, runSpacing: 12, children: [
-                      SizedBox(width: w, child: _metric('Current successful receipts', '$unbilled', Icons.receipt_long_outlined)),
+                      SizedBox(width: w, child: _metric('Current billable receipts', '$unbilled', Icons.receipt_long_outlined)),
                       SizedBox(width: w, child: _metric('Current amount due', 'Rs ${due.toStringAsFixed(0)}', Icons.payments_outlined)),
                       SizedBox(width: w, child: _metric('Lifetime successful receipts', '$lifetimeReceipts', Icons.analytics_outlined)),
+                      SizedBox(width: w, child: _metric('Receipts already paid', '$paidReceipts', Icons.verified_outlined)),
                     ]);
                   }),
                   const SizedBox(height: 12),
                   _infoBox(active
-                      ? 'Status: ${status.toUpperCase()}  •  Rate: Rs ${rate.toStringAsFixed(rate % 1 == 0 ? 0 : 2)} per successful receipt${dueDate == null ? '' : '  •  Payment due ${_date(dueDate)}'}\nTotal usage payments recorded: Rs ${paid.toStringAsFixed(0)}. The payment window starts on the 25th. If an outstanding amount remains unpaid after the deadline, premium features move to Basic Mode until payment is settled.'
-                      : 'Activate this package with no upfront subscription fee. Each successfully completed receipt creates one billable Rs 1 usage entry. Cancelled receipts do not count. Usage is visible here in real time.'),
+                      ? 'Status: ${status.toUpperCase()}  •  Rate: Rs ${rate.toStringAsFixed(rate % 1 == 0 ? 0 : 2)} per successful receipt${dueDate == null ? '' : '  •  Payment due ${_date(dueDate)}'}\nTotal usage payments recorded: Rs ${paid.toStringAsFixed(0)}. The payment reminder begins on the 25th. If an outstanding balance remains after month-end, premium features move to Basic Mode until the usage balance is settled.'
+                      : 'Activate this package with no upfront subscription fee. Each successfully completed receipt creates exactly one billable Rs 1 ledger row. Reopening or retrying the same sale cannot double-charge because billing is keyed to the sale/receipt ID.'),
                   _error(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 18),
+                  if (active) _usageLedger(ref),
+                  const SizedBox(height: 22),
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: FilledButton(
-                      onPressed: _isProcessing ? null : active ? () => _payUsage(due) : _activateUsagePlan,
+                      onPressed: _isProcessing ? null : active ? (due > 0 ? () => _payUsage(due) : null) : _activateUsagePlan,
                       style: _buttonStyle(),
                       child: _buttonChild(active ? (due > 0 ? 'Pay Rs ${due.toStringAsFixed(0)} usage fee' : 'No amount due') : 'Activate Rs 1 / receipt package'),
                     ),
@@ -202,10 +211,48 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
+  Widget _usageLedger(DocumentReference<Map<String, dynamic>> vendorRef) {
+    final query = vendorRef.collection('billingUsage').orderBy('completedAt', descending: true).limit(20);
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: line)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Padding(padding: EdgeInsets.fromLTRB(16, 14, 16, 10), child: Row(children: [Icon(Icons.list_alt_rounded, size: 18, color: burgundy), SizedBox(width: 8), Text('Recent receipt billing ledger', style: TextStyle(fontWeight: FontWeight.w900, color: ink))])),
+        const Divider(height: 1),
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: query.snapshots(),
+          builder: (_, snap) {
+            final docs = snap.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+            if (docs.isEmpty) return const Padding(padding: EdgeInsets.all(18), child: Text('No successful receipts have been metered yet.', style: TextStyle(color: muted, fontSize: 11.5)));
+            return Column(children: docs.map((d) {
+              final a = d.data();
+              final status = (a['status'] ?? 'billable').toString();
+              final amount = a['amount'] is num ? (a['amount'] as num).toDouble() : 1.0;
+              final raw = a['completedAt'];
+              final dt = raw is Timestamp ? raw.toDate() : null;
+              final statusColor = status == 'paid' ? const Color(0xFF059669) : status == 'cancelled' ? const Color(0xFF94A3B8) : const Color(0xFFF59E0B);
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9)))),
+                child: Row(children: [
+                  Expanded(flex: 2, child: Text('Receipt ${a['saleId'] ?? d.id}', overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5))),
+                  Expanded(child: Text(dt == null ? '-' : _dateTime(dt), style: const TextStyle(fontSize: 10.5, color: muted))),
+                  SizedBox(width: 70, child: Text('Rs ${amount.toStringAsFixed(0)}', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5))),
+                  const SizedBox(width: 12),
+                  Container(width: 78, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5), decoration: BoxDecoration(color: statusColor.withValues(alpha: .10), borderRadius: BorderRadius.circular(16)), child: Text(status.toUpperCase(), textAlign: TextAlign.center, style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, color: statusColor))),
+                ]),
+              );
+            }).toList());
+          },
+        ),
+      ]),
+    );
+  }
+
   Widget _metric(String label, String value, IconData icon) => Container(
         height: 112,
         padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: line)),
         child: Row(children: [
           Container(width: 42, height: 42, decoration: BoxDecoration(color: const Color(0xFFFBECEF), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: burgundy, size: 21)),
           const SizedBox(width: 12),
@@ -215,7 +262,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Widget _panel({required List<Widget> children}) => Container(
         padding: const EdgeInsets.all(28),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0)), boxShadow: const [BoxShadow(color: Color(0x0A0F172A), blurRadius: 16, offset: Offset(0, 5))]),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: line), boxShadow: const [BoxShadow(color: Color(0x0A0F172A), blurRadius: 16, offset: Offset(0, 5))]),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
       );
 
@@ -228,7 +275,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget _infoBox(String text) => Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
+        decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: line)),
         child: Text(text, style: const TextStyle(fontSize: 11.5, height: 1.5, color: Color(0xFF475569))),
       );
 
@@ -243,4 +290,5 @@ class _PaymentScreenState extends State<PaymentScreen> {
       : Text(label, style: const TextStyle(fontWeight: FontWeight.w900));
 
   String _date(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  String _dateTime(DateTime d) => '${_date(d)} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 }
