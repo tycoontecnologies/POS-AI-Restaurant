@@ -37,10 +37,8 @@ class NotificationService {
     });
   }
 
-  /// Acknowledge a notification.
-  ///
-  /// The notification remains available in notification history, but it is
-  /// removed from the persistent right-side toast stack for this user.
+  /// Acknowledge a notification and remove it from the floating stack.
+  /// It remains in notification history as read.
   Future<void> markRead({
     required String restaurantId,
     required String notificationId,
@@ -58,6 +56,8 @@ class NotificationService {
     }, SetOptions(merge: true));
   }
 
+  /// Closing a toast also acknowledges it so it cannot continue to count as
+  /// unread after disappearing from the screen.
   Future<void> dismiss({
     required String restaurantId,
     required String notificationId,
@@ -69,7 +69,9 @@ class NotificationService {
         .collection('notifications')
         .doc(notificationId)
         .set({
+      'readBy': FieldValue.arrayUnion([authUid]),
       'dismissedBy': FieldValue.arrayUnion([authUid]),
+      'lastAcknowledgedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 }
