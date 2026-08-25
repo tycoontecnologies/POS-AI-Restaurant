@@ -39,7 +39,8 @@ class UserModel {
 
   factory UserModel.fromMap(Map<String, dynamic> data, String authDocumentId) {
     final tenantId = (data['ownerId'] ?? data['restaurantId'] ?? authDocumentId).toString();
-    return UserModel(id: tenantId, authUid: authDocumentId, email: data['email'] ?? '', name: data['name'] ?? '', role: _parseRole((data['role'] ?? '').toString()), department: (data['department'] ?? '').toString(), permissions: List<String>.from(data['permissions'] ?? const <String>[]), branchId: (data['branchId'] ?? 'main').toString(), branchName: (data['branchName'] ?? 'Main Branch').toString(), createdAt: _toDate(data['createdAt']) ?? DateTime.now(), isActive: data['isActive'] ?? true, trialEndsAt: _toDate(data['trialEndsAt']) ?? DateTime.now().add(const Duration(days: 7)), subscriptionType: _parseSubscriptionType((data['subscriptionType'] ?? '').toString()), subscriptionEndsAt: _toDate(data['subscriptionEndsAt']), hasActiveSubscription: data['hasActiveSubscription'] ?? false, location: data['location'] ?? '', phoneNo: data['phoneNo'] ?? '', restaurantName: data['restaurantName'] ?? '', restaurantLogoUrl: data['restaurantLogoUrl']);
+    final created = _toDate(data['createdAt']) ?? DateTime.now();
+    return UserModel(id: tenantId, authUid: authDocumentId, email: data['email'] ?? '', name: data['name'] ?? '', role: _parseRole((data['role'] ?? '').toString()), department: (data['department'] ?? '').toString(), permissions: List<String>.from(data['permissions'] ?? const <String>[]), branchId: (data['branchId'] ?? 'main').toString(), branchName: (data['branchName'] ?? 'Main Branch').toString(), createdAt: created, isActive: data['isActive'] ?? true, trialEndsAt: _toDate(data['trialEndsAt']) ?? created.add(const Duration(days: 3)), subscriptionType: _parseSubscriptionType((data['subscriptionType'] ?? '').toString()), subscriptionEndsAt: _toDate(data['subscriptionEndsAt']), hasActiveSubscription: data['hasActiveSubscription'] ?? false, location: data['location'] ?? '', phoneNo: data['phoneNo'] ?? '', restaurantName: data['restaurantName'] ?? '', restaurantLogoUrl: data['restaurantLogoUrl']);
   }
 
   Map<String, dynamic> toMap() => {'email': email, 'name': name, 'role': role.name, 'department': department, 'permissions': permissions, 'ownerId': id, 'branchId': branchId, 'branchName': branchName, 'createdAt': Timestamp.fromDate(createdAt), 'isActive': isActive, 'trialEndsAt': Timestamp.fromDate(trialEndsAt), 'subscriptionType': subscriptionType.name, 'subscriptionEndsAt': subscriptionEndsAt != null ? Timestamp.fromDate(subscriptionEndsAt!) : null, 'hasActiveSubscription': hasActiveSubscription, 'location': location, 'phoneNo': phoneNo, 'restaurantName': restaurantName, 'restaurantLogoUrl': restaurantLogoUrl};
@@ -55,7 +56,13 @@ class UserModel {
   bool get isStaff => role == UserRole.staff || role == UserRole.cashier || role == UserRole.waiter;
   bool get isRegularUser => role == UserRole.user;
   bool get isDepartmentAccount => authUid != id;
-  bool get isTrialActive => trialEndsAt.isAfter(DateTime.now());
+
+  DateTime get effectiveTrialEndsAt {
+    final hardLimit = createdAt.add(const Duration(days: 3));
+    return trialEndsAt.isBefore(hardLimit) ? trialEndsAt : hardLimit;
+  }
+
+  bool get isTrialActive => effectiveTrialEndsAt.isAfter(DateTime.now());
   bool get shouldRedirectToPricing => !isTrialActive && !hasActiveSubscription;
 
   /// Super Admin/Admin can always customize. Other users require the explicit Add Widgets right.
