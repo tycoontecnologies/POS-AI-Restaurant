@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:pos/models/user.dart';
 import 'package:pos/providers/auth_provider.dart';
 import 'package:pos/routes/app_router.dart';
+import 'package:pos/services/notification_service.dart';
 
 class MainShell extends StatefulWidget {
   final Widget child;
@@ -41,16 +42,11 @@ class _MainShellState extends State<MainShell> {
 
   Color _accentFor(String name) {
     switch (name) {
-      case 'burgundy':
-        return const Color(0xFF8B1E2D);
-      case 'navy':
-        return const Color(0xFF183B66);
-      case 'emerald':
-        return const Color(0xFF087F5B);
-      case 'graphite':
-        return const Color(0xFF374151);
-      default:
-        return _purple;
+      case 'burgundy': return const Color(0xFF8B1E2D);
+      case 'navy': return const Color(0xFF183B66);
+      case 'emerald': return const Color(0xFF087F5B);
+      case 'graphite': return const Color(0xFF374151);
+      default: return _purple;
     }
   }
 
@@ -59,10 +55,7 @@ class _MainShellState extends State<MainShell> {
     if (user == null) return;
     setState(() => _accent = _accentFor(name));
     if (mounted) Navigator.of(context, rootNavigator: true).maybePop();
-    await FirebaseFirestore.instance.collection('vendors').doc(user.id).set(
-      {'uiColorScheme': name},
-      SetOptions(merge: true),
-    );
+    await FirebaseFirestore.instance.collection('vendors').doc(user.id).set({'uiColorScheme': name}, SetOptions(merge: true));
   }
 
   bool _editingText() {
@@ -75,9 +68,8 @@ class _MainShellState extends State<MainShell> {
   }
 
   Map<ShortcutActivator, VoidCallback> _bindings(UserRole role) {
-    final actions = _actionsFor(role);
     final map = <ShortcutActivator, VoidCallback>{};
-    for (final action in actions) {
+    for (final action in _actionsFor(role)) {
       final key = _logicalKey(action.shortcut);
       if (key != null) map[SingleActivator(key)] = () => _go(action.route);
     }
@@ -126,18 +118,25 @@ class _MainShellState extends State<MainShell> {
           child: Scaffold(
             backgroundColor: Colors.white,
             body: SafeArea(
-              child: Row(children: [
-                _SideRail(currentLocation: location, red: _red),
-                Expanded(
-                  child: Column(children: [
-                    _TopBar(
-                      currentLocation: location,
-                      accent: _accent,
-                      actions: _actionsFor(user.role),
-                      onChooseColor: _showColors,
-                    ),
-                    Expanded(child: ColoredBox(color: Colors.white, child: widget.child)),
-                  ]),
+              child: Stack(children: [
+                Row(children: [
+                  _SideRail(currentLocation: location, red: _red),
+                  Expanded(
+                    child: Column(children: [
+                      _TopBar(
+                        currentLocation: location,
+                        accent: _accent,
+                        actions: _actionsFor(user.role),
+                        onChooseColor: _showColors,
+                      ),
+                      Expanded(child: ColoredBox(color: Colors.white, child: widget.child)),
+                    ]),
+                  ),
+                ]),
+                Positioned(
+                  top: 80,
+                  right: 16,
+                  child: _PersistentNotificationStack(user: user),
                 ),
               ]),
             ),
@@ -193,11 +192,12 @@ List<_Action> _actionsFor(UserRole role) {
       _Action('KOT', Icons.soup_kitchen_outlined, AppRouter.orders, 'K'),
     ];
   }
-  if (role == UserRole.waiter) {
+  if (role == UserRole.waiter || role == UserRole.cashier || role == UserRole.staff) {
     return const [
       _Action('Dashboard', Icons.dashboard_outlined, AppRouter.dashboard, 'D'),
       _Action('Tables', Icons.table_restaurant_outlined, AppRouter.tables, 'T'),
       _Action('Billing', Icons.receipt_long_outlined, AppRouter.orders, 'B'),
+      _Action('CRM', Icons.people_alt_outlined, AppRouter.customers, 'C'),
     ];
   }
   if (role == UserRole.accounts) {
@@ -231,11 +231,7 @@ class _SideRail extends StatelessWidget {
           message: 'Tycoon POS',
           child: InkWell(
             onTap: () => context.go(AppRouter.dashboard),
-            child: const SizedBox(
-              width: 52,
-              height: 52,
-              child: Icon(Icons.point_of_sale_rounded, color: Colors.white, size: 30),
-            ),
+            child: const SizedBox(width: 52, height: 52, child: Icon(Icons.point_of_sale_rounded, color: Colors.white, size: 30)),
           ),
         ),
         Divider(height: 1, color: Colors.white.withValues(alpha: .28)),
@@ -246,8 +242,7 @@ class _SideRail extends StatelessWidget {
             itemCount: items.length,
             itemBuilder: (_, index) {
               final item = items[index];
-              final selected = currentLocation == item.route ||
-                  (item.route != '/' && currentLocation.startsWith(item.route));
+              final selected = currentLocation == item.route || (item.route != '/' && currentLocation.startsWith(item.route));
               return Padding(
                 padding: const EdgeInsets.only(bottom: 5),
                 child: Tooltip(
@@ -258,10 +253,7 @@ class _SideRail extends StatelessWidget {
                     child: InkWell(
                       onTap: () => context.go(item.route),
                       borderRadius: BorderRadius.circular(10),
-                      child: SizedBox(
-                        height: 43,
-                        child: Center(child: Icon(item.icon, size: 20, color: Colors.white)),
-                      ),
+                      child: SizedBox(height: 43, child: Center(child: Icon(item.icon, size: 20, color: Colors.white))),
                     ),
                   ),
                 ),
@@ -274,21 +266,9 @@ class _SideRail extends StatelessWidget {
         CircleAvatar(
           radius: 18,
           backgroundColor: Colors.white.withValues(alpha: .20),
-          child: Text(
-            (auth.currentUser?.name ?? 'U').substring(0, 1).toUpperCase(),
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
-          ),
+          child: Text((auth.currentUser?.name ?? 'U').substring(0, 1).toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
         ),
-        Tooltip(
-          message: 'Logout',
-          child: IconButton(
-            onPressed: () async {
-              await auth.signOut();
-              if (context.mounted) context.go(AppRouter.login);
-            },
-            icon: const Icon(Icons.logout_rounded, color: Colors.white, size: 19),
-          ),
-        ),
+        const SizedBox(height: 8),
       ]),
     );
   }
@@ -299,12 +279,7 @@ class _TopBar extends StatefulWidget {
   final Color accent;
   final List<_Action> actions;
   final VoidCallback onChooseColor;
-  const _TopBar({
-    required this.currentLocation,
-    required this.accent,
-    required this.actions,
-    required this.onChooseColor,
-  });
+  const _TopBar({required this.currentLocation, required this.accent, required this.actions, required this.onChooseColor});
 
   @override
   State<_TopBar> createState() => _TopBarState();
@@ -321,9 +296,7 @@ class _TopBarState extends State<_TopBar> {
 
   void _move(double by) {
     if (!_scroll.hasClients) return;
-    final target = (_scroll.offset + by)
-        .clamp(0.0, _scroll.position.maxScrollExtent)
-        .toDouble();
+    final target = (_scroll.offset + by).clamp(0.0, _scroll.position.maxScrollExtent).toDouble();
     _scroll.animateTo(target, duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
   }
 
@@ -336,10 +309,7 @@ class _TopBarState extends State<_TopBar> {
     return Container(
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
-      ),
+      decoration: const BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0)))),
       child: Row(children: [
         SizedBox(
           width: 210,
@@ -351,153 +321,74 @@ class _TopBarState extends State<_TopBar> {
                 icon: const Icon(Icons.arrow_back_rounded, size: 19),
               ),
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    InkWell(
-                      onTap: () => context.go(AppRouter.dashboard),
-                      child: const Text('Home', style: TextStyle(color: Color(0xFF64748B), fontSize: 10)),
-                    ),
-                    if (!onDashboard) ...[
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 5),
-                        child: Icon(Icons.chevron_right_rounded, size: 13, color: Color(0xFF94A3B8)),
-                      ),
-                      Expanded(
-                        child: Text(
-                          title,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: widget.accent, fontSize: 10, fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ],
-                  ]),
-                  const SizedBox(height: 3),
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Color(0xFF0F172A), fontSize: 17, fontWeight: FontWeight.w800),
-                  ),
-                ],
-              ),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  InkWell(onTap: () => context.go(AppRouter.dashboard), child: const Text('Home', style: TextStyle(color: Color(0xFF64748B), fontSize: 10))),
+                  if (!onDashboard) ...[
+                    const Padding(padding: EdgeInsets.symmetric(horizontal: 5), child: Icon(Icons.chevron_right_rounded, size: 13, color: Color(0xFF94A3B8))),
+                    Expanded(child: Text(title, overflow: TextOverflow.ellipsis, style: TextStyle(color: widget.accent, fontSize: 10, fontWeight: FontWeight.w700))),
+                  ],
+                ]),
+                const SizedBox(height: 3),
+                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF0F172A), fontSize: 17, fontWeight: FontWeight.w800)),
+              ]),
             ),
           ]),
         ),
         Container(width: 1, height: 34, color: const Color(0xFFE2E8F0)),
-        IconButton(
-          tooltip: 'Previous menu items',
-          onPressed: () => _move(-360),
-          icon: const Icon(Icons.chevron_left_rounded, size: 21, color: Color(0xFF475569)),
-        ),
+        IconButton(tooltip: 'Previous menu items', onPressed: () => _move(-360), icon: const Icon(Icons.chevron_left_rounded, size: 21, color: Color(0xFF475569))),
         Expanded(
           child: SingleChildScrollView(
             controller: _scroll,
             scrollDirection: Axis.horizontal,
-            child: Row(
-              children: widget.actions.map((a) {
-                final selected = a.route == AppRouter.dashboard
-                    ? widget.currentLocation == a.route
-                    : widget.currentLocation.startsWith(a.route);
-                return Padding(
-                  padding: const EdgeInsets.only(right: 7),
-                  child: Tooltip(
-                    message: '${a.label} — press ${a.shortcut}',
-                    child: Material(
-                      color: selected ? widget.accent.withValues(alpha: .08) : Colors.white,
+            child: Row(children: widget.actions.map((a) {
+              final selected = a.route == AppRouter.dashboard ? widget.currentLocation == a.route : widget.currentLocation.startsWith(a.route);
+              return Padding(
+                padding: const EdgeInsets.only(right: 7),
+                child: Tooltip(
+                  message: '${a.label} — press ${a.shortcut}',
+                  child: Material(
+                    color: selected ? widget.accent.withValues(alpha: .08) : Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    child: InkWell(
+                      onTap: () => context.go(a.route),
                       borderRadius: BorderRadius.circular(8),
-                      child: InkWell(
-                        onTap: () => context.go(a.route),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          height: 39,
-                          padding: const EdgeInsets.fromLTRB(9, 0, 8, 0),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: selected ? widget.accent : const Color(0xFFE2E8F0),
-                            ),
+                      child: Container(
+                        height: 39,
+                        padding: const EdgeInsets.fromLTRB(9, 0, 8, 0),
+                        decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), border: Border.all(color: selected ? widget.accent : const Color(0xFFE2E8F0))),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(a.icon, size: 16, color: selected ? widget.accent : const Color(0xFF334155)),
+                          const SizedBox(width: 6),
+                          Text(a.label, style: TextStyle(fontSize: 10.5, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, color: selected ? widget.accent : const Color(0xFF1E293B))),
+                          const SizedBox(width: 7),
+                          Container(
+                            width: 21,
+                            height: 21,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(color: selected ? widget.accent.withValues(alpha: .12) : const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
+                            child: Text(a.shortcut, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: selected ? widget.accent : const Color(0xFF475569))),
                           ),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(
-                              a.icon,
-                              size: 16,
-                              color: selected ? widget.accent : const Color(0xFF334155),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              a.label,
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                                color: selected ? widget.accent : const Color(0xFF1E293B),
-                              ),
-                            ),
-                            const SizedBox(width: 7),
-                            Container(
-                              width: 21,
-                              height: 21,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: selected
-                                    ? widget.accent.withValues(alpha: .12)
-                                    : const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                a.shortcut,
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w900,
-                                  color: selected ? widget.accent : const Color(0xFF475569),
-                                ),
-                              ),
-                            ),
-                          ]),
-                        ),
+                        ]),
                       ),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+              );
+            }).toList()),
           ),
         ),
-        IconButton(
-          tooltip: 'More menu items',
-          onPressed: () => _move(360),
-          icon: Icon(Icons.chevron_right_rounded, size: 22, color: widget.accent),
-        ),
-        IconButton(
-          tooltip: 'Interface color',
-          onPressed: widget.onChooseColor,
-          icon: Icon(Icons.palette_outlined, color: widget.accent, size: 19),
-        ),
+        IconButton(tooltip: 'More menu items', onPressed: () => _move(360), icon: Icon(Icons.chevron_right_rounded, size: 22, color: widget.accent)),
+        IconButton(tooltip: 'Interface color', onPressed: widget.onChooseColor, icon: Icon(Icons.palette_outlined, color: widget.accent, size: 19)),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE8FFF4),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: const Row(children: [
-            Icon(Icons.circle, size: 7, color: Color(0xFF10B981)),
-            SizedBox(width: 5),
-            Text('Online', style: TextStyle(color: Color(0xFF047857), fontSize: 10.5, fontWeight: FontWeight.w700)),
-          ]),
+          decoration: BoxDecoration(color: const Color(0xFFE8FFF4), borderRadius: BorderRadius.circular(18)),
+          child: const Row(children: [Icon(Icons.circle, size: 7, color: Color(0xFF10B981)), SizedBox(width: 5), Text('Online', style: TextStyle(color: Color(0xFF047857), fontSize: 10.5, fontWeight: FontWeight.w700))]),
         ),
         const SizedBox(width: 4),
         _Notifications(user: user),
         const SizedBox(width: 4),
-        CircleAvatar(
-          radius: 16,
-          backgroundColor: widget.accent.withValues(alpha: .10),
-          child: Text(
-            (user?.name ?? 'U').substring(0, 1).toUpperCase(),
-            style: TextStyle(color: widget.accent, fontWeight: FontWeight.w800, fontSize: 11),
-          ),
-        ),
+        _ProfileMenu(user: user, accent: widget.accent),
       ]),
     );
   }
@@ -523,6 +414,44 @@ class _TopBarState extends State<_TopBar> {
   }
 }
 
+class _ProfileMenu extends StatelessWidget {
+  final UserModel? user;
+  final Color accent;
+  const _ProfileMenu({required this.user, required this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.read<AuthProvider>();
+    return PopupMenuButton<String>(
+      tooltip: 'Profile menu',
+      offset: const Offset(0, 42),
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
+      onSelected: (value) async {
+        if (value == 'dashboard') context.go(AppRouter.dashboard);
+        if (value == 'settings') context.go(AppRouter.settings);
+        if (value == 'logout') {
+          await auth.signOut();
+          if (context.mounted) context.go(AppRouter.login);
+        }
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(enabled: false, child: SizedBox(width: 210, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(user?.name ?? 'User', style: const TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 2), Text(user?.email ?? '', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)))]))),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'dashboard', child: Row(children: [Icon(Icons.dashboard_outlined, size: 18), SizedBox(width: 10), Text('My Dashboard')])),
+        const PopupMenuItem(value: 'settings', child: Row(children: [Icon(Icons.settings_outlined, size: 18), SizedBox(width: 10), Text('Preferences')])),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'logout', child: Row(children: [Icon(Icons.logout_rounded, size: 18, color: Color(0xFFDC2626)), SizedBox(width: 10), Text('Logout', style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w700))])),
+      ],
+      child: CircleAvatar(
+        radius: 17,
+        backgroundColor: accent.withValues(alpha: .10),
+        child: Text((user?.name ?? 'U').substring(0, 1).toUpperCase(), style: TextStyle(color: accent, fontWeight: FontWeight.w800, fontSize: 11)),
+      ),
+    );
+  }
+}
+
 class _Notifications extends StatelessWidget {
   final UserModel? user;
   const _Notifications({required this.user});
@@ -532,90 +461,159 @@ class _Notifications extends StatelessWidget {
     if (user == null) return const SizedBox.shrink();
     final ref = FirebaseFirestore.instance.collection('vendors').doc(user!.id).collection('notifications');
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: ref.orderBy('createdAt', descending: true).limit(30).snapshots(),
+      stream: ref.orderBy('createdAt', descending: true).limit(50).snapshots(),
       builder: (_, snap) {
-        final docs = snap.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-        final visible = docs.where((doc) {
-          final data = doc.data();
-          final target = data['targetAuthUid']?.toString();
-          final roles = List<String>.from(data['targetRoles'] ?? const <String>[]);
-          return (target == null || target.isEmpty || target == user!.authUid) &&
-              (roles.isEmpty || roles.contains(user!.role.name));
-        }).toList();
-        final unread = visible.where((doc) {
-          final readBy = List<String>.from(doc.data()['readBy'] ?? const <String>[]);
-          return !readBy.contains(user!.authUid);
-        }).length;
+        final visible = _visibleNotifications(user!, snap.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[]);
+        final unread = visible.where((doc) => !_read(doc, user!.authUid)).length;
         return Stack(clipBehavior: Clip.none, children: [
-          IconButton(
-            tooltip: 'Notifications',
-            onPressed: () => _show(context, visible),
-            icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF334155), size: 20),
-          ),
+          IconButton(tooltip: 'Notifications', onPressed: () => _showNotificationsDialog(context, user!, visible), icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF334155), size: 20)),
           if (unread > 0)
-            Positioned(
-              right: 5,
-              top: 5,
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 15),
-                height: 15,
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(10)),
-                alignment: Alignment.center,
-                child: Text(
-                  unread > 9 ? '9+' : '$unread',
-                  style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white),
-                ),
-              ),
-            ),
+            Positioned(right: 5, top: 5, child: Container(constraints: const BoxConstraints(minWidth: 15), height: 15, padding: const EdgeInsets.symmetric(horizontal: 3), decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(10)), alignment: Alignment.center, child: Text(unread > 9 ? '9+' : '$unread', style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white)))),
         ]);
       },
     );
   }
+}
 
-  Future<void> _show(
-    BuildContext context,
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
-  ) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: Row(children: [
-          const Expanded(child: Text('Notifications')),
-          IconButton(
-            tooltip: 'Close',
-            onPressed: () => Navigator.pop(dialogContext),
-            icon: const Icon(Icons.close_rounded),
+class _PersistentNotificationStack extends StatelessWidget {
+  final UserModel user;
+  const _PersistentNotificationStack({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = FirebaseFirestore.instance.collection('vendors').doc(user.id).collection('notifications');
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: ref.orderBy('createdAt', descending: true).limit(30).snapshots(),
+      builder: (_, snap) {
+        final docs = _visibleNotifications(user, snap.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[])
+            .where((d) => !List<String>.from(d.data()['dismissedBy'] ?? const <String>[]).contains(user.authUid))
+            .take(4)
+            .toList();
+        if (docs.isEmpty) return const SizedBox.shrink();
+        return IgnorePointer(
+          ignoring: false,
+          child: SizedBox(
+            width: 330,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: docs.map((doc) => Padding(padding: const EdgeInsets.only(bottom: 8), child: _NotificationToast(user: user, doc: doc))).toList()),
           ),
-        ]),
-        content: SizedBox(
-          width: 560,
-          height: 430,
-          child: docs.isEmpty
-              ? const Center(child: Text('No notifications.'))
-              : ListView.separated(
-                  itemCount: docs.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    final data = docs[i].data();
-                    return ListTile(
-                      leading: const CircleAvatar(
-                        backgroundColor: Color(0xFFF3EFFF),
-                        child: Icon(Icons.notifications_none_rounded, color: Color(0xFF6C3BFF), size: 18),
-                      ),
-                      title: Text(
-                        (data['title'] ?? 'Notification').toString(),
-                        style: const TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      subtitle: Text((data['message'] ?? '').toString()),
-                    );
-                  },
-                ),
+        );
+      },
+    );
+  }
+}
+
+class _NotificationToast extends StatelessWidget {
+  final UserModel user;
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+  const _NotificationToast({required this.user, required this.doc});
+
+  @override
+  Widget build(BuildContext context) {
+    final data = doc.data();
+    final isRead = _read(doc, user.authUid);
+    final title = (data['title'] ?? 'Notification').toString();
+    final message = (data['message'] ?? '').toString();
+    final bg = isRead ? const Color(0xFFF8FBFF) : const Color(0xFFFFF3E6);
+    final border = isRead ? const Color(0xFFBFDBFE) : const Color(0xFFF59E0B);
+    final accent = isRead ? const Color(0xFF2563EB) : const Color(0xFFF97316);
+    final service = NotificationService();
+
+    return Material(
+      elevation: 4,
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => service.markRead(restaurantId: user.id, notificationId: doc.id, authUid: user.authUid),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: border)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(width: 34, height: 34, decoration: BoxDecoration(color: accent.withValues(alpha: .12), shape: BoxShape.circle), child: Icon(Icons.notifications_active_outlined, size: 18, color: accent)),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)))), _ReadTicks(read: isRead)]),
+              const SizedBox(height: 3),
+              Text(message, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, height: 1.3, color: Color(0xFF475569))),
+            ])),
+            IconButton(
+              tooltip: 'Dismiss',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => service.dismiss(restaurantId: user.id, notificationId: doc.id, authUid: user.authUid),
+              icon: const Icon(Icons.close_rounded, size: 16, color: Color(0xFF94A3B8)),
+            ),
+          ]),
         ),
       ),
     );
   }
+}
+
+class _ReadTicks extends StatelessWidget {
+  final bool read;
+  const _ReadTicks({required this.read});
+  @override
+  Widget build(BuildContext context) => Icon(read ? Icons.done_all_rounded : Icons.done_rounded, size: 16, color: read ? const Color(0xFF2563EB) : const Color(0xFFF97316));
+}
+
+List<QueryDocumentSnapshot<Map<String, dynamic>>> _visibleNotifications(
+  UserModel user,
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+) {
+  return docs.where((doc) {
+    final data = doc.data();
+    final target = data['targetAuthUid']?.toString();
+    final roles = List<String>.from(data['targetRoles'] ?? const <String>[]);
+    return (target == null || target.isEmpty || target == user.authUid) && (roles.isEmpty || roles.contains(user.role.name));
+  }).toList();
+}
+
+bool _read(QueryDocumentSnapshot<Map<String, dynamic>> doc, String authUid) {
+  return List<String>.from(doc.data()['readBy'] ?? const <String>[]).contains(authUid);
+}
+
+Future<void> _showNotificationsDialog(
+  BuildContext context,
+  UserModel user,
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+) async {
+  final service = NotificationService();
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: Colors.white,
+      title: Row(children: [const Expanded(child: Text('Notifications')), IconButton(tooltip: 'Close', onPressed: () => Navigator.pop(dialogContext), icon: const Icon(Icons.close_rounded))]),
+      content: SizedBox(
+        width: 560,
+        height: 430,
+        child: docs.isEmpty
+            ? const Center(child: Text('No notifications.'))
+            : ListView.separated(
+                itemCount: docs.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                itemBuilder: (_, i) {
+                  final doc = docs[i];
+                  final data = doc.data();
+                  final isRead = _read(doc, user.authUid);
+                  return InkWell(
+                    onTap: () => service.markRead(restaurantId: user.id, notificationId: doc.id, authUid: user.authUid),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: isRead ? const Color(0xFFF8FBFF) : const Color(0xFFFFF3E6), borderRadius: BorderRadius.circular(10), border: Border.all(color: isRead ? const Color(0xFFBFDBFE) : const Color(0xFFF59E0B))),
+                      child: Row(children: [
+                        Icon(Icons.notifications_none_rounded, color: isRead ? const Color(0xFF2563EB) : const Color(0xFFF97316), size: 19),
+                        const SizedBox(width: 10),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text((data['title'] ?? 'Notification').toString(), style: const TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 2), Text((data['message'] ?? '').toString(), style: const TextStyle(fontSize: 11, color: Color(0xFF475569)))])),
+                        _ReadTicks(read: isRead),
+                        IconButton(tooltip: 'Dismiss', onPressed: () => service.dismiss(restaurantId: user.id, notificationId: doc.id, authUid: user.authUid), icon: const Icon(Icons.close_rounded, size: 16)),
+                      ]),
+                    ),
+                  );
+                },
+              ),
+      ),
+    ),
+  );
 }
 
 class _Action {
