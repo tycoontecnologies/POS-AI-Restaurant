@@ -50,95 +50,61 @@ class AuthService {
         restaurantName: restaurantName,
       );
 
-      await _firestore
-          .collection('vendors')
-          .doc(userCredential.user!.uid)
-          .set(user.toMap());
-
+      await _firestore.collection('vendors').doc(userCredential.user!.uid).set(user.toMap());
       return user;
     } catch (e) {
       throw FirebaseAuthException(code: 'signup-failed', message: e.toString());
     }
   }
 
-  Future<UserModel?> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<UserModel?> signIn({required String email, required String password}) async {
     try {
-      final userCredential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      final userDoc = await _firestore
-          .collection('vendors')
-          .doc(userCredential.user!.uid)
-          .get();
-
-      if (userDoc.exists) {
-        return UserModel.fromMap(userDoc.data()!, userDoc.id);
-      }
-
+      final userCredential = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      final userDoc = await _firestore.collection('vendors').doc(userCredential.user!.uid).get();
+      if (userDoc.exists) return UserModel.fromMap(userDoc.data()!, userDoc.id);
       return null;
     } catch (e) {
       throw FirebaseAuthException(code: 'signin-failed', message: e.toString());
     }
   }
 
-  Future<void> signOut() async {
-    await _auth.signOut();
+  Future<void> deactivateExpiredTrial(String authUid) async {
+    await _firestore.collection('vendors').doc(authUid).set({
+      'isActive': false,
+      'billingStatus': 'trial_expired',
+      'deactivatedAt': FieldValue.serverTimestamp(),
+      'deactivationReason': '3-day trial expired without an active subscription',
+    }, SetOptions(merge: true));
   }
+
+  Future<void> signOut() async => _auth.signOut();
 
   Future<UserModel?> getCurrentUserData() async {
     final user = _auth.currentUser;
     if (user == null) return null;
-
     final userDoc = await _firestore.collection('vendors').doc(user.uid).get();
-    if (userDoc.exists) {
-      return UserModel.fromMap(userDoc.data()!, userDoc.id);
-    }
+    if (userDoc.exists) return UserModel.fromMap(userDoc.data()!, userDoc.id);
     return null;
   }
 
-  Future<void> resetPassword(String email) async {
-    await _auth.sendPasswordResetEmail(email: email);
-  }
+  Future<void> resetPassword(String email) async => _auth.sendPasswordResetEmail(email: email);
 
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found') {
-        throw FirebaseAuthException(
-          code: 'user-not-found',
-          message: 'No user found with this email address',
-        );
-      } else {
-        throw FirebaseAuthException(
-          code: 'reset-password-failed',
-          message: e.message ?? 'Failed to send password reset email',
-        );
+        throw FirebaseAuthException(code: 'user-not-found', message: 'No user found with this email address');
       }
-    } catch (e) {
-      throw FirebaseAuthException(
-        code: 'reset-password-failed',
-        message: 'An unexpected error occurred',
-      );
+      throw FirebaseAuthException(code: 'reset-password-failed', message: e.message ?? 'Failed to send password reset email');
+    } catch (_) {
+      throw FirebaseAuthException(code: 'reset-password-failed', message: 'An unexpected error occurred');
     }
   }
 
-  Future<void> updateProfile({
-    required String name,
-    required UserRole role,
-    required bool isActive,
-    required String location,
-    required String phoneNo,
-    required String restaurantName,
-  }) async {
+  Future<void> updateProfile({required String name, required UserRole role, required bool isActive, required String location, required String phoneNo, required String restaurantName}) async {
     final user = _auth.currentUser;
     if (user == null) return;
-
     await _firestore.collection('vendors').doc(user.uid).update({
       'name': name,
       'role': role.toString().split('.').last,
@@ -149,34 +115,21 @@ class AuthService {
     });
   }
 
-  Future<String?> uploadRestaurantLogo({
-    required dynamic logoFile,
-    required String vendorId,
-  }) async {
+  Future<String?> uploadRestaurantLogo({required dynamic logoFile, required String vendorId}) async {
     try {
-      final String fileName =
-          'restaurant_logo_${DateTime.now().millisecondsSinceEpoch}${_getFileExtension(logoFile)}';
+      final String fileName = 'restaurant_logo_${DateTime.now().millisecondsSinceEpoch}${_getFileExtension(logoFile)}';
       final String storagePath = 'vendors/$vendorId/restaurant_logo/$fileName';
-
       UploadTask uploadTask;
-
       if (kIsWeb && logoFile is html.File) {
-        final metadata = SettableMetadata(
-          contentType: 'image/${_getMimeType(logoFile)}',
-        );
-        uploadTask = _storage
-            .ref()
-            .child(storagePath)
-            .putBlob(logoFile.slice(), metadata);
+        final metadata = SettableMetadata(contentType: 'image/${_getMimeType(logoFile)}');
+        uploadTask = _storage.ref().child(storagePath).putBlob(logoFile.slice(), metadata);
       } else if (logoFile is File) {
         uploadTask = _storage.ref().child(storagePath).putFile(logoFile);
       } else {
         throw Exception('Unsupported file type');
       }
-
       final TaskSnapshot snapshot = await uploadTask;
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
-      return downloadUrl;
+      return snapshot.ref.getDownloadURL();
     } catch (e) {
       throw Exception('Failed to upload restaurant logo: $e');
     }
@@ -205,17 +158,14 @@ class AuthService {
     return 'jpeg';
   }
 
-  Future<void> updateUserLogo({
-    required String userId,
-    required String logoUrl,
-  }) async {
+  Future<void> updateUserLogo({required String userId, required String logoUrl}) async {
     try {
       await _firestore.collection('vendors').doc(userId).update({
         'restaurantLogoUrl': logoUrl,
         'updatedAt': Timestamp.fromDate(DateTime.now()),
       });
     } catch (e) {
-      throw Exception('Failed to upload user logo: $e');
+      throw Exception('Failed to update user logo: $e');
     }
   }
 }
