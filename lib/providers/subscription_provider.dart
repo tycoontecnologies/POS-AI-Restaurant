@@ -20,6 +20,7 @@ class SubscriptionProvider with ChangeNotifier {
       'subscriptionType': subscriptionType.toString().split('.').last,
       'subscriptionEndsAt': Timestamp.fromDate(endsAt),
       'hasActiveSubscription': true,
+      'billingPlanId': planType,
       'billingStatus': 'paid',
       'accessMode': 'full',
       'lastPaymentAt': FieldValue.serverTimestamp(),
@@ -32,8 +33,7 @@ class SubscriptionProvider with ChangeNotifier {
     switch (planType) {
       case 'monthly': return SubscriptionType.monthly;
       case 'yearly': return SubscriptionType.yearly;
-      case 'fiveYears':
-      case 'lifetime': return SubscriptionType.lifetime;
+      case 'fiveYears': return SubscriptionType.lifetime;
       default: return SubscriptionType.monthly;
     }
   }
@@ -44,7 +44,6 @@ class SubscriptionProvider with ChangeNotifier {
       case 'monthly': return DateTime(now.year, now.month + 1, now.day);
       case 'yearly': return DateTime(now.year + 1, now.month, now.day);
       case 'fiveYears': return DateTime(now.year + 5, now.month, now.day);
-      case 'lifetime': return DateTime(now.year + 100, now.month, now.day);
       default: return DateTime(now.year, now.month + 1, now.day);
     }
   }
@@ -52,8 +51,7 @@ class SubscriptionProvider with ChangeNotifier {
   DateTime _lastDayOfMonth(DateTime date) => DateTime(date.year, date.month + 1, 0, 23, 59, 59);
   DateTime _paymentWindowStart(DateTime date) => DateTime(date.year, date.month, paymentWindowStartDay);
 
-  bool isMonthlyPaymentWindow(DateTime now) =>
-      !now.isBefore(_paymentWindowStart(now)) && !now.isAfter(_lastDayOfMonth(now));
+  bool isMonthlyPaymentWindow(DateTime now) => !now.isBefore(_paymentWindowStart(now)) && !now.isAfter(_lastDayOfMonth(now));
 
   Future<SubscriptionAccessLevel> getAccessLevel() async {
     final user = _auth.currentUser;
@@ -70,25 +68,35 @@ class SubscriptionProvider with ChangeNotifier {
 
     final billingPlanId = (data['billingPlanId'] ?? '').toString();
     final billingStatus = (data['billingStatus'] ?? '').toString().toLowerCase();
+    final explicitMode = (data['accessMode'] ?? '').toString();
+
+    if (billingPlanId == 'perTransaction' && (billingStatus == 'active' || billingStatus == 'paid')) {
+      return SubscriptionAccessLevel.full;
+    }
+
     if (billingPlanId == 'monthly') {
       final dueRaw = data['nextPaymentDueAt'];
       final dueAt = dueRaw is Timestamp ? dueRaw.toDate() : null;
-      if (dueAt != null && now.isAfter(dueAt) && billingStatus != 'paid') {
-        return SubscriptionAccessLevel.basic;
-      }
-      if ((data['accessMode'] ?? '').toString() == 'basic') return SubscriptionAccessLevel.basic;
+      if (dueAt != null && now.isAfter(dueAt) && billingStatus != 'paid') return SubscriptionAccessLevel.basic;
+      if (explicitMode == 'basic') return SubscriptionAccessLevel.basic;
     }
 
     final userData = UserModel.fromMap(data, doc.id);
     if (userData.subscriptionType == SubscriptionType.trial) {
-      return userData.trialEndsAt.isAfter(now) ? SubscriptionAccessLevel.full : SubscriptionAccessLevel.basic;
+      if (userData.effectiveTrialEndsAt.isAfter(now)) return SubscriptionAccessLevel.full;
+      // A trial that expires without an activated/paid package is locked.
+      if (billingStatus != 'paid' && billingStatus != 'active') return SubscriptionAccessLevel.locked;
     }
+
     if (userData.subscriptionEndsAt != null && !userData.subscriptionEndsAt!.isAfter(now)) {
-      return SubscriptionAccessLevel.basic;
+      return billingPlanId == 'monthly' ? SubscriptionAccessLevel.basic : SubscriptionAccessLevel.locked;
     }
-    return userData.hasActiveSubscription || billingPlanId == 'perTransaction'
-        ? SubscriptionAccessLevel.full
-        : SubscriptionAccessLevel.basic;
+
+    if (userData.hasActiveSubscription || billingStatus == 'paid' || billingStatus == 'active') {
+      return SubscriptionAccessLevel.full;
+    }
+
+    return SubscriptionAccessLevel.basic;
   }
 
   Future<bool> hasValidSubscription() async => (await getAccessLevel()) != SubscriptionAccessLevel.locked;
