@@ -17,15 +17,12 @@ class SubscriptionProvider with ChangeNotifier {
     final vendorRef = _firestore.collection('vendors').doc(user.uid);
 
     if (planType == 'perTransaction') {
+      final billableBeforeSettlement = await vendorRef.collection('billingUsage').where('status', isEqualTo: 'billable').get();
       await _firestore.runTransaction((tx) async {
         final snap = await tx.get(vendorRef);
         final data = snap.data() ?? <String, dynamic>{};
-        final currentAmount = (data['transactionUsageAmount'] is num)
-            ? (data['transactionUsageAmount'] as num).toDouble()
-            : 0.0;
-        final currentReceipts = (data['unbilledReceiptCount'] is num)
-            ? (data['unbilledReceiptCount'] as num).toInt()
-            : 0;
+        final currentAmount = (data['transactionUsageAmount'] is num) ? (data['transactionUsageAmount'] as num).toDouble() : 0.0;
+        final currentReceipts = (data['unbilledReceiptCount'] is num) ? (data['unbilledReceiptCount'] as num).toInt() : 0;
         final now = DateTime.now();
         final nextDue = _lastDayOfMonth(DateTime(now.year, now.month + 1, 1));
         tx.set(vendorRef, {
@@ -47,6 +44,20 @@ class SubscriptionProvider with ChangeNotifier {
           'paymentWindowStartDay': paymentWindowStartDay,
         }, SetOptions(merge: true));
       });
+
+      // Keep every receipt for audit, but mark the exact set that existed when
+      // settlement began as paid. New receipts arriving afterwards stay billable.
+      const chunkSize = 400;
+      for (var offset = 0; offset < billableBeforeSettlement.docs.length; offset += chunkSize) {
+        final batch = _firestore.batch();
+        for (final doc in billableBeforeSettlement.docs.skip(offset).take(chunkSize)) {
+          batch.set(doc.reference, {
+            'status': 'paid',
+            'settledAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
+        await batch.commit();
+      }
       notifyListeners();
       return;
     }
@@ -111,9 +122,7 @@ class SubscriptionProvider with ChangeNotifier {
     final dueAt = dueRaw is Timestamp ? dueRaw.toDate() : null;
 
     if (billingPlanId == 'perTransaction') {
-      if (dueAt != null && now.isAfter(dueAt) && billingStatus != 'paid') {
-        return SubscriptionAccessLevel.basic;
-      }
+      if (dueAt != null && now.isAfter(dueAt) && billingStatus != 'paid') return SubscriptionAccessLevel.basic;
       if (explicitMode == 'basic') return SubscriptionAccessLevel.basic;
       if (billingStatus == 'active' || billingStatus == 'paid') return SubscriptionAccessLevel.full;
     }
@@ -130,15 +139,10 @@ class SubscriptionProvider with ChangeNotifier {
     }
 
     if (userData.subscriptionEndsAt != null && !userData.subscriptionEndsAt!.isAfter(now)) {
-      return billingPlanId == 'monthly' || billingPlanId == 'perTransaction'
-          ? SubscriptionAccessLevel.basic
-          : SubscriptionAccessLevel.locked;
+      return billingPlanId == 'monthly' || billingPlanId == 'perTransaction' ? SubscriptionAccessLevel.basic : SubscriptionAccessLevel.locked;
     }
 
-    if (userData.hasActiveSubscription || billingStatus == 'paid' || billingStatus == 'active') {
-      return SubscriptionAccessLevel.full;
-    }
-
+    if (userData.hasActiveSubscription || billingStatus == 'paid' || billingStatus == 'active') return SubscriptionAccessLevel.full;
     return SubscriptionAccessLevel.basic;
   }
 
