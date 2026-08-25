@@ -4,10 +4,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:pos/providers/auth_provider.dart';
-import 'package:pos/providers/subscription_provider.dart';
 import 'package:pos/routes/app_router.dart';
 import 'package:pos/services/stripe_service.dart';
+import 'package:pos/services/usage_billing_reconciliation_service.dart';
 
 class PaymentScreen extends StatefulWidget {
   final String plan;
@@ -23,6 +26,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   static const muted = Color(0xFF64748B);
   static const line = Color(0xFFE2E8F0);
   bool _isProcessing = false;
+  bool _reconciling = false;
+  bool _reconciled = false;
   String? _errorMessage;
 
   Map<String, dynamic> get _planDetails {
@@ -60,16 +65,44 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  Future<void> _activateUsagePlan() async {
+  DateTime _monthEnd(DateTime now) => DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+
+  Future<void> _activateUsagePlan(String restaurantId) async {
     setState(() { _isProcessing = true; _errorMessage = null; });
     try {
-      await context.read<SubscriptionProvider>().activatePerTransactionPlan();
+      final now = DateTime.now();
+      await FirebaseFirestore.instance.collection('vendors').doc(restaurantId).set({
+        'subscriptionType': 'monthly',
+        'billingPlanId': 'perTransaction',
+        'transactionRate': 1,
+        'billingStatus': 'active',
+        'accessMode': 'full',
+        'hasActiveSubscription': true,
+        'packageActivatedAt': FieldValue.serverTimestamp(),
+        'nextPaymentDueAt': Timestamp.fromDate(_monthEnd(now)),
+        'paymentWindowStartDay': 25,
+      }, SetOptions(merge: true));
+      await UsageBillingReconciliationService().reconcile(restaurantId);
+      _reconciled = true;
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rs 1 per successful receipt package activated.'), backgroundColor: Color(0xFF059669)));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rs 1 per successful receipt package activated and receipts synchronized.'), backgroundColor: Color(0xFF059669)));
     } catch (e) {
       if (mounted) setState(() => _errorMessage = e.toString());
     } finally {
       if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _reconcileUsage(String restaurantId) async {
+    if (_reconciling) return;
+    if (mounted) setState(() => _reconciling = true);
+    try {
+      await UsageBillingReconciliationService().reconcile(restaurantId);
+      _reconciled = true;
+    } catch (e) {
+      if (mounted) setState(() => _errorMessage = 'Receipt sync failed: $e');
+    } finally {
+      if (mounted) setState(() => _reconciling = false);
     }
   }
 
@@ -92,6 +125,90 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (mounted) setState(() => _errorMessage = 'Payment request timed out. Please try again.');
     } catch (e) {
       if (mounted) setState(() => _errorMessage = e.toString());
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _generateTycoonInvoice({
+    required DocumentReference<Map<String, dynamic>> vendorRef,
+    required String restaurantName,
+    required String restaurantId,
+    required int receipts,
+    required double rate,
+    required double due,
+  }) async {
+    setState(() => _isProcessing = true);
+    try {
+      await UsageBillingReconciliationService().reconcile(restaurantId);
+      final usage = await vendorRef.collection('billingUsage').where('status', isEqualTo: 'billable').get();
+      final now = DateTime.now();
+      final invoiceNo = 'TYC-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${restaurantId.length > 6 ? restaurantId.substring(0, 6).toUpperCase() : restaurantId.toUpperCase()}';
+      final pdf = pw.Document();
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(36),
+          build: (_) => [
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                pw.Text('TYCOON TECHNOLOGIES (PVT.) LTD.', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 4),
+                pw.Text('POS Usage Invoice', style: const pw.TextStyle(fontSize: 11)),
+              ]),
+              pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+                pw.Text('INVOICE', style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold)),
+                pw.Text(invoiceNo),
+                pw.Text(_date(now)),
+              ]),
+            ]),
+            pw.SizedBox(height: 24),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey300)),
+              child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                pw.Text('Billed to', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                pw.Text(restaurantName.isEmpty ? restaurantId : restaurantName),
+                pw.Text('Restaurant ID: $restaurantId'),
+              ]),
+            ),
+            pw.SizedBox(height: 20),
+            pw.TableHelper.fromTextArray(
+              headers: const ['Description', 'Receipts', 'Rate', 'Amount'],
+              data: [
+                ['Successful POS receipts', '$receipts', 'Rs ${rate.toStringAsFixed(0)}', 'Rs ${due.toStringAsFixed(0)}'],
+              ],
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              cellPadding: const pw.EdgeInsets.all(8),
+            ),
+            pw.SizedBox(height: 18),
+            pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('TOTAL DUE: Rs ${due.toStringAsFixed(0)}', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold))),
+            pw.SizedBox(height: 18),
+            pw.Text('Payable to Tycoon Technologies (Pvt.) Ltd.'),
+            pw.SizedBox(height: 8),
+            pw.Text('This invoice contains one charge for each unique successful receipt. Reprints do not create additional charges.', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+            if (usage.docs.isNotEmpty) ...[
+              pw.SizedBox(height: 24),
+              pw.Text('Billable receipt ledger', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 8),
+              ...usage.docs.take(100).map((d) {
+                final a = d.data();
+                final amount = a['amount'] ?? a['billableAmount'] ?? rate;
+                return pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                  child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+                    pw.Expanded(child: pw.Text((a['receiptId'] ?? a['saleId'] ?? d.id).toString(), style: const pw.TextStyle(fontSize: 8))),
+                    pw.Text('Rs $amount', style: const pw.TextStyle(fontSize: 8)),
+                  ]),
+                );
+              }),
+            ],
+          ],
+        ),
+      );
+      await Printing.layoutPdf(onLayout: (_) async => pdf.save());
+    } catch (e) {
+      if (mounted) setState(() => _errorMessage = 'Could not generate invoice: $e');
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -141,6 +258,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         builder: (context, snapshot) {
           final data = snapshot.data?.data() ?? <String, dynamic>{};
           final active = (data['billingPlanId'] ?? '').toString() == 'perTransaction' && (data['hasActiveSubscription'] ?? false) == true;
+          if (active && !_reconciled && !_reconciling) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _reconcileUsage(user.id));
+          }
           final lifetimeReceipts = (data['successfulReceiptCount'] is num) ? (data['successfulReceiptCount'] as num).toInt() : 0;
           final unbilled = (data['unbilledReceiptCount'] is num) ? (data['unbilledReceiptCount'] as num).toInt() : 0;
           final rate = (data['transactionRate'] is num) ? (data['transactionRate'] as num).toDouble() : 1.0;
@@ -164,10 +284,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text('Pay per Transaction', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: ink)),
                       SizedBox(height: 5),
-                      Text('Rs 1 is charged only when a receipt is successfully completed. Cancelled or deleted receipts are automatically removed while still unpaid.', style: TextStyle(color: muted, fontSize: 12.5, height: 1.45)),
+                      Text('Rs 1 is charged once for each unique successfully completed receipt. Reprints are not charged again.', style: TextStyle(color: muted, fontSize: 12.5, height: 1.45)),
                     ])),
                     Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9), decoration: BoxDecoration(color: const Color(0xFFFBECEF), borderRadius: BorderRadius.circular(12)), child: const Text('Rs 1 / receipt', style: TextStyle(color: burgundy, fontWeight: FontWeight.w900, fontSize: 16))),
                   ]),
+                  if (_reconciling) ...[
+                    const SizedBox(height: 10),
+                    const LinearProgressIndicator(minHeight: 2),
+                    const SizedBox(height: 5),
+                    const Text('Synchronizing completed receipts with the Tycoon billing ledger…', style: TextStyle(fontSize: 10.5, color: muted)),
+                  ],
                   const SizedBox(height: 22),
                   LayoutBuilder(builder: (_, c) {
                     final cols = c.maxWidth > 820 ? 4 : c.maxWidth > 560 ? 2 : 1;
@@ -182,16 +308,44 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   const SizedBox(height: 12),
                   _infoBox(active
                       ? 'Status: ${status.toUpperCase()}  •  Rate: Rs ${rate.toStringAsFixed(rate % 1 == 0 ? 0 : 2)} per successful receipt${dueDate == null ? '' : '  •  Payment due ${_date(dueDate)}'}\nTotal usage payments recorded: Rs ${paid.toStringAsFixed(0)}. The payment reminder begins on the 25th. If an outstanding balance remains after month-end, premium features move to Basic Mode until the usage balance is settled.'
-                      : 'Activate this package with no upfront subscription fee. Each successfully completed receipt creates exactly one billable Rs 1 ledger row. Reopening or retrying the same sale cannot double-charge because billing is keyed to the sale/receipt ID.'),
+                      : 'Activate this package with no upfront subscription fee. Existing completed receipts are synchronized into a unique receipt ledger and future completed receipts are metered automatically.'),
                   _error(),
                   const SizedBox(height: 18),
                   if (active) _usageLedger(ref),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 18),
+                  if (active)
+                    Row(children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _isProcessing || _reconciling ? null : () => _reconcileUsage(user.id),
+                          icon: const Icon(Icons.sync_rounded),
+                          label: const Text('Sync Receipts'),
+                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _isProcessing ? null : () => _generateTycoonInvoice(
+                            vendorRef: ref,
+                            restaurantName: user.restaurantName,
+                            restaurantId: user.id,
+                            receipts: unbilled,
+                            rate: rate,
+                            due: due,
+                          ),
+                          icon: const Icon(Icons.picture_as_pdf_outlined),
+                          label: const Text('Generate Tycoon Invoice'),
+                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15)),
+                        ),
+                      ),
+                    ]),
+                  const SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: FilledButton(
-                      onPressed: _isProcessing ? null : active ? (due > 0 ? () => _payUsage(due) : null) : _activateUsagePlan,
+                      onPressed: _isProcessing ? null : active ? (due > 0 ? () => _payUsage(due) : null) : () => _activateUsagePlan(user.id),
                       style: _buttonStyle(),
                       child: _buttonChild(active ? (due > 0 ? 'Pay Rs ${due.toStringAsFixed(0)} usage fee' : 'No amount due') : 'Activate Rs 1 / receipt package'),
                     ),
@@ -212,7 +366,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Widget _usageLedger(DocumentReference<Map<String, dynamic>> vendorRef) {
-    final query = vendorRef.collection('billingUsage').orderBy('completedAt', descending: true).limit(20);
+    final query = vendorRef.collection('billingUsage').orderBy('completedAt', descending: true).limit(50);
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: line)),
@@ -223,11 +377,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
           stream: query.snapshots(),
           builder: (_, snap) {
             final docs = snap.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-            if (docs.isEmpty) return const Padding(padding: EdgeInsets.all(18), child: Text('No successful receipts have been metered yet.', style: TextStyle(color: muted, fontSize: 11.5)));
+            if (docs.isEmpty) return const Padding(padding: EdgeInsets.all(18), child: Text('No successful receipts have been metered yet. Use Sync Receipts to reconcile completed sales.', style: TextStyle(color: muted, fontSize: 11.5)));
             return Column(children: docs.map((d) {
               final a = d.data();
               final status = (a['status'] ?? 'billable').toString();
-              final amount = a['amount'] is num ? (a['amount'] as num).toDouble() : 1.0;
+              final rawAmount = a['amount'] ?? a['billableAmount'] ?? a['rate'] ?? 1;
+              final amount = rawAmount is num ? rawAmount.toDouble() : 1.0;
               final raw = a['completedAt'];
               final dt = raw is Timestamp ? raw.toDate() : null;
               final statusColor = status == 'paid' ? const Color(0xFF059669) : status == 'cancelled' ? const Color(0xFF94A3B8) : const Color(0xFFF59E0B);
@@ -235,7 +390,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                 decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9)))),
                 child: Row(children: [
-                  Expanded(flex: 2, child: Text('Receipt ${a['saleId'] ?? d.id}', overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5))),
+                  Expanded(flex: 2, child: Text('Receipt ${a['receiptId'] ?? a['saleId'] ?? d.id}', overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5))),
                   Expanded(child: Text(dt == null ? '-' : _dateTime(dt), style: const TextStyle(fontSize: 10.5, color: muted))),
                   SizedBox(width: 70, child: Text('Rs ${amount.toStringAsFixed(0)}', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5))),
                   const SizedBox(width: 12),
