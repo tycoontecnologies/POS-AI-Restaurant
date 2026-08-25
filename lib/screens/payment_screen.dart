@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/providers/auth_provider.dart';
+import 'package:pos/providers/subscription_provider.dart';
 import 'package:pos/routes/app_router.dart';
 import 'package:pos/services/stripe_service.dart';
 
@@ -18,6 +19,8 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   static const burgundy = Color(0xFF7A1026);
+  static const ink = Color(0xFF0F172A);
+  static const muted = Color(0xFF64748B);
   bool _isProcessing = false;
   String? _errorMessage;
 
@@ -36,36 +39,52 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  Future<void> _process() async {
+  Future<void> _processStandard() async {
     setState(() { _isProcessing = true; _errorMessage = null; });
     try {
-      if (widget.plan == 'perTransaction') {
-        final user = context.read<AuthProvider>().currentUser;
-        if (user == null) throw Exception('Please sign in again.');
-        await FirebaseFirestore.instance.collection('vendors').doc(user.id).set({
-          'billingPlanId': 'perTransaction',
-          'transactionRate': 1,
-          'successfulReceiptCount': FieldValue.increment(0),
-          'billingStatus': 'active',
-          'accessMode': 'full',
-          'hasActiveSubscription': true,
-          'packageActivatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pay per Transaction package activated.'), backgroundColor: Color(0xFF059669)));
-        context.go(AppRouter.dashboard);
-        return;
-      }
-
       final success = await StripeService.processPayment(
         amount: (_planDetails['amount'] as int) * 100,
         currency: 'pkr',
         planType: widget.plan,
       ).timeout(const Duration(seconds: 30));
-
       if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(duration: Duration(seconds: 1), content: Text('Redirecting to secure payment...'), backgroundColor: Color(0xFF2563EB)));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening secure payment…'), backgroundColor: Color(0xFF2563EB)));
       }
+    } on TimeoutException {
+      if (mounted) setState(() => _errorMessage = 'Payment request timed out. Please try again.');
+    } catch (e) {
+      if (mounted) setState(() => _errorMessage = e.toString());
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _activateUsagePlan() async {
+    setState(() { _isProcessing = true; _errorMessage = null; });
+    try {
+      await context.read<SubscriptionProvider>().activatePerTransactionPlan();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rs 1 per successful receipt package activated.'), backgroundColor: Color(0xFF059669)));
+      context.go(AppRouter.dashboard);
+    } catch (e) {
+      if (mounted) setState(() => _errorMessage = e.toString());
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _payUsage(double amount) async {
+    if (amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('There is no outstanding usage balance.')));
+      return;
+    }
+    setState(() { _isProcessing = true; _errorMessage = null; });
+    try {
+      await StripeService.processPayment(
+        amount: (amount * 100).round(),
+        currency: 'pkr',
+        planType: 'perTransaction',
+      ).timeout(const Duration(seconds: 30));
     } on TimeoutException {
       if (mounted) setState(() => _errorMessage = 'Payment request timed out. Please try again.');
     } catch (e) {
@@ -77,7 +96,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isUsagePlan = widget.plan == 'perTransaction';
+    if (widget.plan == 'perTransaction') return _buildUsagePlan(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: Center(
@@ -85,59 +104,143 @@ class _PaymentScreenState extends State<PaymentScreen> {
           padding: const EdgeInsets.all(24),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 650),
-            child: Container(
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0)), boxShadow: const [BoxShadow(color: Color(0x0A0F172A), blurRadius: 16, offset: Offset(0, 5))]),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  IconButton(onPressed: () => context.go(AppRouter.pricing), icon: const Icon(Icons.arrow_back_rounded)),
-                  const SizedBox(width: 6),
-                  const Text('TYCOON POS', style: TextStyle(fontSize: 11, letterSpacing: 1.2, color: Color(0xFFD80000), fontWeight: FontWeight.w900)),
-                ]),
-                const SizedBox(height: 16),
-                Text(_planDetails['name'] as String, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
-                const SizedBox(height: 8),
-                Text(_planDetails['price'] as String, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: burgundy)),
-                Text(_planDetails['period'] as String, style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
-                const SizedBox(height: 24),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(isUsagePlan ? 'How usage billing works' : 'Secure payment', style: const TextStyle(fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 8),
-                    Text(
-                      isUsagePlan
-                          ? 'Only successfully completed receipts are counted. Cancelled receipts are excluded. Your restaurant admin can see the successful receipt count and running usage amount from the Tycoon account menu.'
-                          : widget.plan == 'monthly'
-                              ? 'The monthly payment window opens on the 25th. Payment should be completed by month-end. If payment remains overdue, the system moves to Basic Mode until payment is recorded.'
-                              : 'You will be redirected to the configured secure payment flow for this package.',
-                      style: const TextStyle(fontSize: 11.5, height: 1.5, color: Color(0xFF475569)),
-                    ),
-                  ]),
-                ),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 16),
-                  Container(width: double.infinity, padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFFFF1F2), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFFDA4AF))), child: Text(_errorMessage!, style: const TextStyle(color: Color(0xFFBE123C), fontSize: 11.5))),
-                ],
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FilledButton(
-                    onPressed: _isProcessing ? null : _process,
-                    style: FilledButton.styleFrom(backgroundColor: burgundy, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                    child: _isProcessing ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text(isUsagePlan ? 'Activate Rs 1 / receipt plan' : 'Proceed to payment', style: const TextStyle(fontWeight: FontWeight.w900)),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Center(child: TextButton(onPressed: () => context.go(AppRouter.dashboard), child: const Text('Cancel and return to dashboard'))),
-              ]),
-            ),
+            child: _panel(children: [
+              _topRow(context),
+              const SizedBox(height: 16),
+              Text(_planDetails['name'] as String, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900, color: ink)),
+              const SizedBox(height: 8),
+              Text(_planDetails['price'] as String, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: burgundy)),
+              Text(_planDetails['period'] as String, style: const TextStyle(color: muted, fontSize: 12)),
+              const SizedBox(height: 24),
+              _infoBox(widget.plan == 'monthly'
+                  ? 'The monthly payment window opens on the 25th. Payment should be completed by month-end. If payment remains overdue after the deadline, the system moves to Basic Mode until payment is recorded.'
+                  : 'You will be redirected to the secure Tycoon Technologies payment flow for this package.'),
+              _error(),
+              const SizedBox(height: 24),
+              SizedBox(width: double.infinity, height: 48, child: FilledButton(onPressed: _isProcessing ? null : _processStandard, style: _buttonStyle(), child: _buttonChild('Proceed to payment'))),
+              const SizedBox(height: 10),
+              Center(child: TextButton(onPressed: () => context.go(AppRouter.dashboard), child: const Text('Cancel and return to dashboard'))),
+            ]),
           ),
         ),
       ),
     );
   }
+
+  Widget _buildUsagePlan(BuildContext context) {
+    final user = context.watch<AuthProvider>().currentUser;
+    if (user == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    final ref = FirebaseFirestore.instance.collection('vendors').doc(user.id);
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: ref.snapshots(),
+        builder: (context, snapshot) {
+          final data = snapshot.data?.data() ?? <String, dynamic>{};
+          final active = (data['billingPlanId'] ?? '').toString() == 'perTransaction' && (data['hasActiveSubscription'] ?? false) == true;
+          final lifetimeReceipts = (data['successfulReceiptCount'] is num) ? (data['successfulReceiptCount'] as num).toInt() : 0;
+          final unbilled = (data['unbilledReceiptCount'] is num) ? (data['unbilledReceiptCount'] as num).toInt() : 0;
+          final rate = (data['transactionRate'] is num) ? (data['transactionRate'] as num).toDouble() : 1.0;
+          final due = (data['transactionUsageAmount'] is num) ? (data['transactionUsageAmount'] as num).toDouble() : unbilled * rate;
+          final paid = (data['transactionPaidTotal'] is num) ? (data['transactionPaidTotal'] as num).toDouble() : 0.0;
+          final dueRaw = data['nextPaymentDueAt'];
+          final dueDate = dueRaw is Timestamp ? dueRaw.toDate() : null;
+          final status = (data['billingStatus'] ?? (active ? 'active' : 'not active')).toString();
+
+          return Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 820),
+                child: _panel(children: [
+                  _topRow(context),
+                  const SizedBox(height: 14),
+                  Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Pay per Transaction', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: ink)),
+                      SizedBox(height: 5),
+                      Text('Pay only for successful completed receipts. Cancelled receipts are automatically removed from billable usage.', style: TextStyle(color: muted, fontSize: 12.5, height: 1.45)),
+                    ])),
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9), decoration: BoxDecoration(color: const Color(0xFFFBECEF), borderRadius: BorderRadius.circular(12)), child: const Text('Rs 1 / receipt', style: TextStyle(color: burgundy, fontWeight: FontWeight.w900, fontSize: 16))),
+                  ]),
+                  const SizedBox(height: 22),
+                  LayoutBuilder(builder: (_, c) {
+                    final w = c.maxWidth > 650 ? (c.maxWidth - 24) / 3 : c.maxWidth;
+                    return Wrap(spacing: 12, runSpacing: 12, children: [
+                      SizedBox(width: w, child: _metric('Current successful receipts', '$unbilled', Icons.receipt_long_outlined)),
+                      SizedBox(width: w, child: _metric('Current amount due', 'Rs ${due.toStringAsFixed(0)}', Icons.payments_outlined)),
+                      SizedBox(width: w, child: _metric('Lifetime successful receipts', '$lifetimeReceipts', Icons.analytics_outlined)),
+                    ]);
+                  }),
+                  const SizedBox(height: 12),
+                  _infoBox(active
+                      ? 'Status: ${status.toUpperCase()}  •  Rate: Rs ${rate.toStringAsFixed(rate % 1 == 0 ? 0 : 2)} per successful receipt${dueDate == null ? '' : '  •  Payment due ${_date(dueDate)}'}\nTotal usage payments recorded: Rs ${paid.toStringAsFixed(0)}. The payment window starts on the 25th. If an outstanding amount remains unpaid after the deadline, premium features move to Basic Mode until payment is settled.'
+                      : 'Activate this package with no upfront subscription fee. Each successfully completed receipt creates one billable Rs 1 usage entry. Cancelled receipts do not count. Usage is visible here in real time.'),
+                  _error(),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: FilledButton(
+                      onPressed: _isProcessing ? null : active ? () => _payUsage(due) : _activateUsagePlan,
+                      style: _buttonStyle(),
+                      child: _buttonChild(active ? (due > 0 ? 'Pay Rs ${due.toStringAsFixed(0)} usage fee' : 'No amount due') : 'Activate Rs 1 / receipt package'),
+                    ),
+                  ),
+                  if (active && due <= 0) ...[
+                    const SizedBox(height: 8),
+                    const Center(child: Text('Your current transaction usage is fully settled.', style: TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.w700, fontSize: 11.5))),
+                  ],
+                  const SizedBox(height: 10),
+                  Center(child: TextButton(onPressed: () => context.go(AppRouter.dashboard), child: const Text('Return to dashboard'))),
+                ]),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _metric(String label, String value, IconData icon) => Container(
+        height: 112,
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
+        child: Row(children: [
+          Container(width: 42, height: 42, decoration: BoxDecoration(color: const Color(0xFFFBECEF), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: burgundy, size: 21)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: ink)), const SizedBox(height: 3), Text(label, style: const TextStyle(fontSize: 10.5, color: muted))])),
+        ]),
+      );
+
+  Widget _panel({required List<Widget> children}) => Container(
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0)), boxShadow: const [BoxShadow(color: Color(0x0A0F172A), blurRadius: 16, offset: Offset(0, 5))]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+      );
+
+  Widget _topRow(BuildContext context) => Row(children: [
+        IconButton(onPressed: () => context.go(AppRouter.pricing), icon: const Icon(Icons.arrow_back_rounded)),
+        const SizedBox(width: 6),
+        const Text('TYCOON POS • PACKAGES & BILLING', style: TextStyle(fontSize: 11, letterSpacing: 1, color: Color(0xFFD80000), fontWeight: FontWeight.w900)),
+      ]);
+
+  Widget _infoBox(String text) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
+        child: Text(text, style: const TextStyle(fontSize: 11.5, height: 1.5, color: Color(0xFF475569))),
+      );
+
+  Widget _error() => _errorMessage == null
+      ? const SizedBox.shrink()
+      : Padding(padding: const EdgeInsets.only(top: 16), child: Container(width: double.infinity, padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFFFF1F2), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFFDA4AF))), child: Text(_errorMessage!, style: const TextStyle(color: Color(0xFFBE123C), fontSize: 11.5))));
+
+  ButtonStyle _buttonStyle() => FilledButton.styleFrom(backgroundColor: burgundy, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)));
+
+  Widget _buttonChild(String label) => _isProcessing
+      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+      : Text(label, style: const TextStyle(fontWeight: FontWeight.w900));
+
+  String _date(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 }
