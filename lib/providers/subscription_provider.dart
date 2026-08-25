@@ -17,36 +17,54 @@ class SubscriptionProvider with ChangeNotifier {
     final vendorRef = _firestore.collection('vendors').doc(user.uid);
 
     if (planType == 'perTransaction') {
-      final billableBeforeSettlement = await vendorRef.collection('billingUsage').where('status', isEqualTo: 'billable').get();
+      // Capture only the exact ledger rows covered by this payment. We never
+      // reset counters to zero because a new receipt may arrive while payment
+      // verification is completing.
+      final billableBeforeSettlement = await vendorRef
+          .collection('billingUsage')
+          .where('status', isEqualTo: 'billable')
+          .get();
+
+      final coveredReceiptCount = billableBeforeSettlement.docs.length;
+      final coveredAmount = billableBeforeSettlement.docs.fold<double>(0, (sum, doc) {
+        final value = doc.data()['amount'];
+        return sum + (value is num ? value.toDouble() : 1.0);
+      });
+
       await _firestore.runTransaction((tx) async {
         final snap = await tx.get(vendorRef);
         final data = snap.data() ?? <String, dynamic>{};
-        final currentAmount = (data['transactionUsageAmount'] is num) ? (data['transactionUsageAmount'] as num).toDouble() : 0.0;
-        final currentReceipts = (data['unbilledReceiptCount'] is num) ? (data['unbilledReceiptCount'] as num).toInt() : 0;
+        final currentAmount = data['transactionUsageAmount'] is num
+            ? (data['transactionUsageAmount'] as num).toDouble()
+            : 0.0;
+        final currentReceipts = data['unbilledReceiptCount'] is num
+            ? (data['unbilledReceiptCount'] as num).toInt()
+            : 0;
         final now = DateTime.now();
         final nextDue = _lastDayOfMonth(DateTime(now.year, now.month + 1, 1));
+        final remainingAmount = (currentAmount - coveredAmount).clamp(0.0, double.infinity);
+        final remainingReceipts = (currentReceipts - coveredReceiptCount).clamp(0, 1 << 31);
+
         tx.set(vendorRef, {
           'subscriptionType': 'monthly',
           'billingPlanId': 'perTransaction',
           'transactionRate': 1,
           'hasActiveSubscription': true,
-          'billingStatus': 'paid',
+          'billingStatus': remainingAmount > 0 ? 'active' : 'paid',
           'accessMode': 'full',
           'lastPaymentAt': FieldValue.serverTimestamp(),
           'lastUsagePaymentAt': FieldValue.serverTimestamp(),
-          'lastUsagePaymentAmount': currentAmount,
-          'lastUsagePaymentReceipts': currentReceipts,
-          'transactionPaidTotal': FieldValue.increment(currentAmount),
-          'transactionPaidReceiptTotal': FieldValue.increment(currentReceipts),
-          'transactionUsageAmount': 0,
-          'unbilledReceiptCount': 0,
+          'lastUsagePaymentAmount': coveredAmount,
+          'lastUsagePaymentReceipts': coveredReceiptCount,
+          'transactionPaidTotal': FieldValue.increment(coveredAmount),
+          'transactionPaidReceiptTotal': FieldValue.increment(coveredReceiptCount),
+          'transactionUsageAmount': remainingAmount,
+          'unbilledReceiptCount': remainingReceipts,
           'nextPaymentDueAt': Timestamp.fromDate(nextDue),
           'paymentWindowStartDay': paymentWindowStartDay,
         }, SetOptions(merge: true));
       });
 
-      // Keep every receipt for audit, but mark the exact set that existed when
-      // settlement began as paid. New receipts arriving afterwards stay billable.
       const chunkSize = 400;
       for (var offset = 0; offset < billableBeforeSettlement.docs.length; offset += chunkSize) {
         final batch = _firestore.batch();
@@ -72,7 +90,9 @@ class SubscriptionProvider with ChangeNotifier {
       'billingStatus': 'paid',
       'accessMode': 'full',
       'lastPaymentAt': FieldValue.serverTimestamp(),
-      'nextPaymentDueAt': planType == 'monthly' ? Timestamp.fromDate(_lastDayOfMonth(DateTime(DateTime.now().year, DateTime.now().month + 1, 1))) : null,
+      'nextPaymentDueAt': planType == 'monthly'
+          ? Timestamp.fromDate(_lastDayOfMonth(DateTime(DateTime.now().year, DateTime.now().month + 1, 1)))
+          : null,
       'paymentWindowStartDay': paymentWindowStartDay,
     }, SetOptions(merge: true));
     notifyListeners();
@@ -80,27 +100,39 @@ class SubscriptionProvider with ChangeNotifier {
 
   SubscriptionType _parseSubscriptionType(String planType) {
     switch (planType) {
-      case 'monthly': return SubscriptionType.monthly;
-      case 'yearly': return SubscriptionType.yearly;
-      case 'fiveYears': return SubscriptionType.lifetime;
-      default: return SubscriptionType.monthly;
+      case 'monthly':
+        return SubscriptionType.monthly;
+      case 'yearly':
+        return SubscriptionType.yearly;
+      case 'fiveYears':
+        return SubscriptionType.lifetime;
+      default:
+        return SubscriptionType.monthly;
     }
   }
 
   DateTime _calculateSubscriptionEndDate(String planType) {
     final now = DateTime.now();
     switch (planType) {
-      case 'monthly': return DateTime(now.year, now.month + 1, now.day);
-      case 'yearly': return DateTime(now.year + 1, now.month, now.day);
-      case 'fiveYears': return DateTime(now.year + 5, now.month, now.day);
-      default: return DateTime(now.year, now.month + 1, now.day);
+      case 'monthly':
+        return DateTime(now.year, now.month + 1, now.day);
+      case 'yearly':
+        return DateTime(now.year + 1, now.month, now.day);
+      case 'fiveYears':
+        return DateTime(now.year + 5, now.month, now.day);
+      default:
+        return DateTime(now.year, now.month + 1, now.day);
     }
   }
 
-  static DateTime _lastDayOfMonth(DateTime date) => DateTime(date.year, date.month + 1, 0, 23, 59, 59);
-  DateTime _paymentWindowStart(DateTime date) => DateTime(date.year, date.month, paymentWindowStartDay);
+  static DateTime _lastDayOfMonth(DateTime date) =>
+      DateTime(date.year, date.month + 1, 0, 23, 59, 59);
+  DateTime _paymentWindowStart(DateTime date) =>
+      DateTime(date.year, date.month, paymentWindowStartDay);
 
-  bool isMonthlyPaymentWindow(DateTime now) => !now.isBefore(_paymentWindowStart(now)) && !now.isAfter(_lastDayOfMonth(now));
+  bool isMonthlyPaymentWindow(DateTime now) =>
+      !now.isBefore(_paymentWindowStart(now)) &&
+      !now.isAfter(_lastDayOfMonth(now));
 
   Future<SubscriptionAccessLevel> getAccessLevel() async {
     final user = _auth.currentUser;
@@ -122,32 +154,51 @@ class SubscriptionProvider with ChangeNotifier {
     final dueAt = dueRaw is Timestamp ? dueRaw.toDate() : null;
 
     if (billingPlanId == 'perTransaction') {
-      if (dueAt != null && now.isAfter(dueAt) && billingStatus != 'paid') return SubscriptionAccessLevel.basic;
+      if (dueAt != null && now.isAfter(dueAt) && billingStatus != 'paid') {
+        return SubscriptionAccessLevel.basic;
+      }
       if (explicitMode == 'basic') return SubscriptionAccessLevel.basic;
-      if (billingStatus == 'active' || billingStatus == 'paid') return SubscriptionAccessLevel.full;
+      if (billingStatus == 'active' || billingStatus == 'paid') {
+        return SubscriptionAccessLevel.full;
+      }
     }
 
     if (billingPlanId == 'monthly') {
-      if (dueAt != null && now.isAfter(dueAt) && billingStatus != 'paid') return SubscriptionAccessLevel.basic;
+      if (dueAt != null && now.isAfter(dueAt) && billingStatus != 'paid') {
+        return SubscriptionAccessLevel.basic;
+      }
       if (explicitMode == 'basic') return SubscriptionAccessLevel.basic;
     }
 
     final userData = UserModel.fromMap(data, doc.id);
     if (userData.subscriptionType == SubscriptionType.trial) {
-      if (userData.effectiveTrialEndsAt.isAfter(now)) return SubscriptionAccessLevel.full;
-      if (billingStatus != 'paid' && billingStatus != 'active') return SubscriptionAccessLevel.locked;
+      if (userData.effectiveTrialEndsAt.isAfter(now)) {
+        return SubscriptionAccessLevel.full;
+      }
+      if (billingStatus != 'paid' && billingStatus != 'active') {
+        return SubscriptionAccessLevel.locked;
+      }
     }
 
-    if (userData.subscriptionEndsAt != null && !userData.subscriptionEndsAt!.isAfter(now)) {
-      return billingPlanId == 'monthly' || billingPlanId == 'perTransaction' ? SubscriptionAccessLevel.basic : SubscriptionAccessLevel.locked;
+    if (userData.subscriptionEndsAt != null &&
+        !userData.subscriptionEndsAt!.isAfter(now)) {
+      return billingPlanId == 'monthly' || billingPlanId == 'perTransaction'
+          ? SubscriptionAccessLevel.basic
+          : SubscriptionAccessLevel.locked;
     }
 
-    if (userData.hasActiveSubscription || billingStatus == 'paid' || billingStatus == 'active') return SubscriptionAccessLevel.full;
+    if (userData.hasActiveSubscription ||
+        billingStatus == 'paid' ||
+        billingStatus == 'active') {
+      return SubscriptionAccessLevel.full;
+    }
     return SubscriptionAccessLevel.basic;
   }
 
-  Future<bool> hasValidSubscription() async => (await getAccessLevel()) != SubscriptionAccessLevel.locked;
-  Future<bool> isBasicMode() async => (await getAccessLevel()) == SubscriptionAccessLevel.basic;
+  Future<bool> hasValidSubscription() async =>
+      (await getAccessLevel()) != SubscriptionAccessLevel.locked;
+  Future<bool> isBasicMode() async =>
+      (await getAccessLevel()) == SubscriptionAccessLevel.basic;
   Future<bool> checkSubscriptionStatus() async => hasValidSubscription();
 
   Future<void> activatePerTransactionPlan() async {
