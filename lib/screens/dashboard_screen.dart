@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:pos/models/user.dart';
 import 'package:pos/providers/auth_provider.dart';
 import 'package:pos/screens/employee_dashboard_screen.dart';
-import 'package:pos/screens/restaurant_dashboard_screen.dart';
+import 'package:pos/screens/restaurant_dashboard_screen_v2.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -18,7 +18,7 @@ class DashboardScreen extends StatelessWidget {
       child: (user.role == UserRole.superAdmin ||
               user.role == UserRole.admin ||
               user.role == UserRole.auditor)
-          ? const RestaurantDashboardScreen()
+          ? const RestaurantDashboardScreenV2()
           : const EmployeeDashboardScreen(),
     );
   }
