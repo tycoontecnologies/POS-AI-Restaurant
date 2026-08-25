@@ -17,10 +17,14 @@ class SaleProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  /// Creates the completed sale first, then records usage billing exactly once.
+  /// The usage ledger document is keyed by receipt id, so refreshes/retries do
+  /// not double-charge the restaurant.
   Future<void> createSale(String vendorId, Sale sale) async {
     try {
       _error = null;
       await _saleService.createSale(vendorId, sale);
+      await _recordSuccessfulReceiptUsage(vendorId, sale);
       if (_listeningVendorId != vendorId) {
         _sales.insert(0, sale);
         notifyListeners();
@@ -30,6 +34,71 @@ class SaleProvider with ChangeNotifier {
       notifyListeners();
       rethrow;
     }
+  }
+
+  Future<void> _recordSuccessfulReceiptUsage(String vendorId, Sale sale) async {
+    final vendorRef = _firestore.collection('vendors').doc(vendorId);
+    final usageRef = vendorRef.collection('billingUsage').doc(sale.id);
+
+    await _firestore.runTransaction((tx) async {
+      final vendorSnap = await tx.get(vendorRef);
+      if (!vendorSnap.exists) return;
+      final data = vendorSnap.data() ?? <String, dynamic>{};
+      final plan = (data['billingPlanId'] ?? data['subscriptionType'] ?? '').toString();
+      if (plan != 'perTransaction') return;
+
+      final existing = await tx.get(usageRef);
+      if (existing.exists) return;
+
+      final rawRate = data['transactionRate'];
+      final rate = rawRate is num ? rawRate.toDouble() : 1.0;
+      tx.set(usageRef, {
+        'receiptId': sale.id,
+        'saleTotal': sale.total,
+        'rate': rate,
+        'billableAmount': rate,
+        'status': 'billable',
+        'paymentMethod': sale.paymentMethod,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      tx.set(vendorRef, {
+        'successfulReceiptCount': FieldValue.increment(1),
+        'unbilledReceiptCount': FieldValue.increment(1),
+        'transactionUsageAmount': FieldValue.increment(rate),
+        'transactionRate': rate,
+        'billingStatus': 'active',
+        'accessMode': 'full',
+        'transactionUsageUpdatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    });
+  }
+
+  /// Deleting/cancelling a previously completed receipt removes it from the
+  /// current Rs 1 billing total exactly once. The audit ledger is retained and
+  /// marked cancelled rather than deleted.
+  Future<void> _cancelReceiptUsage(String vendorId, String saleId) async {
+    final vendorRef = _firestore.collection('vendors').doc(vendorId);
+    final usageRef = vendorRef.collection('billingUsage').doc(saleId);
+    await _firestore.runTransaction((tx) async {
+      final usage = await tx.get(usageRef);
+      if (!usage.exists) return;
+      final usageData = usage.data() ?? <String, dynamic>{};
+      if ((usageData['status'] ?? '').toString() != 'billable') return;
+
+      final rawRate = usageData['billableAmount'] ?? usageData['rate'] ?? 1;
+      final rate = rawRate is num ? rawRate.toDouble() : 1.0;
+      tx.set(usageRef, {
+        'status': 'cancelled',
+        'billableAmount': 0,
+        'cancelledAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      tx.set(vendorRef, {
+        'successfulReceiptCount': FieldValue.increment(-1),
+        'unbilledReceiptCount': FieldValue.increment(-1),
+        'transactionUsageAmount': FieldValue.increment(-rate),
+        'transactionUsageUpdatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    });
   }
 
   Future<void> fetchSales(String vendorId) async {
@@ -76,6 +145,7 @@ class SaleProvider with ChangeNotifier {
   Future<void> deleteSale(String vendorId, String saleId) async {
     try {
       await _saleService.deleteSale(vendorId, saleId);
+      await _cancelReceiptUsage(vendorId, saleId);
       if (_listeningVendorId != vendorId) {
         _sales.removeWhere((s) => s.id == saleId);
         notifyListeners();
