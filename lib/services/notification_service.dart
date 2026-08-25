@@ -32,6 +32,7 @@ class NotificationService {
       'branchName': actor.branchName,
       'createdAt': FieldValue.serverTimestamp(),
       'readBy': <String>[],
+      'dismissedBy': <String>[],
       'metadata': metadata,
     });
   }
@@ -48,6 +49,21 @@ class NotificationService {
         .doc(notificationId)
         .set({
       'readBy': FieldValue.arrayUnion([authUid]),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> dismiss({
+    required String restaurantId,
+    required String notificationId,
+    required String authUid,
+  }) async {
+    await _firestore
+        .collection('vendors')
+        .doc(restaurantId)
+        .collection('notifications')
+        .doc(notificationId)
+        .set({
+      'dismissedBy': FieldValue.arrayUnion([authUid]),
     }, SetOptions(merge: true));
   }
 }
