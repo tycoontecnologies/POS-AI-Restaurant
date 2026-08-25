@@ -74,38 +74,25 @@ class AppRouter {
       GoRoute(
         path: login,
         name: 'login',
-        builder: (context, state) => LoginScreen(
-          onSignUpPressed: () => GoRouter.of(context).goNamed('signup'),
-        ),
+        builder: (context, state) => LoginScreen(onSignUpPressed: () => GoRouter.of(context).goNamed('signup')),
       ),
       GoRoute(
         path: signup,
         name: 'signup',
-        builder: (context, state) => SignUpScreen(
-          onLoginPressed: () => GoRouter.of(context).goNamed('login'),
-        ),
+        builder: (context, state) => SignUpScreen(onLoginPressed: () => GoRouter.of(context).goNamed('login')),
       ),
       ShellRoute(
         builder: (context, state, child) {
           final authProvider = Provider.of<AuthProvider>(context, listen: true);
-          if (authProvider.isLoading) {
-            return const Scaffold(body: Center(child: CircularProgressIndicator()));
-          }
-          if (!authProvider.isAuthenticated) {
-            return const LoginScreen();
-          }
+          if (authProvider.isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          if (!authProvider.isAuthenticated) return const LoginScreen();
           return MainShell(child: child);
         },
         routes: [
           GoRoute(path: categories, name: 'categories', builder: (context, state) => const CategoriesScreen(), redirect: _checkSubscription),
           GoRoute(path: dashboard, name: 'dashboard', builder: (context, state) => const DashboardScreen(), redirect: _checkSubscription),
           GoRoute(path: products, name: 'products', builder: (context, state) => const StoreScreen(), redirect: _checkSubscription),
-          GoRoute(
-            path: '/category-products/:categoryId',
-            name: 'category-products',
-            builder: (context, state) => CategoryProductsScreen(categoryName: state.pathParameters['categoryId']!),
-            redirect: _checkSubscription,
-          ),
+          GoRoute(path: '/category-products/:categoryId', name: 'category-products', builder: (context, state) => CategoryProductsScreen(categoryName: state.pathParameters['categoryId']!), redirect: _checkSubscription),
           GoRoute(path: staff, name: 'staff', builder: (context, state) => const StaffScreen(), redirect: _checkSubscription),
           GoRoute(path: attendance, name: 'attendance', builder: (context, state) => const AttendanceScreen(), redirect: _checkSubscription),
           GoRoute(path: suppliers, name: 'suppliers', builder: (context, state) => const SuppliersScreen(), redirect: _checkSubscription),
@@ -120,7 +107,7 @@ class AppRouter {
           GoRoute(path: profileSettings, name: 'profile-settings', builder: (context, state) => const SettingsScreen(), redirect: _checkSubscription),
           GoRoute(path: usersRoles, name: 'users-roles', builder: (context, state) => const UsersRolesScreen(), redirect: _checkSubscription),
           GoRoute(path: praSettings, name: 'pra-settings', builder: (context, state) => const PraSettingsScreen(), redirect: _checkSubscription),
-          GoRoute(path: pricing, name: 'pricing', builder: (context, state) => const PricingScreen(), redirect: _checkSubscription),
+          GoRoute(path: pricing, name: 'pricing', builder: (context, state) => const PricingScreen()),
           GoRoute(path: '$payment/:plan', name: 'payment', builder: (context, state) => PaymentScreen(plan: state.pathParameters['plan']!)),
           GoRoute(path: ingredients, name: 'ingredients', builder: (context, state) => const IngredientsScreen(), redirect: _checkSubscription),
           GoRoute(path: customers, name: 'customers', builder: (context, state) => const CustomersScreen(), redirect: _checkSubscription),
@@ -140,13 +127,10 @@ class AppRouter {
             path: '/table-order/:tableId',
             builder: (context, state) {
               final extra = state.extra;
-              if (extra is RestaurantTable) {
-                return TableOrderScreen(table: extra);
-              }
-              return _TableOrderRouteResolver(
-                tableId: state.pathParameters['tableId'] ?? '',
-              );
+              if (extra is RestaurantTable) return TableOrderScreen(table: extra);
+              return _TableOrderRouteResolver(tableId: state.pathParameters['tableId'] ?? '');
             },
+            redirect: _checkSubscription,
           ),
         ],
       ),
@@ -166,14 +150,21 @@ class AppRouter {
   static Future<String?> _checkSubscription(BuildContext context, GoRouterState state) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
-    if (authProvider.isAuthenticated) {
-      final hasValidSubscription = await subscriptionProvider.hasValidSubscription();
-      final isPricingRoute = state.uri.path == pricing;
-      final isPaymentRoute = state.uri.path.startsWith(payment);
-      final isPaymentSuccessRoute = state.uri.path == paymentSuccess;
-      if (!hasValidSubscription && !isPricingRoute && !isPaymentRoute && !isPaymentSuccessRoute) return pricing;
-      if (hasValidSubscription && isPricingRoute) return dashboard;
+    if (!authProvider.isAuthenticated) return null;
+
+    final access = await subscriptionProvider.getAccessLevel();
+    final path = state.uri.path;
+    final isCommercialRoute = path == pricing || path.startsWith(payment) || path == paymentSuccess;
+
+    if (access == SubscriptionAccessLevel.locked && !isCommercialRoute) return pricing;
+
+    if (access == SubscriptionAccessLevel.basic) {
+      final allowedBasic = path == dashboard || path == tables || path == orders || path.startsWith('/table-order') || isCommercialRoute;
+      if (!allowedBasic) return dashboard;
     }
+
+    // Active customers are deliberately allowed to open pricing so they can
+    // upgrade or change package at any time.
     return null;
   }
 
@@ -232,31 +223,17 @@ class _TableOrderRouteResolverState extends State<_TableOrderRouteResolver> {
     final provider = context.watch<TableProvider>();
     RestaurantTable? table;
     for (final item in provider.tables) {
-      if (item.id == widget.tableId) {
-        table = item;
-        break;
-      }
+      if (item.id == widget.tableId) { table = item; break; }
     }
-
-    if (table != null) {
-      return TableOrderScreen(table: table);
-    }
-
-    if (provider.isLoading || !_requestedLoad) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    return Scaffold(
-      body: Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.table_restaurant_outlined, size: 42),
-          const SizedBox(height: 12),
-          const Text('Table could not be loaded.'),
-          const SizedBox(height: 12),
-          FilledButton(onPressed: () => context.go(AppRouter.tables), child: const Text('Back to Tables')),
-        ]),
-      ),
-    );
+    if (table != null) return TableOrderScreen(table: table);
+    if (provider.isLoading || !_requestedLoad) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    return Scaffold(body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      const Icon(Icons.table_restaurant_outlined, size: 42),
+      const SizedBox(height: 12),
+      const Text('Table could not be loaded.'),
+      const SizedBox(height: 12),
+      FilledButton(onPressed: () => context.go(AppRouter.tables), child: const Text('Back to Tables')),
+    ])));
   }
 }
 
@@ -265,6 +242,5 @@ class NavigationItem {
   final String label;
   final String route;
   final List<UserRole> roles;
-
   const NavigationItem({required this.icon, required this.label, required this.route, required this.roles});
 }
