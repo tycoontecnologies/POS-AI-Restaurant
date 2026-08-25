@@ -35,7 +35,7 @@ class AuthService {
       );
 
       final now = DateTime.now();
-      final trialEndsAt = now.add(const Duration(days: 7));
+      final trialEndsAt = now.add(const Duration(days: 3));
 
       final user = UserModel(
         id: userCredential.user!.uid,
@@ -182,7 +182,6 @@ class AuthService {
     }
   }
 
-
   String _getFileExtension(dynamic file) {
     if (kIsWeb && file is html.File) {
       final fileName = file.name;
@@ -216,7 +215,7 @@ class AuthService {
         'updatedAt': Timestamp.fromDate(DateTime.now()),
       });
     } catch (e) {
-      throw Exception('Failed to update user logo: $e');
+      throw Exception('Failed to upload user logo: $e');
     }
   }
 }
