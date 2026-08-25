@@ -163,8 +163,6 @@ class AppRouter {
       if (!allowedBasic) return dashboard;
     }
 
-    // Active customers are deliberately allowed to open pricing so they can
-    // upgrade or change package at any time.
     return null;
   }
 
@@ -191,7 +189,6 @@ class AppRouter {
       NavigationItem(icon: Icons.account_tree_outlined, label: 'Branches', route: branches, roles: adminRoles),
       NavigationItem(icon: Icons.verified_user_outlined, label: 'PRA', route: praSettings, roles: adminRoles),
       NavigationItem(icon: Icons.psychology_alt_rounded, label: 'Help AI', route: dashboard, roles: adminRoles),
-      NavigationItem(icon: Icons.settings_rounded, label: 'Preferences', route: settings, roles: adminRoles),
     ];
     return allItems.where((item) => item.roles.contains(role)).toList();
   }
@@ -223,7 +220,10 @@ class _TableOrderRouteResolverState extends State<_TableOrderRouteResolver> {
     final provider = context.watch<TableProvider>();
     RestaurantTable? table;
     for (final item in provider.tables) {
-      if (item.id == widget.tableId) { table = item; break; }
+      if (item.id == widget.tableId) {
+        table = item;
+        break;
+      }
     }
     if (table != null) return TableOrderScreen(table: table);
     if (provider.isLoading || !_requestedLoad) return const Scaffold(body: Center(child: CircularProgressIndicator()));
