@@ -37,6 +37,10 @@ class NotificationService {
     });
   }
 
+  /// Acknowledge a notification.
+  ///
+  /// The notification remains available in notification history, but it is
+  /// removed from the persistent right-side toast stack for this user.
   Future<void> markRead({
     required String restaurantId,
     required String notificationId,
@@ -49,6 +53,8 @@ class NotificationService {
         .doc(notificationId)
         .set({
       'readBy': FieldValue.arrayUnion([authUid]),
+      'dismissedBy': FieldValue.arrayUnion([authUid]),
+      'lastAcknowledgedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
