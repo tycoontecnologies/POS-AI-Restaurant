@@ -24,6 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
   static const ink = Color(0xFF0F172A);
   static const border = Color(0xFFE2E8F0);
   static const soft = Color(0xFFF8FAFC);
+  static const brandRed = Color(0xFFD80000);
 
   @override
   void dispose() {
@@ -49,6 +50,31 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Widget _brandPanel({required bool compact}) {
+    return Container(
+      color: brandRed,
+      alignment: Alignment.center,
+      padding: EdgeInsets.all(compact ? 18 : 52),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: compact ? 300 : 520),
+        child: Image.asset(
+          'assets/logo.jpeg',
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => const Text(
+            'TYCOON POS',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 38,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 3,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 900;
@@ -61,32 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
           if (!compact)
             Expanded(
               flex: 11,
-              child: Container(
-                color: const Color(0xFFD80000),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.asset(
-                      'assets/tycoon_pos_bg.png',
-                      fit: BoxFit.cover,
-                      alignment: Alignment.center,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: const Color(0xFFD80000),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'TYCOON POS',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 42,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 3,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              child: _brandPanel(compact: false),
             ),
           Expanded(
             flex: compact ? 1 : 9,
@@ -107,19 +108,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           if (compact) ...[
                             SizedBox(
-                              height: 150,
+                              height: 170,
                               width: double.infinity,
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(16),
-                                child: Image.asset(
-                                  'assets/tycoon_pos_bg.png',
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    color: const Color(0xFFD80000),
-                                    alignment: Alignment.center,
-                                    child: const Text('TYCOON POS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 24)),
-                                  ),
-                                ),
+                                child: _brandPanel(compact: true),
                               ),
                             ),
                             const SizedBox(height: 28),
@@ -227,7 +220,10 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  static Widget _label(String text) => const Text('', style: TextStyle()).copyWith(data: text, style: const TextStyle(color: ink, fontSize: 11.5, fontWeight: FontWeight.w700));
+  static Widget _label(String text) => Text(
+        text,
+        style: const TextStyle(color: ink, fontSize: 11.5, fontWeight: FontWeight.w700),
+      );
 
   InputDecoration _inputDecoration(String hint, IconData icon) => InputDecoration(
         hintText: hint,
@@ -239,8 +235,4 @@ class _LoginScreenState extends State<LoginScreen> {
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: border)),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: purple, width: 1.4)),
       );
-}
-
-extension on Text {
-  Text copyWith({String? data, TextStyle? style}) => Text(data ?? this.data ?? '', style: style ?? this.style);
 }
