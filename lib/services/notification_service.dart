@@ -35,8 +35,7 @@ class NotificationService {
   }
 
   /// Marks a notification read. Floating notification rails filter on readBy,
-  /// therefore this immediately removes it from the live/unread rail while it
-  /// remains available in history as a read notification.
+  /// so it disappears from the live rail while remaining in history.
   Future<void> markRead({
     required String restaurantId,
     required String notificationId,
@@ -44,13 +43,13 @@ class NotificationService {
   }) async {
     await _firestore.collection('vendors').doc(restaurantId).collection('notifications').doc(notificationId).set({
       'readBy': FieldValue.arrayUnion([authUid]),
-      'readAt.$authUid': FieldValue.serverTimestamp(),
       'lastAcknowledgedAt': FieldValue.serverTimestamp(),
+      'lastAcknowledgedBy': authUid,
     }, SetOptions(merge: true));
   }
 
-  /// Dismiss hides a notification from the live rail and acknowledges it as
-  /// read, but does not remove it from historical audit records.
+  /// Dismiss acknowledges the item and hides it from the floating rail, but
+  /// preserves the notification document for historical/audit views.
   Future<void> dismiss({
     required String restaurantId,
     required String notificationId,
@@ -59,9 +58,8 @@ class NotificationService {
     await _firestore.collection('vendors').doc(restaurantId).collection('notifications').doc(notificationId).set({
       'readBy': FieldValue.arrayUnion([authUid]),
       'dismissedBy': FieldValue.arrayUnion([authUid]),
-      'readAt.$authUid': FieldValue.serverTimestamp(),
-      'dismissedAt.$authUid': FieldValue.serverTimestamp(),
       'lastAcknowledgedAt': FieldValue.serverTimestamp(),
+      'lastAcknowledgedBy': authUid,
     }, SetOptions(merge: true));
   }
 
@@ -73,8 +71,8 @@ class NotificationService {
     await _applyInChunks(snapshot.docs, (doc, batch) {
       batch.set(doc.reference, {
         'readBy': FieldValue.arrayUnion([authUid]),
-        'readAt.$authUid': FieldValue.serverTimestamp(),
         'lastAcknowledgedAt': FieldValue.serverTimestamp(),
+        'lastAcknowledgedBy': authUid,
       }, SetOptions(merge: true));
     });
   }
@@ -98,6 +96,7 @@ class NotificationService {
         'readBy': FieldValue.arrayUnion([authUid]),
         'dismissedBy': FieldValue.arrayUnion([authUid]),
         'lastClearedAt': FieldValue.serverTimestamp(),
+        'lastClearedBy': authUid,
       }, SetOptions(merge: true));
     });
   }
