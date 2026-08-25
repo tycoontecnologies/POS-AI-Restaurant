@@ -22,11 +22,11 @@ class PricingScreen extends StatelessWidget {
           Row(children: [
             IconButton(onPressed: () => context.go(AppRouter.dashboard), icon: const Icon(Icons.arrow_back_rounded)),
             const SizedBox(width: 6),
-            const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Choose your Tycoon POS package', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900, color: ink)),
               SizedBox(height: 3),
               Text('Your selected package controls billing while your restaurant data and workflow remain the same.', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
-            ]),
+            ])),
           ]),
           const SizedBox(height: 24),
           Wrap(spacing: 16, runSpacing: 16, children: [
@@ -67,10 +67,9 @@ class _PlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minHeight: 360),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: popular ? PricingScreen.burgundy : const Color(0xFFE2E8F0), width: popular ? 1.5 : 1), boxShadow: const [BoxShadow(color: Color(0x0A0F172A), blurRadius: 12, offset: Offset(0, 4))]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Container(width: 42, height: 42, decoration: BoxDecoration(color: const Color(0xFFFBECEF), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: PricingScreen.burgundy, size: 22)),
           const Spacer(),
@@ -83,7 +82,7 @@ class _PlanCard extends StatelessWidget {
         Text(period, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
         const SizedBox(height: 20),
         ...features.map((f) => Padding(padding: const EdgeInsets.only(bottom: 10), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 17), const SizedBox(width: 8), Expanded(child: Text(f, style: const TextStyle(fontSize: 11.5, height: 1.35, color: Color(0xFF475569))))]))),
-        const Spacer(),
+        const SizedBox(height: 16),
         SizedBox(width: double.infinity, height: 44, child: FilledButton(onPressed: onSelect, style: FilledButton.styleFrom(backgroundColor: PricingScreen.burgundy, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9))), child: const Text('Select package', style: TextStyle(fontWeight: FontWeight.w900)))),
       ]),
     );
