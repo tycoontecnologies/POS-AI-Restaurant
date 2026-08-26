@@ -32,7 +32,7 @@ class _MainShellState extends State<MainShell> {
 
   bool _loaded = false;
   bool _online = true;
-  String _navPlacement = 'top';
+  String _navPlacement = 'left';
   String _navBackground = 'white';
   String _buttonColor = 'purple';
   String _navDisplayMode = 'iconsNames';
@@ -60,7 +60,10 @@ class _MainShellState extends State<MainShell> {
       final data = snap?.data() ?? <String, dynamic>{};
       if (!mounted) return;
       setState(() {
-        _navPlacement = (data['uiNavPlacement'] ?? 'top').toString();
+        _navPlacement = (data['uiNavPlacement'] ?? 'left').toString();
+        if (_navPlacement != 'left' && _navPlacement != 'right') {
+          _navPlacement = 'left';
+        }
         _navBackground = (data['uiNavBackground'] ?? 'white').toString();
         _buttonColor = (data['uiButtonColor'] ?? 'purple').toString();
         _navDisplayMode = (data['uiNavDisplayMode'] ?? 'iconsNames').toString();
@@ -411,8 +414,6 @@ class _MainShellState extends State<MainShell> {
                   runSpacing: 8,
                   children:
                       const [
-                            ('top', 'Sticky Top'),
-                            ('bottom', 'Float Bottom'),
                             ('left', 'Left Vertical'),
                             ('right', 'Right Vertical'),
                           ]
@@ -801,7 +802,6 @@ class _TopBar extends StatelessWidget {
                         ),
                       ),
                     ),
-                    _KeyHint('Ctrl /'),
                   ],
                 ),
               ),
