@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pos/services/auth_service.dart';
 import 'package:pos/services/session_audit_service.dart';
 import 'package:pos/services/notification_service.dart';
@@ -12,16 +13,36 @@ class AuthProvider with ChangeNotifier {
   UserModel? _currentUser;
   bool _isLoading = false;
   String? _error;
+  List<String> _rememberedAccounts = <String>[];
 
   UserModel? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isAuthenticated => _currentUser != null;
+  List<String> get rememberedAccounts => List.unmodifiable(_rememberedAccounts);
+
+  Future<void> _loadRememberedAccounts() async {
+    final prefs = await SharedPreferences.getInstance();
+    _rememberedAccounts =
+        prefs.getStringList('remembered_pos_accounts') ?? <String>[];
+  }
+
+  Future<void> _rememberAccount(String email) async {
+    final clean = email.trim().toLowerCase();
+    if (clean.isEmpty) return;
+    _rememberedAccounts.removeWhere((e) => e.toLowerCase() == clean);
+    _rememberedAccounts.insert(0, clean);
+    if (_rememberedAccounts.length > 10)
+      _rememberedAccounts = _rememberedAccounts.take(10).toList();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('remembered_pos_accounts', _rememberedAccounts);
+  }
 
   Future<void> initialize() async {
     _isLoading = true;
     notifyListeners();
     try {
+      await _loadRememberedAccounts();
       _currentUser = await _authService.getCurrentUserData();
       _error = null;
     } catch (e) {
@@ -65,7 +86,10 @@ class AuthProvider with ChangeNotifier {
             vendorId: _currentUser!.id,
           );
           if (logoUrl != null) {
-            await _authService.updateUserLogo(userId: _currentUser!.authUid, logoUrl: logoUrl);
+            await _authService.updateUserLogo(
+              userId: _currentUser!.authUid,
+              logoUrl: logoUrl,
+            );
             _currentUser = _copyCurrent(restaurantLogoUrl: logoUrl);
           }
         } catch (e) {
@@ -99,8 +123,12 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      _currentUser = await _authService.signIn(email: email, password: password);
+      _currentUser = await _authService.signIn(
+        email: email,
+        password: password,
+      );
       if (_currentUser == null) return false;
+      await _rememberAccount(email);
       if (!_currentUser!.isActive) {
         await _authService.signOut();
         _currentUser = null;
@@ -113,12 +141,78 @@ class AuthProvider with ChangeNotifier {
           actor: _currentUser!,
           type: 'work_started',
           title: 'Work started',
-          message: '${_currentUser!.name} signed in to ${_currentUser!.branchName}.',
+          message:
+              '${_currentUser!.name} signed in to ${_currentUser!.branchName}.',
           severity: 'success',
         );
       } catch (e) {
         debugPrint('Login notification failed: $e');
       }
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> switchAccount({
+    required String email,
+    required String password,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    final previous = _currentUser;
+    try {
+      if (previous != null) {
+        try {
+          await _auditService.endSession(previous);
+        } catch (_) {}
+      }
+      await _authService.signOut();
+      final next = await _authService.signIn(email: email, password: password);
+      if (next == null || !next.isActive) {
+        _currentUser = null;
+        _error = 'Unable to switch to this account.';
+        return false;
+      }
+      _currentUser = next;
+      await _rememberAccount(email);
+      await _auditService.startSession(next);
+      return true;
+    } catch (e) {
+      _currentUser = null;
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updateCredentials({
+    required String currentPassword,
+    required String newEmail,
+    required String newPassword,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      if (_currentUser == null) return false;
+      await _authService.updateCredentials(
+        currentPassword: currentPassword,
+        newEmail: newEmail,
+        newPassword: newPassword,
+      );
+      final email = newEmail.trim().isEmpty
+          ? _currentUser!.email
+          : newEmail.trim();
+      _currentUser = _copyCurrent(email: email);
+      await _rememberAccount(email);
       return true;
     } catch (e) {
       _error = e.toString();
@@ -211,7 +305,10 @@ class AuthProvider with ChangeNotifier {
           vendorId: _currentUser!.id,
         );
         if (logoUrl != null) {
-          await _authService.updateUserLogo(userId: _currentUser!.authUid, logoUrl: logoUrl);
+          await _authService.updateUserLogo(
+            userId: _currentUser!.authUid,
+            logoUrl: logoUrl,
+          );
         }
       }
 
@@ -243,6 +340,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   UserModel _copyCurrent({
+    String? email,
     String? name,
     String? location,
     String? phoneNo,
@@ -253,7 +351,7 @@ class AuthProvider with ChangeNotifier {
     return UserModel(
       id: u.id,
       authUid: u.authUid,
-      email: u.email,
+      email: email ?? u.email,
       name: name ?? u.name,
       role: u.role,
       department: u.department,

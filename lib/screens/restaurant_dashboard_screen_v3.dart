@@ -307,7 +307,7 @@ class _RestaurantDashboardScreenV3State
                         'Rs ${_money(avgBill)}',
                         Icons.point_of_sale_outlined,
                         _purple,
-                        const <double>[],
+                        _averageBillTrend(sales),
                         {
                           'Average bill': 'Rs ${_money(avgBill)}',
                           'Sales today': 'Rs ${_money(todayRevenue)}',
@@ -351,7 +351,7 @@ class _RestaurantDashboardScreenV3State
                         '$praFinalized / ${todaySales.length}',
                         Icons.verified_user_outlined,
                         _pink,
-                        const <double>[],
+                        _praTrend(sales),
                         {
                           'Finalized': '$praFinalized',
                           'Total receipts': '${todaySales.length}',
@@ -745,6 +745,37 @@ class _RestaurantDashboardScreenV3State
     });
   }
 
+  List<double> _averageBillTrend(List<Sale> sales) {
+    final now = DateTime.now();
+    return List.generate(7, (i) {
+      final day = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: 6 - i));
+      final daySales = sales.where((s) => _sameDay(s.createdAt, day)).toList();
+      if (daySales.isEmpty) return 0.0;
+      return daySales.fold<double>(0, (a, b) => a + b.total) / daySales.length;
+    });
+  }
+
+  List<double> _praTrend(List<Sale> sales) {
+    final now = DateTime.now();
+    return List.generate(7, (i) {
+      final day = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: 6 - i));
+      final daySales = sales.where((s) => _sameDay(s.createdAt, day)).toList();
+      if (daySales.isEmpty) return 0.0;
+      final done = daySales
+          .where((s) => (s.praInvoiceNo ?? '').isNotEmpty)
+          .length;
+      return done / daySales.length * 100;
+    });
+  }
+
   String _money(double value) => NumberFormat('#,##0').format(value.round());
   String _duration(Duration d) =>
       '${d.inMinutes}m ${(d.inSeconds % 60).toString().padLeft(2, '0')}s';
@@ -769,111 +800,218 @@ class _Kpi {
 
 class _KpiCard extends StatelessWidget {
   final _Kpi data;
+
   const _KpiCard({required this.data});
+
   @override
-  Widget build(BuildContext context) => Container(
-    height: 102,
-    padding: const EdgeInsets.all(11),
-    decoration: _cardDecoration(),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: data.color.withValues(alpha: .11),
-                shape: BoxShape.circle,
+  Widget build(BuildContext context) {
+    final hasTrend = data.trend.length > 1;
+
+    return Container(
+      height: 126,
+      padding: const EdgeInsets.fromLTRB(12, 11, 12, 9),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: data.color.withValues(alpha: .11),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(data.icon, color: data.color, size: 17),
               ),
-              child: Icon(data.icon, color: data.color, size: 18),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Text(
-                data.label,
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  color: _muted,
-                  fontWeight: FontWeight.w700,
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  data.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: _muted,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Text(
-          data.value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w900,
-            color: _ink,
+              if (hasTrend)
+                Icon(Icons.show_chart_rounded, size: 15, color: data.color),
+            ],
           ),
-        ),
-        if (data.trend.length > 1) ...[
+
+          const SizedBox(height: 7),
+
+          Text(
+            data.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: _ink,
+            ),
+          ),
+
           const Spacer(),
-          SizedBox(
-            height: 24,
-            width: double.infinity,
-            child: CustomPaint(
-              painter: _SparklinePainter(data.trend, data.color),
-            ),
-          ),
+
+          if (hasTrend)
+            SizedBox(
+              height: 35,
+              width: double.infinity,
+              child: CustomPaint(
+                painter: _SparklinePainter(data.trend, data.color),
+              ),
+            )
+          else
+            const SizedBox(height: 35),
         ],
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
-class _SalesOverviewCard extends StatelessWidget {
+class _SalesOverviewCard extends StatefulWidget {
   final List<Sale> sales;
   const _SalesOverviewCard({required this.sales});
   @override
-  Widget build(BuildContext context) {
+  State<_SalesOverviewCard> createState() => _SalesOverviewCardState();
+}
+
+class _SalesOverviewCardState extends State<_SalesOverviewCard> {
+  int _days = 7;
+  int? _selectedIndex;
+
+  List<DateTime> _dates() {
     final now = DateTime.now();
-    final days = List.generate(
-      7,
+    return List.generate(
+      _days,
       (i) => DateTime(
         now.year,
         now.month,
         now.day,
-      ).subtract(Duration(days: 6 - i)),
+      ).subtract(Duration(days: _days - 1 - i)),
     );
-    final values = days
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dates = _dates();
+    final values = dates
         .map(
-          (day) => sales
+          (day) => widget.sales
               .where((s) => _sameDayStatic(s.createdAt, day))
               .fold<double>(0, (a, b) => a + b.total),
         )
         .toList();
-    final thisWeek = values.fold<double>(0, (a, b) => a + b);
+    final total = values.fold<double>(0, (a, b) => a + b);
+    final orderCount = widget.sales
+        .where((s) => dates.any((d) => _sameDayStatic(s.createdAt, d)))
+        .length;
+    final selected = _selectedIndex != null && _selectedIndex! < values.length
+        ? _selectedIndex!
+        : values.length - 1;
+
     return _Panel(
       title: 'Sales Overview',
-      trailing: const _PeriodChip('This Week'),
+      trailing: Wrap(
+        spacing: 4,
+        children: [7, 30, 90]
+            .map(
+              (days) => ChoiceChip(
+                label: Text(
+                  days == 7
+                      ? '7D'
+                      : days == 30
+                      ? '30D'
+                      : '90D',
+                ),
+                selected: _days == days,
+                showCheckmark: false,
+                visualDensity: VisualDensity.compact,
+                onSelected: (_) => setState(() {
+                  _days = days;
+                  _selectedIndex = null;
+                }),
+              ),
+            )
+            .toList(),
+      ),
       child: Column(
         children: [
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(6, 10, 6, 0),
-              child: CustomPaint(
-                size: Size.infinite,
-                painter: _LineChartPainter(values),
+            child: LayoutBuilder(
+              builder: (_, c) => GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (d) {
+                  if (values.isEmpty || c.maxWidth <= 0) return;
+                  final x = d.localPosition.dx.clamp(0.0, c.maxWidth);
+                  final index = ((x / c.maxWidth) * (values.length - 1))
+                      .round()
+                      .clamp(0, values.length - 1);
+                  setState(() => _selectedIndex = index);
+                },
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(6, 10, 6, 0),
+                        child: CustomPaint(painter: _LineChartPainter(values)),
+                      ),
+                    ),
+                    if (values.isNotEmpty)
+                      Positioned(
+                        left: 10,
+                        top: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(9),
+                            border: Border.all(color: _line),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x0D101828),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            '${DateFormat('dd MMM').format(dates[selected])}  •  Rs ${NumberFormat('#,##0').format(values[selected].round())}',
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: days
-                .map(
-                  (d) => Text(
-                    DateFormat('EEE d').format(d),
-                    style: const TextStyle(fontSize: 8.5, color: _muted),
-                  ),
-                )
-                .toList(),
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                DateFormat('dd MMM').format(dates.first),
+                style: const TextStyle(fontSize: 8.5, color: _muted),
+              ),
+              const Text(
+                'Click chart to inspect a day',
+                style: TextStyle(fontSize: 8.5, color: _muted),
+              ),
+              Text(
+                DateFormat('dd MMM').format(dates.last),
+                style: const TextStyle(fontSize: 8.5, color: _muted),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           Container(
@@ -886,20 +1024,15 @@ class _SalesOverviewCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _MiniStat(
-                    'This Week',
-                    'Rs ${NumberFormat('#,##0').format(thisWeek.round())}',
+                    '$_days-Day Sales',
+                    'Rs ${NumberFormat('#,##0').format(total.round())}',
                   ),
                 ),
-                Expanded(
-                  child: _MiniStat(
-                    'Orders',
-                    '${sales.where((s) => days.any((d) => _sameDayStatic(s.createdAt, d))).length}',
-                  ),
-                ),
+                Expanded(child: _MiniStat('Orders', '$orderCount')),
                 Expanded(
                   child: _MiniStat(
                     'Daily Avg',
-                    'Rs ${NumberFormat('#,##0').format((thisWeek / 7).round())}',
+                    'Rs ${NumberFormat('#,##0').format((total / _days).round())}',
                   ),
                 ),
               ],
@@ -930,6 +1063,97 @@ class _RecentOrdersCard extends StatelessWidget {
         itemBuilder: (_, i) {
           final sale = sorted[i];
           return ListTile(
+            onTap: () => showDialog<void>(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                title: Row(
+                  children: [
+                    const Icon(Icons.receipt_long_outlined),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Order #${sale.id}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                content: SizedBox(
+                  width: 460,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _OrderDetailLine(
+                          'Date',
+                          DateFormat(
+                            'dd MMM yyyy • h:mm a',
+                          ).format(sale.createdAt),
+                        ),
+                        _OrderDetailLine(
+                          'Table / Type',
+                          sale.tableNumber?.isNotEmpty == true
+                              ? 'Table ${sale.tableNumber}'
+                              : sale.paymentMethod,
+                        ),
+                        _OrderDetailLine('Payment', sale.paymentMethod),
+                        const Divider(height: 24),
+                        const Text(
+                          'Items',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ...sale.items.map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${item.quantity} × ${item.productName}',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                ),
+                                Text(
+                                  'Rs ${NumberFormat('#,##0').format((item.price * item.quantity).round())}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const Divider(height: 24),
+                        _OrderDetailLine(
+                          'Total',
+                          'Rs ${NumberFormat('#,##0').format(sale.total.round())}',
+                          strong: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Close'),
+                  ),
+                  FilledButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      context.go(AppRouter.sales);
+                    },
+                    child: const Text('Open Sales'),
+                  ),
+                ],
+              ),
+            ),
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: Container(
@@ -967,6 +1191,47 @@ class _RecentOrdersCard extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _OrderDetailLine extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool strong;
+
+  const _OrderDetailLine(this.label, this.value, {this.strong = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 105,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 10,
+                color: _muted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: strong ? 13 : 10.5,
+                fontWeight: strong ? FontWeight.w900 : FontWeight.w700,
+                color: _ink,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

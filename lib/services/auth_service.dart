@@ -50,17 +50,29 @@ class AuthService {
         restaurantName: restaurantName,
       );
 
-      await _firestore.collection('vendors').doc(userCredential.user!.uid).set(user.toMap());
+      await _firestore
+          .collection('vendors')
+          .doc(userCredential.user!.uid)
+          .set(user.toMap());
       return user;
     } catch (e) {
       throw FirebaseAuthException(code: 'signup-failed', message: e.toString());
     }
   }
 
-  Future<UserModel?> signIn({required String email, required String password}) async {
+  Future<UserModel?> signIn({
+    required String email,
+    required String password,
+  }) async {
     try {
-      final userCredential = await _auth.signInWithEmailAndPassword(email: email, password: password);
-      final userDoc = await _firestore.collection('vendors').doc(userCredential.user!.uid).get();
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final userDoc = await _firestore
+          .collection('vendors')
+          .doc(userCredential.user!.uid)
+          .get();
       if (userDoc.exists) return UserModel.fromMap(userDoc.data()!, userDoc.id);
       return null;
     } catch (e) {
@@ -73,7 +85,8 @@ class AuthService {
       'isActive': false,
       'billingStatus': 'trial_expired',
       'deactivatedAt': FieldValue.serverTimestamp(),
-      'deactivationReason': '3-day trial expired without an active subscription',
+      'deactivationReason':
+          '3-day trial expired without an active subscription',
     }, SetOptions(merge: true));
   }
 
@@ -87,22 +100,74 @@ class AuthService {
     return null;
   }
 
-  Future<void> resetPassword(String email) async => _auth.sendPasswordResetEmail(email: email);
+  Future<void> resetPassword(String email) async =>
+      _auth.sendPasswordResetEmail(email: email);
 
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found') {
-        throw FirebaseAuthException(code: 'user-not-found', message: 'No user found with this email address');
+        throw FirebaseAuthException(
+          code: 'user-not-found',
+          message: 'No user found with this email address',
+        );
       }
-      throw FirebaseAuthException(code: 'reset-password-failed', message: e.message ?? 'Failed to send password reset email');
+      throw FirebaseAuthException(
+        code: 'reset-password-failed',
+        message: e.message ?? 'Failed to send password reset email',
+      );
     } catch (_) {
-      throw FirebaseAuthException(code: 'reset-password-failed', message: 'An unexpected error occurred');
+      throw FirebaseAuthException(
+        code: 'reset-password-failed',
+        message: 'An unexpected error occurred',
+      );
     }
   }
 
-  Future<void> updateProfile({required String name, required UserRole role, required bool isActive, required String location, required String phoneNo, required String restaurantName}) async {
+  Future<void> updateCredentials({
+    required String currentPassword,
+    required String newEmail,
+    required String newPassword,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) {
+      throw FirebaseAuthException(
+        code: 'not-signed-in',
+        message: 'No signed-in account.',
+      );
+    }
+    final credential = EmailAuthProvider.credential(
+      email: user.email!,
+      password: currentPassword,
+    );
+    await user.reauthenticateWithCredential(credential);
+    final email = newEmail.trim();
+    if (email.isNotEmpty && email != user.email) {
+      await user.verifyBeforeUpdateEmail(email);
+      await _firestore.collection('vendors').doc(user.uid).set({
+        'email': email,
+      }, SetOptions(merge: true));
+    }
+    if (newPassword.isNotEmpty) {
+      if (newPassword.length < 6) {
+        throw FirebaseAuthException(
+          code: 'weak-password',
+          message: 'Password must be at least 6 characters.',
+        );
+      }
+      await user.updatePassword(newPassword);
+    }
+  }
+
+  Future<void> updateProfile({
+    required String name,
+    required UserRole role,
+    required bool isActive,
+    required String location,
+    required String phoneNo,
+    required String restaurantName,
+  }) async {
     final user = _auth.currentUser;
     if (user == null) return;
     await _firestore.collection('vendors').doc(user.uid).update({
@@ -115,14 +180,23 @@ class AuthService {
     });
   }
 
-  Future<String?> uploadRestaurantLogo({required dynamic logoFile, required String vendorId}) async {
+  Future<String?> uploadRestaurantLogo({
+    required dynamic logoFile,
+    required String vendorId,
+  }) async {
     try {
-      final String fileName = 'restaurant_logo_${DateTime.now().millisecondsSinceEpoch}${_getFileExtension(logoFile)}';
+      final String fileName =
+          'restaurant_logo_${DateTime.now().millisecondsSinceEpoch}${_getFileExtension(logoFile)}';
       final String storagePath = 'vendors/$vendorId/restaurant_logo/$fileName';
       UploadTask uploadTask;
       if (kIsWeb && logoFile is html.File) {
-        final metadata = SettableMetadata(contentType: 'image/${_getMimeType(logoFile)}');
-        uploadTask = _storage.ref().child(storagePath).putBlob(logoFile.slice(), metadata);
+        final metadata = SettableMetadata(
+          contentType: 'image/${_getMimeType(logoFile)}',
+        );
+        uploadTask = _storage
+            .ref()
+            .child(storagePath)
+            .putBlob(logoFile.slice(), metadata);
       } else if (logoFile is File) {
         uploadTask = _storage.ref().child(storagePath).putFile(logoFile);
       } else {
@@ -158,7 +232,10 @@ class AuthService {
     return 'jpeg';
   }
 
-  Future<void> updateUserLogo({required String userId, required String logoUrl}) async {
+  Future<void> updateUserLogo({
+    required String userId,
+    required String logoUrl,
+  }) async {
     try {
       await _firestore.collection('vendors').doc(userId).update({
         'restaurantLogoUrl': logoUrl,

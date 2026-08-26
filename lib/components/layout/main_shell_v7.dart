@@ -262,6 +262,8 @@ class _MainShellState extends State<MainShell> {
           onNotifications: () => _showNotificationHistory(user),
           onSettings: () => context.go(AppRouter.settings),
           onProfile: () => context.go(AppRouter.profileSettings),
+          onSwitchAccount: () => _showSwitchAccountDialog(user),
+          onAccountSecurity: () => _showAccountSecurityDialog(user),
           onLogout: _logout,
           onAddWidget: () => context.go('${AppRouter.dashboard}?customize=1'),
           onSearch: () => _showCommandSearch(items),
@@ -286,12 +288,11 @@ class _MainShellState extends State<MainShell> {
                         child: widget.child,
                       ),
               ),
-              if (user.isAdmin)
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: _UnreadNotificationRail(user: user),
-                ),
+              Positioned(
+                top: 12,
+                right: 12,
+                child: _UnreadNotificationRail(user: user),
+              ),
             ],
           ),
         ),
@@ -655,6 +656,157 @@ class _MainShellState extends State<MainShell> {
     _ => '3-day Trial',
   };
 
+  Future<void> _showSwitchAccountDialog(UserModel user) async {
+    final auth = context.read<AuthProvider>();
+    final accounts = <String>{
+      user.email,
+      ...auth.rememberedAccounts,
+    }.where((e) => e.trim().isNotEmpty).toList();
+    String selected = accounts.first;
+    final password = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (_, setModal) => AlertDialog(
+          title: const Text('Switch Account'),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: selected,
+                  items: accounts
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (v) => setModal(() => selected = v ?? selected),
+                  decoration: const InputDecoration(
+                    labelText: 'Remembered account',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: password,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Password',
+                    helperText: 'Passwords are never stored by Tycoon POS.',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Switch'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) {
+      password.dispose();
+      return;
+    }
+    final success = await auth.switchAccount(
+      email: selected,
+      password: password.text,
+    );
+    password.dispose();
+    if (!mounted) return;
+    if (success) {
+      context.go(AppRouter.dashboard);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(auth.error ?? 'Unable to switch account')),
+      );
+    }
+  }
+
+  Future<void> _showAccountSecurityDialog(UserModel user) async {
+    final auth = context.read<AuthProvider>();
+    final currentPassword = TextEditingController();
+    final newEmail = TextEditingController(text: user.email);
+    final newPassword = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Account & Security'),
+        content: SizedBox(
+          width: 430,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: newEmail,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Email / username',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: currentPassword,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Current password',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: newPassword,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'New password',
+                  helperText: 'Leave blank to keep the current password.',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) {
+      currentPassword.dispose();
+      newEmail.dispose();
+      newPassword.dispose();
+      return;
+    }
+    final success = await auth.updateCredentials(
+      currentPassword: currentPassword.text,
+      newEmail: newEmail.text,
+      newPassword: newPassword.text,
+    );
+    currentPassword.dispose();
+    newEmail.dispose();
+    newPassword.dispose();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'Account credentials updated.'
+              : (auth.error ?? 'Unable to update credentials'),
+        ),
+      ),
+    );
+  }
+
   Future<void> _showNotificationHistory(UserModel user) async {
     await showDialog<void>(
       context: context,
@@ -675,6 +827,8 @@ class _TopBar extends StatelessWidget {
   final VoidCallback onNotifications;
   final VoidCallback onSettings;
   final VoidCallback onProfile;
+  final VoidCallback onSwitchAccount;
+  final VoidCallback onAccountSecurity;
   final VoidCallback onLogout;
   final VoidCallback onAddWidget;
   final VoidCallback onSearch;
@@ -691,6 +845,8 @@ class _TopBar extends StatelessWidget {
     required this.onNotifications,
     required this.onSettings,
     required this.onProfile,
+    required this.onSwitchAccount,
+    required this.onAccountSecurity,
     required this.onLogout,
     required this.onAddWidget,
     required this.onSearch,
@@ -837,6 +993,7 @@ class _TopBar extends StatelessWidget {
             onSelected: (value) {
               if (value == 'profile') onProfile();
               if (value == 'settings') onSettings();
+              if (value == 'switch_account') onLogout();
               if (value == 'logout') onLogout();
             },
             itemBuilder: (_) => const [
@@ -856,7 +1013,32 @@ class _TopBar extends StatelessWidget {
                   title: Text('Settings'),
                 ),
               ),
+              PopupMenuItem(
+                value: 'security',
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(Icons.lock_outline_rounded),
+                  title: Text('Account & Security'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'switch',
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(Icons.switch_account_outlined),
+                  title: Text('Switch Account'),
+                ),
+              ),
               PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'switch_account',
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(Icons.switch_account_outlined),
+                  title: Text('Switch Account'),
+                  subtitle: Text('Sign in as another user'),
+                ),
+              ),
               PopupMenuItem(
                 value: 'logout',
                 child: ListTile(
@@ -1563,7 +1745,9 @@ class _VerticalNav extends StatelessWidget {
               ),
             ),
             child: Text(
-              iconsOnly ? 'T' : 'Tycoon POS',
+              iconsOnly
+                  ? 'T'
+                  : 'Tycoon Technologies Pvt. Ltd. • Islamabad • 03060626699',
               style: TextStyle(
                 fontSize: iconsOnly ? 12 : 10,
                 fontWeight: FontWeight.w800,
@@ -2141,14 +2325,28 @@ class _NavigationSearch extends SearchDelegate<NavigationItem?> {
 bool _visibleFor(UserModel user, Map<String, dynamic> data) {
   final roles = List<String>.from(data['targetRoles'] ?? const <String>[]);
   final users = List<String>.from(data['targetUserIds'] ?? const <String>[]);
+  final directUser = (data['targetAuthUid'] ?? '').toString().trim();
+
+  if (directUser.isNotEmpty &&
+      directUser != user.authUid &&
+      directUser != user.id) {
+    return false;
+  }
+
   if (users.isNotEmpty &&
       !users.contains(user.authUid) &&
-      !users.contains(user.id))
+      !users.contains(user.id)) {
     return false;
+  }
+
   if (roles.isNotEmpty &&
       !roles.contains(user.role.name) &&
-      !(user.isAdmin && roles.contains('admin')))
+      !(user.isAdmin && roles.contains('admin'))) {
     return false;
-  if (users.isEmpty && roles.isEmpty) return user.isAdmin;
+  }
+
+  // No target means a restaurant-wide operational notification.
+  // Every signed-in restaurant user may see it; read/clear state remains per-user.
+  if (directUser.isEmpty && users.isEmpty && roles.isEmpty) return true;
   return true;
 }
