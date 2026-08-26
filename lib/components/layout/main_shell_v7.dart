@@ -265,17 +265,6 @@ class _MainShellState extends State<MainShell> {
           onAddWidget: () => context.go('${AppRouter.dashboard}?customize=1'),
           onSearch: () => _showCommandSearch(items),
         ),
-        if (_navPlacement == 'top')
-          _SmartNavBar(
-            items: items,
-            currentRoute: route,
-            accent: _accent,
-            background: _navColor,
-            textColor: _navTextColor,
-            favorites: _favorites,
-            shortcutFor: _shortcutFor,
-            onFavorite: _toggleFavorite,
-          ),
         Expanded(
           child: Stack(
             children: [
@@ -305,17 +294,6 @@ class _MainShellState extends State<MainShell> {
             ],
           ),
         ),
-        if (_navPlacement == 'bottom')
-          _SmartNavBar(
-            items: items,
-            currentRoute: route,
-            accent: _accent,
-            background: _navColor,
-            textColor: _navTextColor,
-            favorites: _favorites,
-            shortcutFor: _shortcutFor,
-            onFavorite: _toggleFavorite,
-          ),
       ],
     );
 
@@ -751,12 +729,6 @@ class _TopBar extends StatelessWidget {
                           color: _MainShellState.ink,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 5),
-                    const Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 18,
-                      color: _MainShellState.muted,
                     ),
                   ],
                 ),

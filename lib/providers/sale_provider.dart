@@ -44,7 +44,8 @@ class SaleProvider with ChangeNotifier {
       final vendorSnap = await tx.get(vendorRef);
       if (!vendorSnap.exists) return;
       final data = vendorSnap.data() ?? <String, dynamic>{};
-      final plan = (data['billingPlanId'] ?? data['subscriptionType'] ?? '').toString();
+      final plan = (data['billingPlanId'] ?? data['subscriptionType'] ?? '')
+          .toString();
       if (plan != 'perTransaction') return;
 
       final existing = await tx.get(usageRef);
@@ -89,7 +90,11 @@ class SaleProvider with ChangeNotifier {
       final usageData = usage.data() ?? <String, dynamic>{};
       if ((usageData['status'] ?? '').toString() != 'billable') return;
 
-      final rawRate = usageData['amount'] ?? usageData['billableAmount'] ?? usageData['rate'] ?? 1;
+      final rawRate =
+          usageData['amount'] ??
+          usageData['billableAmount'] ??
+          usageData['rate'] ??
+          1;
       final rate = rawRate is num ? rawRate.toDouble() : 1.0;
       tx.set(usageRef, {
         'status': 'cancelled',
@@ -120,16 +125,21 @@ class SaleProvider with ChangeNotifier {
         .collection('sales')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .listen((snapshot) {
-      _sales = snapshot.docs.map((doc) => Sale.fromMap(doc.data())).toList();
-      _isLoading = false;
-      _error = null;
-      notifyListeners();
-    }, onError: (Object error) {
-      _isLoading = false;
-      _error = error.toString();
-      notifyListeners();
-    });
+        .listen(
+          (snapshot) {
+            _sales = snapshot.docs
+                .map((doc) => Sale.fromMap(doc.data()))
+                .toList();
+            _isLoading = false;
+            _error = null;
+            notifyListeners();
+          },
+          onError: (Object error) {
+            _isLoading = false;
+            _error = error.toString();
+            notifyListeners();
+          },
+        );
   }
 
   Future<void> updateSale(String vendorId, Sale sale) async {

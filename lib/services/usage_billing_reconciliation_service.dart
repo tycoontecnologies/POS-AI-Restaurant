@@ -9,7 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class UsageBillingReconciliationService {
   final FirebaseFirestore _db;
   UsageBillingReconciliationService({FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
+    : _db = firestore ?? FirebaseFirestore.instance;
 
   Future<void> reconcile(String restaurantId) async {
     final vendorRef = _db.collection('vendors').doc(restaurantId);
@@ -103,7 +103,8 @@ class UsageBillingReconciliationService {
     for (final doc in fresh.docs) {
       final data = doc.data();
       final status = (data['status'] ?? 'billable').toString();
-      final rawAmount = data['amount'] ?? data['billableAmount'] ?? data['rate'] ?? rate;
+      final rawAmount =
+          data['amount'] ?? data['billableAmount'] ?? data['rate'] ?? rate;
       final amount = rawAmount is num ? rawAmount.toDouble() : rate;
       if (status == 'billable') {
         successful++;
