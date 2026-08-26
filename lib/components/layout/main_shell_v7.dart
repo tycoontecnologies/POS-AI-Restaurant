@@ -993,7 +993,8 @@ class _TopBar extends StatelessWidget {
             onSelected: (value) {
               if (value == 'profile') onProfile();
               if (value == 'settings') onSettings();
-              if (value == 'switch_account') onLogout();
+              if (value == 'security') onAccountSecurity();
+              if (value == 'switch') onSwitchAccount();
               if (value == 'logout') onLogout();
             },
             itemBuilder: (_) => const [
@@ -1030,15 +1031,6 @@ class _TopBar extends StatelessWidget {
                 ),
               ),
               PopupMenuDivider(),
-              PopupMenuItem(
-                value: 'switch_account',
-                child: ListTile(
-                  dense: true,
-                  leading: Icon(Icons.switch_account_outlined),
-                  title: Text('Switch Account'),
-                  subtitle: Text('Sign in as another user'),
-                ),
-              ),
               PopupMenuItem(
                 value: 'logout',
                 child: ListTile(

@@ -1088,16 +1088,7 @@ class _TicketPanel extends StatelessWidget {
                       onTap: busy ? null : onCheckout,
                     ),
                   const SizedBox(height: 8),
-                  if (onBill == null)
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: busy ? null : onKot,
-                        icon: const Icon(Icons.print_outlined, size: 15),
-                        label: Text(state == 'open' ? 'KOT' : 'Reprint KOT'),
-                      ),
-                    )
-                  else
+                  if (onBill != null)
                     Row(
                       children: [
                         Expanded(
