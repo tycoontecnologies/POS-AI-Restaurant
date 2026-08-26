@@ -130,18 +130,21 @@ else:
     raise SystemExit(f'ERROR: category strip replacement count={n}')
 
 # 2) Remove the ghost/disabled Bill half-button. KOT takes full width when Bill is unavailable.
-actions = re.compile(
-    r"Row\(children:\s*\[\s*Expanded\(child:\s*OutlinedButton\.icon\(onPressed:\s*busy \? null : onKot,.*?label:\s*Text\(state == 'open' \? 'KOT' : 'Reprint KOT'\)\)\),\s*const SizedBox\(width:\s*8\),\s*Expanded\(child:\s*OutlinedButton\.icon\(onPressed:\s*busy \? null : onBill,.*?label:\s*const Text\('Bill'\)\)\)\s*\]\),",
-    re.S,
-)
-new_actions = "if (onBill == null) SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: busy ? null : onKot, icon: const Icon(Icons.print_outlined, size: 15), label: Text(state == 'open' ? 'KOT' : 'Reprint KOT'))) else Row(children: [Expanded(child: OutlinedButton.icon(onPressed: busy ? null : onKot, icon: const Icon(Icons.print_outlined, size: 15), label: Text(state == 'open' ? 'KOT' : 'Reprint KOT'))), const SizedBox(width: 8), Expanded(child: OutlinedButton.icon(onPressed: busy ? null : onBill, icon: const Icon(Icons.receipt_long_outlined, size: 15), label: const Text('Bill')))]),"
-pos, n = actions.subn(new_actions, pos, count=1)
-if n == 1:
-    print('OK: removed ghost disabled Bill area')
-elif 'if (onBill == null) SizedBox(width: double.infinity' in pos:
+if 'if (onBill == null) SizedBox(width: double.infinity' in pos:
     print('SKIP: ghost Bill area already patched')
 else:
-    raise SystemExit('ERROR: ticket secondary action anchor not found')
+    start_marker = "Row(children: [Expanded(child: OutlinedButton.icon(onPressed: busy ? null : onKot"
+    end_marker = "label: const Text('Bill')))]),"
+    start = pos.find(start_marker)
+    if start < 0:
+        raise SystemExit('ERROR: KOT action row start not found')
+    end = pos.find(end_marker, start)
+    if end < 0:
+        raise SystemExit('ERROR: Bill action row end not found')
+    end += len(end_marker)
+    new_actions = "if (onBill == null) SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: busy ? null : onKot, icon: const Icon(Icons.print_outlined, size: 15), label: Text(state == 'open' ? 'KOT' : 'Reprint KOT'))) else Row(children: [Expanded(child: OutlinedButton.icon(onPressed: busy ? null : onKot, icon: const Icon(Icons.print_outlined, size: 15), label: Text(state == 'open' ? 'KOT' : 'Reprint KOT'))), const SizedBox(width: 8), Expanded(child: OutlinedButton.icon(onPressed: busy ? null : onBill, icon: const Icon(Icons.receipt_long_outlined, size: 15), label: const Text('Bill')))]),"
+    pos = pos[:start] + new_actions + pos[end:]
+    print('OK: removed ghost disabled Bill area')
 
 POS.write_text(pos)
 
