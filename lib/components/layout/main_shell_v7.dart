@@ -34,7 +34,7 @@ class _MainShellState extends State<MainShell> {
   bool _online = true;
   String _navPlacement = 'left';
   String _navBackground = 'white';
-  String _buttonColor = 'purple';
+  String _buttonColor = 'burgundy';
   String _navDisplayMode = 'iconsNames';
   Set<String> _favorites = <String>{};
 
@@ -65,7 +65,7 @@ class _MainShellState extends State<MainShell> {
           _navPlacement = 'left';
         }
         _navBackground = (data['uiNavBackground'] ?? 'white').toString();
-        _buttonColor = (data['uiButtonColor'] ?? 'purple').toString();
+        _buttonColor = (data['uiButtonColor'] ?? 'burgundy').toString();
         _navDisplayMode = (data['uiNavDisplayMode'] ?? 'iconsNames').toString();
         _favorites = Set<String>.from(
           (data['favoriteFeatures'] as List?)?.map((e) => e.toString()) ??
@@ -252,6 +252,7 @@ class _MainShellState extends State<MainShell> {
       children: [
         _TopBar(
           user: user,
+          items: items,
           title: title,
           accent: _accent,
           online: _online,
@@ -299,6 +300,7 @@ class _MainShellState extends State<MainShell> {
 
     if (vertical) {
       final rail = _VerticalNav(
+        user: user,
         items: items,
         currentRoute: route,
         accent: _accent,
@@ -663,6 +665,7 @@ class _MainShellState extends State<MainShell> {
 
 class _TopBar extends StatelessWidget {
   final UserModel user;
+  final List<NavigationItem> items;
   final String title;
   final Color accent;
   final bool online;
@@ -678,6 +681,7 @@ class _TopBar extends StatelessWidget {
 
   const _TopBar({
     required this.user,
+    required this.items,
     required this.title,
     required this.accent,
     required this.online,
@@ -692,163 +696,142 @@ class _TopBar extends StatelessWidget {
     required this.onSearch,
   });
 
+  NavigationItem? _utility(String kind) {
+    for (final item in items) {
+      final label = item.label.trim().toLowerCase();
+      if (kind == 'pra' && label == 'pra') return item;
+      if (kind == 'help' &&
+          (label == 'help ai' ||
+              label == 'help / ai' ||
+              label == 'help & ai' ||
+              label == 'ai help' ||
+              label == 'help' ||
+              label == 'ai assistant'))
+        return item;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final restaurant = user.restaurantName.isEmpty
-        ? 'Restaurant'
-        : user.restaurantName;
     final initials = user.name.trim().isEmpty
         ? 'U'
         : user.name.trim().substring(0, 1).toUpperCase();
+    final pra = _utility('pra');
+    final help = _utility('help');
+
     return Container(
-      height: 84,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      height: 68,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: _MainShellState.line)),
       ),
       child: Row(
         children: [
-          _RestaurantLogo(user: user, size: 48),
-          const SizedBox(width: 10),
           SizedBox(
-            width: 250,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        restaurant,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                          color: _MainShellState.ink,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                Text(
-                  '${user.branchName} • $title',
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    color: _MainShellState.muted,
-                  ),
-                ),
-              ],
+            width: 170,
+            child: Text(
+              title,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w900,
+                color: _MainShellState.ink,
+              ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 10),
           Expanded(
-            child: InkWell(
-              onTap: onSearch,
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                height: 44,
-                constraints: const BoxConstraints(maxWidth: 470),
-                padding: const EdgeInsets.symmetric(horizontal: 13),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _MainShellState.line),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.search_rounded,
-                      size: 20,
-                      color: _MainShellState.muted,
-                    ),
-                    SizedBox(width: 9),
-                    Expanded(
-                      child: Text(
-                        'Search anything…',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _MainShellState.muted,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 360),
+              child: InkWell(
+                onTap: onSearch,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 13),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _MainShellState.line),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.search_rounded,
+                        size: 19,
+                        color: _MainShellState.muted,
+                      ),
+                      SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          'Search anything…',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _MainShellState.muted,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const Spacer(),
           OutlinedButton.icon(
             onPressed: onAddWidget,
-            icon: Icon(Icons.add_rounded, color: accent, size: 18),
+            icon: Icon(Icons.widgets_outlined, color: accent, size: 17),
             label: Text(
-              'Add Widget',
+              'Widgets',
               style: TextStyle(color: accent, fontWeight: FontWeight.w800),
             ),
             style: OutlinedButton.styleFrom(
-              side: BorderSide(color: accent.withValues(alpha: .45)),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            ),
-          ),
-          const SizedBox(width: 10),
-          PopupMenuButton<bool>(
-            tooltip: 'Presence',
-            onSelected: onPresence,
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: true, child: Text('Go Online')),
-              PopupMenuItem(value: false, child: Text('Go Offline')),
-            ],
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: online ? const Color(0xFFECFDF3) : _MainShellState.soft,
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.circle,
-                    size: 7,
-                    color: online
-                        ? const Color(0xFF12B76A)
-                        : _MainShellState.muted,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    online ? 'Online' : 'Offline',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: online
-                          ? const Color(0xFF027A48)
-                          : _MainShellState.muted,
-                    ),
-                  ),
-                  const Icon(Icons.arrow_drop_down_rounded, size: 16),
-                ],
+              minimumSize: const Size(96, 40),
+              side: BorderSide(color: accent.withValues(alpha: .42)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
-          ),
-          const SizedBox(width: 6),
-          IconButton(
-            tooltip: 'Packages, fees & usage',
-            onPressed: onBilling,
-            icon: Icon(Icons.account_balance_wallet_outlined, color: accent),
-          ),
-          _NotificationButton(user: user, onTap: onNotifications),
-          IconButton(
-            tooltip: 'Interface',
-            onPressed: onInterfaceSettings,
-            icon: const Icon(Icons.tune_rounded),
-          ),
-          IconButton(
-            tooltip: 'Settings',
-            onPressed: onSettings,
-            icon: const Icon(Icons.settings_outlined),
           ),
           const SizedBox(width: 4),
+          if (pra != null)
+            Tooltip(
+              message: 'PRA',
+              child: IconButton(
+                onPressed: () => context.go(pra.route),
+                icon: Icon(Icons.verified_user_outlined, color: accent),
+              ),
+            ),
+          if (help != null)
+            Tooltip(
+              message: 'Help / AI',
+              child: IconButton(
+                onPressed: () => context.go(help.route),
+                icon: Icon(Icons.auto_awesome_outlined, color: accent),
+              ),
+            ),
+          Tooltip(
+            message: 'Tycoon Account & Billing',
+            child: IconButton(
+              onPressed: onBilling,
+              icon: Icon(Icons.account_balance_wallet_outlined, color: accent),
+            ),
+          ),
+          _NotificationButton(
+            user: user,
+            accent: accent,
+            onTap: onNotifications,
+          ),
+          Tooltip(
+            message: 'Interface & Navigation',
+            child: IconButton(
+              onPressed: onInterfaceSettings,
+              icon: const Icon(Icons.tune_rounded),
+            ),
+          ),
+          const SizedBox(width: 3),
           PopupMenuButton<String>(
             tooltip: 'Profile',
             onSelected: (value) {
@@ -860,6 +843,7 @@ class _TopBar extends StatelessWidget {
               PopupMenuItem(
                 value: 'profile',
                 child: ListTile(
+                  dense: true,
                   leading: Icon(Icons.person_outline),
                   title: Text('My Profile'),
                 ),
@@ -867,6 +851,7 @@ class _TopBar extends StatelessWidget {
               PopupMenuItem(
                 value: 'settings',
                 child: ListTile(
+                  dense: true,
                   leading: Icon(Icons.settings_outlined),
                   title: Text('Settings'),
                 ),
@@ -875,6 +860,7 @@ class _TopBar extends StatelessWidget {
               PopupMenuItem(
                 value: 'logout',
                 child: ListTile(
+                  dense: true,
                   leading: Icon(Icons.logout_rounded),
                   title: Text('Logout'),
                 ),
@@ -895,30 +881,74 @@ class _TopBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 7),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 95),
+                  constraints: const BoxConstraints(maxWidth: 140),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         user.name.isEmpty ? 'User' : user.name,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      Text(
-                        user.role.name,
-                        style: const TextStyle(
-                          fontSize: 9.5,
-                          color: _MainShellState.muted,
-                        ),
+                      const SizedBox(height: 1),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            user.role.name,
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              color: _MainShellState.muted,
+                            ),
+                          ),
+                          const Text(
+                            ' • ',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              color: _MainShellState.muted,
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => onPresence(!online),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: online
+                                        ? const Color(0xFF12B76A)
+                                        : const Color(0xFF98A2B3),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  online ? 'Online' : 'Offline',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: online
+                                        ? const Color(0xFF027A48)
+                                        : _MainShellState.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.keyboard_arrow_down_rounded, size: 17),
+                const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
               ],
             ),
           ),
@@ -967,15 +997,34 @@ class _RestaurantLogo extends StatelessWidget {
   }
 }
 
-class _NotificationButton extends StatelessWidget {
+class _NotificationButton extends StatefulWidget {
   final UserModel user;
+  final Color accent;
   final VoidCallback onTap;
-  const _NotificationButton({required this.user, required this.onTap});
+  const _NotificationButton({
+    required this.user,
+    required this.accent,
+    required this.onTap,
+  });
+  @override
+  State<_NotificationButton> createState() => _NotificationButtonState();
+}
+
+class _NotificationButtonState extends State<_NotificationButton> {
+  bool _open = false;
+  void _tap() {
+    setState(() => _open = true);
+    widget.onTap();
+    Future<void>.delayed(const Duration(milliseconds: 250), () {
+      if (mounted) setState(() => _open = false);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final query = FirebaseFirestore.instance
         .collection('vendors')
-        .doc(user.id)
+        .doc(widget.user.id)
         .collection('notifications')
         .orderBy('createdAt', descending: true)
         .limit(50);
@@ -989,25 +1038,39 @@ class _NotificationButton extends StatelessWidget {
                   final d = doc.data();
                   final cleared = List<String>.from(
                     d['clearedBy'] ?? const <String>[],
-                  ).contains(user.authUid);
+                  ).contains(widget.user.authUid);
                   final read = List<String>.from(
                     d['readBy'] ?? const <String>[],
-                  ).contains(user.authUid);
-                  return !cleared && !read && _visibleFor(user, d);
+                  ).contains(widget.user.authUid);
+                  return !cleared && !read && _visibleFor(widget.user, d);
                 })
                 .length;
+        final active = count > 0 || _open;
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            IconButton(
-              tooltip: 'Notifications',
-              onPressed: onTap,
-              icon: const Icon(Icons.notifications_none_rounded),
+            Material(
+              color: _open
+                  ? widget.accent.withValues(alpha: .10)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              child: IconButton(
+                tooltip: count > 0
+                    ? 'Notifications • $count unread'
+                    : 'Notifications',
+                onPressed: _tap,
+                icon: Icon(
+                  count > 0
+                      ? Icons.notifications_active_rounded
+                      : Icons.notifications_none_rounded,
+                  color: active ? widget.accent : _MainShellState.ink,
+                ),
+              ),
             ),
             if (count > 0)
               Positioned(
-                right: 5,
-                top: 4,
+                right: 3,
+                top: 2,
                 child: Container(
                   constraints: const BoxConstraints(minWidth: 17),
                   height: 17,
@@ -1320,14 +1383,16 @@ class _NoScrollbarBehavior extends ScrollBehavior {
 }
 
 class _VerticalNav extends StatelessWidget {
+  final UserModel user;
   final List<NavigationItem> items;
   final String currentRoute;
   final Color accent, background, textColor;
   final Set<String> favorites;
   final String Function(String) shortcutFor;
-  final ValueChanged<String> onFavorite;
   final String displayMode;
+  final ValueChanged<String> onFavorite;
   const _VerticalNav({
+    required this.user,
     required this.items,
     required this.currentRoute,
     required this.accent,
@@ -1335,60 +1400,181 @@ class _VerticalNav extends StatelessWidget {
     required this.textColor,
     required this.favorites,
     required this.shortcutFor,
-    required this.onFavorite,
     required this.displayMode,
+    required this.onFavorite,
   });
+
+  bool _utility(NavigationItem item) {
+    final x = item.label.trim().toLowerCase();
+    return x == 'pra' ||
+        x == 'help ai' ||
+        x == 'help / ai' ||
+        x == 'help & ai' ||
+        x == 'ai help' ||
+        x == 'help' ||
+        x == 'ai assistant';
+  }
+
   @override
-  Widget build(BuildContext context) => Container(
-    width: displayMode == 'iconsOnly'
-        ? 76
-        : displayMode == 'iconsKeys'
-        ? 135
-        : displayMode == 'full'
-        ? 260
-        : 215,
-    color: background,
-    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-    child: ListView(
-      children: items.map((item) {
-        final active =
-            currentRoute == item.route ||
-            (item.route != '/' && currentRoute.startsWith(item.route));
-        return ListTile(
-          dense: true,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          selected: active,
-          selectedTileColor: accent.withValues(alpha: .09),
-          leading: Icon(
-            item.icon,
-            size: 18,
-            color: active ? accent : textColor,
-          ),
-          title: displayMode == 'iconsOnly'
-              ? null
-              : displayMode == 'iconsKeys'
-              ? _KeyHint(shortcutFor(item.label))
-              : Text(
-                  item.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                    color: active ? accent : textColor,
+  Widget build(BuildContext context) {
+    final iconsOnly = displayMode == 'iconsOnly';
+    final iconsKeys = displayMode == 'iconsKeys';
+    final full = displayMode == 'full';
+    final width = iconsOnly
+        ? 72.0
+        : iconsKeys
+        ? 104.0
+        : full
+        ? 245.0
+        : 215.0;
+    final navItems = items.where((item) => !_utility(item)).toList();
+    final restaurant = user.restaurantName.isEmpty
+        ? 'Restaurant'
+        : user.restaurantName;
+
+    return Container(
+      width: width,
+      color: background,
+      child: Column(
+        children: [
+          Container(
+            height: 82,
+            padding: EdgeInsets.symmetric(horizontal: iconsOnly ? 10 : 13),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: textColor.withValues(alpha: .15)),
+              ),
+            ),
+            child: iconsOnly
+                ? Center(child: _RestaurantLogo(user: user, size: 46))
+                : Row(
+                    children: [
+                      _RestaurantLogo(user: user, size: 43),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          restaurant,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-          trailing: displayMode == 'full'
-              ? _KeyHint(shortcutFor(item.label))
-              : null,
-          onTap: () => context.go(item.route),
-          onLongPress: () => onFavorite(item.route),
-        );
-      }).toList(),
-    ),
-  );
+          ),
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(8, 9, 8, 9),
+              itemCount: navItems.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 2),
+              itemBuilder: (_, index) {
+                final item = navItems[index];
+                final active =
+                    currentRoute == item.route ||
+                    (item.route != '/' && currentRoute.startsWith(item.route));
+                final showName = !iconsOnly && !iconsKeys;
+                final showKey = iconsKeys || full;
+                Widget tile = Material(
+                  color: active
+                      ? accent.withValues(alpha: .12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(9),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(9),
+                    onTap: () => context.go(item.route),
+                    onLongPress: () => onFavorite(item.route),
+                    child: SizedBox(
+                      height: 43,
+                      child: Row(
+                        mainAxisAlignment: iconsOnly
+                            ? MainAxisAlignment.center
+                            : MainAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: iconsOnly ? 56 : 42,
+                            child: Icon(
+                              item.icon,
+                              size: 19,
+                              color: active ? accent : textColor,
+                            ),
+                          ),
+                          if (showName)
+                            Expanded(
+                              child: Text(
+                                item.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: active ? accent : textColor,
+                                  fontSize: 12,
+                                  fontWeight: active
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          if (showKey)
+                            Container(
+                              margin: const EdgeInsets.only(right: 7),
+                              constraints: const BoxConstraints(minWidth: 25),
+                              height: 24,
+                              alignment: Alignment.center,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: active
+                                    ? accent.withValues(alpha: .12)
+                                    : const Color(0xFFF2F4F7),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                shortcutFor(item.label),
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: active
+                                      ? accent
+                                      : _MainShellState.muted,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+                if (iconsOnly || iconsKeys)
+                  tile = Tooltip(message: item.label, child: tile);
+                return tile;
+              },
+            ),
+          ),
+          Container(
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: textColor.withValues(alpha: .15)),
+              ),
+            ),
+            child: Text(
+              iconsOnly ? 'T' : 'Tycoon POS',
+              style: TextStyle(
+                fontSize: iconsOnly ? 12 : 10,
+                fontWeight: FontWeight.w800,
+                color: textColor.withValues(alpha: .65),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _FeatureWorkspace extends StatefulWidget {

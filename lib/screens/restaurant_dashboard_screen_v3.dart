@@ -47,6 +47,15 @@ class _RestaurantDashboardScreenV3State
   bool _prefsLoaded = false;
   bool _customizerShown = false;
   Set<String> _visible = _allSections.keys.toSet();
+  List<String> _sectionOrder = _allSections.keys.toList();
+  List<String> _kpiOrder = const [
+    'sales',
+    'orders',
+    'avg',
+    'kitchenTime',
+    'tables',
+    'pra',
+  ].toList();
 
   DocumentReference<Map<String, dynamic>>? get _prefsRef {
     final user = context.read<AuthProvider>().currentUser;
@@ -91,8 +100,45 @@ class _RestaurantDashboardScreenV3State
           ?.map((e) => e.toString())
           .where(_allSections.containsKey)
           .toSet();
-      if (visible != null && visible.isNotEmpty)
-        setState(() => _visible = visible);
+      final savedOrder = (data['sectionOrder'] as List?)
+          ?.map((e) => e.toString())
+          .where(_allSections.containsKey)
+          .toList();
+      final savedKpis = (data['kpiOrder'] as List?)
+          ?.map((e) => e.toString())
+          .where(
+            const {
+              'sales',
+              'orders',
+              'avg',
+              'kitchenTime',
+              'tables',
+              'pra',
+            }.contains,
+          )
+          .toList();
+      setState(() {
+        if (visible != null && visible.isNotEmpty) _visible = visible;
+        if (savedOrder != null && savedOrder.isNotEmpty) {
+          _sectionOrder = [
+            ...savedOrder,
+            ..._allSections.keys.where((x) => !savedOrder.contains(x)),
+          ];
+        }
+        if (savedKpis != null && savedKpis.isNotEmpty) {
+          _kpiOrder = [
+            ...savedKpis,
+            ...[
+              'sales',
+              'orders',
+              'avg',
+              'kitchenTime',
+              'tables',
+              'pra',
+            ].where((x) => !savedKpis.contains(x)),
+          ];
+        }
+      });
     } catch (_) {}
   }
 
@@ -100,6 +146,8 @@ class _RestaurantDashboardScreenV3State
     try {
       await _prefsRef?.set({
         'visibleSections': _visible.toList(),
+        'sectionOrder': _sectionOrder,
+        'kpiOrder': _kpiOrder,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (_) {}
@@ -211,65 +259,37 @@ class _RestaurantDashboardScreenV3State
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Dashboard',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              color: _ink,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          const Text(
-                            'Overview of your restaurant operations',
-                            style: TextStyle(fontSize: 11, color: _muted),
-                          ),
-                        ],
-                      ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 11),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: _line),
+                      borderRadius: BorderRadius.circular(9),
                     ),
-                    Container(
-                      height: 40,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: _line),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.calendar_today_outlined,
-                            size: 16,
-                            color: _muted,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.calendar_today_outlined,
+                          size: 15,
+                          color: _muted,
+                        ),
+                        const SizedBox(width: 7),
+                        Text(
+                          'Today, ${DateFormat('d MMM yyyy').format(now)}',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Today, ${DateFormat('d MMM yyyy').format(now)}',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    if (user.canAddWidgets) ...[
-                      const SizedBox(width: 8),
-                      IconButton(
-                        tooltip: 'Customize widgets',
-                        onPressed: _customize,
-                        icon: const Icon(Icons.tune_rounded),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 10),
                 LayoutBuilder(
                   builder: (_, constraints) {
                     final width = constraints.maxWidth;
@@ -283,6 +303,7 @@ class _RestaurantDashboardScreenV3State
                     final cardWidth = (width - (columns - 1) * 12) / columns;
                     final kpis = [
                       _Kpi(
+                        'sales',
                         'Total Sales',
                         'Rs ${_money(todayRevenue)}',
                         Icons.account_balance_wallet_outlined,
@@ -290,6 +311,7 @@ class _RestaurantDashboardScreenV3State
                         _salesTrend(sales),
                       ),
                       _Kpi(
+                        'orders',
                         'Orders',
                         '${todaySales.length}',
                         Icons.receipt_long_outlined,
@@ -297,6 +319,7 @@ class _RestaurantDashboardScreenV3State
                         _orderTrend(sales),
                       ),
                       _Kpi(
+                        'avg',
                         'Average Bill',
                         'Rs ${_money(avgBill)}',
                         Icons.point_of_sale_outlined,
@@ -304,6 +327,7 @@ class _RestaurantDashboardScreenV3State
                         const <double>[],
                       ),
                       _Kpi(
+                        'kitchenTime',
                         'Kitchen Time',
                         kitchenAverage == null
                             ? '—'
@@ -313,6 +337,7 @@ class _RestaurantDashboardScreenV3State
                         const <double>[],
                       ),
                       _Kpi(
+                        'tables',
                         'Active Tables',
                         '$activeTables / ${tables.length}',
                         Icons.table_restaurant_outlined,
@@ -320,6 +345,7 @@ class _RestaurantDashboardScreenV3State
                         const <double>[],
                       ),
                       _Kpi(
+                        'pra',
                         'PRA Finalized',
                         '$praFinalized / ${todaySales.length}',
                         Icons.verified_user_outlined,
@@ -327,17 +353,59 @@ class _RestaurantDashboardScreenV3State
                         const <double>[],
                       ),
                     ];
+                    final byId = {for (final kpi in kpis) kpi.id: kpi};
+                    final ordered = _kpiOrder
+                        .map((id) => byId[id])
+                        .whereType<_Kpi>()
+                        .toList();
                     return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: kpis
-                          .map(
-                            (kpi) => SizedBox(
-                              width: cardWidth,
-                              child: _KpiCard(data: kpi),
-                            ),
-                          )
-                          .toList(),
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: ordered.map((kpi) {
+                        return DragTarget<String>(
+                          onWillAcceptWithDetails: (d) =>
+                              d.data != kpi.id && _kpiOrder.contains(d.data),
+                          onAcceptWithDetails: (d) {
+                            final from = _kpiOrder.indexOf(d.data);
+                            final to = _kpiOrder.indexOf(kpi.id);
+                            if (from < 0 || to < 0 || from == to) return;
+                            setState(() {
+                              final moved = _kpiOrder.removeAt(from);
+                              _kpiOrder.insert(to, moved);
+                            });
+                            _savePrefs();
+                          },
+                          builder: (_, candidate, __) =>
+                              LongPressDraggable<String>(
+                                data: kpi.id,
+                                feedback: Material(
+                                  color: Colors.transparent,
+                                  child: SizedBox(
+                                    width: cardWidth,
+                                    child: Opacity(
+                                      opacity: .92,
+                                      child: _KpiCard(data: kpi),
+                                    ),
+                                  ),
+                                ),
+                                childWhenDragging: SizedBox(
+                                  width: cardWidth,
+                                  child: Opacity(
+                                    opacity: .30,
+                                    child: _KpiCard(data: kpi),
+                                  ),
+                                ),
+                                child: SizedBox(
+                                  width: cardWidth,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(14),
+                                    onTap: () => _showKpiDetails(kpi),
+                                    child: _KpiCard(data: kpi),
+                                  ),
+                                ),
+                              ),
+                        );
+                      }).toList(),
                     );
                   },
                 ),
@@ -351,59 +419,84 @@ class _RestaurantDashboardScreenV3State
                         : medium
                         ? (constraints.maxWidth - 12) / 2
                         : constraints.maxWidth;
-                    final sections = <Widget>[];
+                    final widgets = <String, Widget>{};
                     if (_visible.contains('salesChart'))
-                      sections.add(
-                        SizedBox(
-                          width: wide ? cardWidth * 1.35 : cardWidth,
-                          height: 330,
-                          child: _SalesOverviewCard(sales: sales),
-                        ),
+                      widgets['salesChart'] = SizedBox(
+                        width: wide ? cardWidth * 1.35 : cardWidth,
+                        height: 330,
+                        child: _SalesOverviewCard(sales: sales),
                       );
                     if (_visible.contains('recentOrders'))
-                      sections.add(
-                        SizedBox(
-                          width: cardWidth,
-                          height: 330,
-                          child: _RecentOrdersCard(sales: sales),
-                        ),
+                      widgets['recentOrders'] = SizedBox(
+                        width: cardWidth,
+                        height: 330,
+                        child: _RecentOrdersCard(sales: sales),
                       );
                     if (_visible.contains('topItems'))
-                      sections.add(
-                        SizedBox(
-                          width: wide ? cardWidth * .65 : cardWidth,
-                          height: 330,
-                          child: _TopItemsCard(sales: sales),
-                        ),
+                      widgets['topItems'] = SizedBox(
+                        width: wide ? cardWidth * .65 : cardWidth,
+                        height: 330,
+                        child: _TopItemsCard(sales: sales),
                       );
                     if (_visible.contains('kitchen'))
-                      sections.add(
-                        SizedBox(
-                          width: cardWidth,
-                          height: 260,
-                          child: _KitchenCard(orders: orders),
-                        ),
+                      widgets['kitchen'] = SizedBox(
+                        width: cardWidth,
+                        height: 260,
+                        child: _KitchenCard(orders: orders),
                       );
                     if (_visible.contains('alerts'))
-                      sections.add(
-                        SizedBox(
-                          width: cardWidth,
-                          height: 260,
-                          child: _AlertsCard(user: user),
-                        ),
+                      widgets['alerts'] = SizedBox(
+                        width: cardWidth,
+                        height: 260,
+                        child: _AlertsCard(user: user),
                       );
                     if (_visible.contains('branches'))
-                      sections.add(
-                        SizedBox(
-                          width: cardWidth,
-                          height: 260,
-                          child: _BranchCard(user: user, sales: todaySales),
-                        ),
+                      widgets['branches'] = SizedBox(
+                        width: cardWidth,
+                        height: 260,
+                        child: _BranchCard(user: user, sales: todaySales),
                       );
+                    final orderedIds = _sectionOrder
+                        .where(widgets.containsKey)
+                        .toList();
                     return Wrap(
                       spacing: 12,
                       runSpacing: 12,
-                      children: sections,
+                      children: orderedIds.map((id) {
+                        final child = widgets[id]!;
+                        return DragTarget<String>(
+                          onWillAcceptWithDetails: (d) =>
+                              d.data != id && _sectionOrder.contains(d.data),
+                          onAcceptWithDetails: (d) {
+                            final from = _sectionOrder.indexOf(d.data);
+                            final to = _sectionOrder.indexOf(id);
+                            if (from < 0 || to < 0 || from == to) return;
+                            setState(() {
+                              final moved = _sectionOrder.removeAt(from);
+                              _sectionOrder.insert(to, moved);
+                            });
+                            _savePrefs();
+                          },
+                          builder: (_, candidate, __) =>
+                              LongPressDraggable<String>(
+                                data: id,
+                                feedback: Material(
+                                  color: Colors.transparent,
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth: constraints.maxWidth * .75,
+                                    ),
+                                    child: Opacity(opacity: .90, child: child),
+                                  ),
+                                ),
+                                childWhenDragging: Opacity(
+                                  opacity: .28,
+                                  child: child,
+                                ),
+                                child: child,
+                              ),
+                        );
+                      }).toList(),
                     );
                   },
                 ),
@@ -412,6 +505,73 @@ class _RestaurantDashboardScreenV3State
           ),
         );
       },
+    );
+  }
+
+  Future<void> _showKpiDetails(_Kpi kpi) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: kpi.color.withValues(alpha: .11),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(kpi.icon, color: kpi.color, size: 20),
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: Text(
+                          kpi.label,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Close',
+                        onPressed: () => Navigator.pop(dialogContext),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    kpi.value,
+                    style: const TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w900,
+                      color: _ink,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Drag this KPI on the dashboard to change its position. Your layout is saved automatically.',
+                    style: TextStyle(fontSize: 11, color: _muted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -468,11 +628,18 @@ class _RestaurantDashboardScreenV3State
 }
 
 class _Kpi {
-  final String label, value;
+  final String id, label, value;
   final IconData icon;
   final Color color;
   final List<double> trend;
-  const _Kpi(this.label, this.value, this.icon, this.color, this.trend);
+  const _Kpi(
+    this.id,
+    this.label,
+    this.value,
+    this.icon,
+    this.color,
+    this.trend,
+  );
 }
 
 class _KpiCard extends StatelessWidget {
@@ -480,8 +647,8 @@ class _KpiCard extends StatelessWidget {
   const _KpiCard({required this.data});
   @override
   Widget build(BuildContext context) => Container(
-    height: 132,
-    padding: const EdgeInsets.all(14),
+    height: 102,
+    padding: const EdgeInsets.all(11),
     decoration: _cardDecoration(),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -516,7 +683,7 @@ class _KpiCard extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            fontSize: 19,
+            fontSize: 17,
             fontWeight: FontWeight.w900,
             color: _ink,
           ),
