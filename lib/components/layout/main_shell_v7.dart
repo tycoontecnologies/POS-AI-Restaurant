@@ -35,6 +35,7 @@ class _MainShellState extends State<MainShell> {
   String _navPlacement = 'top';
   String _navBackground = 'white';
   String _buttonColor = 'purple';
+  String _navDisplayMode = 'iconsNames';
   Set<String> _favorites = <String>{};
 
   UserModel? get _user => context.read<AuthProvider>().currentUser;
@@ -62,6 +63,7 @@ class _MainShellState extends State<MainShell> {
         _navPlacement = (data['uiNavPlacement'] ?? 'top').toString();
         _navBackground = (data['uiNavBackground'] ?? 'white').toString();
         _buttonColor = (data['uiButtonColor'] ?? 'purple').toString();
+        _navDisplayMode = (data['uiNavDisplayMode'] ?? 'iconsNames').toString();
         _favorites = Set<String>.from(
           (data['favoriteFeatures'] as List?)?.map((e) => e.toString()) ??
               const <String>[],
@@ -77,6 +79,7 @@ class _MainShellState extends State<MainShell> {
         'uiNavPlacement': _navPlacement,
         'uiNavBackground': _navBackground,
         'uiButtonColor': _buttonColor,
+        'uiNavDisplayMode': _navDisplayMode,
         'favoriteFeatures': _favorites.toList(),
         'presenceOnline': _online,
         'uiPreferencesUpdatedAt': FieldValue.serverTimestamp(),
@@ -322,6 +325,7 @@ class _MainShellState extends State<MainShell> {
         textColor: _navTextColor,
         favorites: _favorites,
         shortcutFor: _shortcutFor,
+        displayMode: _navDisplayMode,
         onFavorite: _toggleFavorite,
       );
       center = Row(
@@ -384,6 +388,7 @@ class _MainShellState extends State<MainShell> {
     String placement = _navPlacement;
     String background = _navBackground;
     String button = _buttonColor;
+    String displayMode = _navDisplayMode;
     final result = await showDialog<List<String>>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -422,6 +427,44 @@ class _MainShellState extends State<MainShell> {
                           .toList(),
                 ),
                 const SizedBox(height: 18),
+                const Text(
+                  'Navigation content',
+
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+
+                const SizedBox(height: 8),
+
+                Wrap(
+                  spacing: 8,
+
+                  runSpacing: 8,
+
+                  children:
+                      [
+                            ('iconsOnly', 'Icons Only'),
+
+                            ('iconsNames', 'Icons + Names'),
+
+                            ('iconsKeys', 'Icons + Short Keys'),
+
+                            ('full', 'Names + Icons + Short Keys'),
+                          ]
+                          .map(
+                            (entry) => ChoiceChip(
+                              label: Text(entry.$2),
+
+                              selected: displayMode == entry.$1,
+
+                              onSelected: (_) =>
+                                  setModal(() => displayMode = entry.$1),
+                            ),
+                          )
+                          .toList(),
+                ),
+
+                const SizedBox(height: 18),
+
                 const Text(
                   'Navigation background',
                   style: TextStyle(fontWeight: FontWeight.w900),
@@ -480,8 +523,12 @@ class _MainShellState extends State<MainShell> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () =>
-                  Navigator.pop(dialogContext, [placement, background, button]),
+              onPressed: () => Navigator.pop(dialogContext, [
+                placement,
+                background,
+                button,
+                displayMode,
+              ]),
               child: const Text('Apply'),
             ),
           ],
@@ -493,6 +540,7 @@ class _MainShellState extends State<MainShell> {
       _navPlacement = result[0];
       _navBackground = result[1];
       _buttonColor = result[2];
+      _navDisplayMode = result[3];
     });
     await _savePrefs();
   }
@@ -1306,6 +1354,7 @@ class _VerticalNav extends StatelessWidget {
   final Set<String> favorites;
   final String Function(String) shortcutFor;
   final ValueChanged<String> onFavorite;
+  final String displayMode;
   const _VerticalNav({
     required this.items,
     required this.currentRoute,
@@ -1315,10 +1364,17 @@ class _VerticalNav extends StatelessWidget {
     required this.favorites,
     required this.shortcutFor,
     required this.onFavorite,
+    required this.displayMode,
   });
   @override
   Widget build(BuildContext context) => Container(
-    width: 210,
+    width: displayMode == 'iconsOnly'
+        ? 76
+        : displayMode == 'iconsKeys'
+        ? 135
+        : displayMode == 'full'
+        ? 260
+        : 215,
     color: background,
     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
     child: ListView(
@@ -1338,15 +1394,23 @@ class _VerticalNav extends StatelessWidget {
             size: 18,
             color: active ? accent : textColor,
           ),
-          title: Text(
-            item.label,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              color: active ? accent : textColor,
-            ),
-          ),
-          trailing: _KeyHint(shortcutFor(item.label)),
+          title: displayMode == 'iconsOnly'
+              ? null
+              : displayMode == 'iconsKeys'
+              ? _KeyHint(shortcutFor(item.label))
+              : Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: active ? accent : textColor,
+                  ),
+                ),
+          trailing: displayMode == 'full'
+              ? _KeyHint(shortcutFor(item.label))
+              : null,
           onTap: () => context.go(item.route),
           onLongPress: () => onFavorite(item.route),
         );
