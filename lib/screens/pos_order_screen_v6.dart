@@ -46,12 +46,7 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
   }
 
   List<String> _categories(List<Product> products) {
-    final values = products
-        .map((p) => p.category)
-        .where((c) => c.trim().isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final values = products.map((p) => p.category).where((c) => c.trim().isNotEmpty).toSet().toList()..sort();
     return ['All', ...values];
   }
 
@@ -60,61 +55,36 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
     return products.where((p) {
       if (!p.hasStock) return false;
       if (_category != 'All' && p.category != _category) return false;
-      return q.isEmpty ||
-          p.name.toLowerCase().contains(q) ||
-          p.category.toLowerCase().contains(q);
+      return q.isEmpty || p.name.toLowerCase().contains(q) || p.category.toLowerCase().contains(q);
     }).toList();
   }
 
   Future<void> _addProduct(Product product) async {
     final orders = context.read<TableOrderProvider>();
     final tables = context.read<TableProvider>();
-
     Future<void> add(ProductVariant? variant, int quantity) async {
       final items = orders.getOrderForTable(widget.table.id);
-      final index = items.indexWhere(
-        (x) => x.product.id == product.id && x.variant?.id == variant?.id,
-      );
+      final index = items.indexWhere((x) => x.product.id == product.id && x.variant?.id == variant?.id);
       if (index >= 0) {
-        await orders.updateTableOrderQuantity(
-          tableId: widget.table.id,
-          itemIndex: index,
-          quantity: items[index].quantity + quantity,
-        );
+        await orders.updateTableOrderQuantity(tableId: widget.table.id, itemIndex: index, quantity: items[index].quantity + quantity);
       } else {
-        await orders.addToTableOrder(
-          tableId: widget.table.id,
-          product: product,
-          variant: variant,
-          quantity: quantity,
-        );
+        await orders.addToTableOrder(tableId: widget.table.id, product: product, variant: variant, quantity: quantity);
       }
       await orders.setOrderStatus(widget.table.id, 'open');
       await tables.updateTableStatus(widget.table.id, TableStatus.occupied);
     }
-
     try {
       if (product.hasVariants && product.activeVariants.isNotEmpty) {
         if (!mounted) return;
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) => SimpleVariantSelector(
-            product: product,
-            onAddToCart: (variant, quantity) async {
-              Navigator.of(dialogContext).pop();
-              await add(variant, quantity);
-            },
-          ),
-        );
+        await showDialog<void>(context: context, builder: (dialogContext) => SimpleVariantSelector(product: product, onAddToCart: (variant, quantity) async {
+          Navigator.of(dialogContext).pop();
+          await add(variant, quantity);
+        }));
       } else {
         await add(null, 1);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to add item: $e')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unable to add item: $e')));
     }
   }
 
@@ -129,34 +99,16 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
     final user = context.read<AuthProvider>().currentUser;
     final items = orders.getOrderForTable(widget.table.id);
     if (user == null || items.isEmpty) return;
-
     setState(() => _busy = true);
     try {
       final info = orders.getOrderInfo(widget.table.id);
-      final kotNumber = (info['kotNumber'] ?? '').toString().trim().isEmpty
-          ? _timestampId()
-          : info['kotNumber'].toString();
+      final kotNumber = (info['kotNumber'] ?? '').toString().trim().isEmpty ? _timestampId() : info['kotNumber'].toString();
       await orders.setOrderStatus(widget.table.id, 'making');
-      await orders.setOrderMeta(widget.table.id, {
-        'kotNumber': kotNumber,
-        'kotSentAt': DateTime.now(),
-      });
-
-      final pdf = await PdfService.createKOT(
-        items: items,
-        table: widget.table,
-        user: user,
-        orderType: 'Dine In',
-        kotNumber: kotNumber,
-      );
+      await orders.setOrderMeta(widget.table.id, {'kotNumber': kotNumber, 'kotSentAt': DateTime.now()});
+      final pdf = await PdfService.createKOT(items: items, table: widget.table, user: user, orderType: 'Dine In', kotNumber: kotNumber);
       await Printing.layoutPdf(onLayout: (PdfPageFormat _) async => pdf.save());
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('KOT Sent to Kitchen'),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('KOT Sent to Kitchen'), backgroundColor: AppColors.success));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -170,14 +122,7 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
     return Sale(
       id: id,
       vendorId: user.id,
-      items: items
-          .map((item) => SaleItem(
-                productId: item.product.id,
-                productName: item.displayName,
-                price: item.unitPrice,
-                quantity: item.quantity,
-              ))
-          .toList(),
+      items: items.map((item) => SaleItem(productId: item.product.id, productName: item.displayName, price: item.unitPrice, quantity: item.quantity)).toList(),
       total: items.fold<double>(0, (sum, item) => sum + item.totalPrice),
       createdAt: DateTime.now(),
       tableNumber: widget.table.tableNumber,
@@ -193,29 +138,16 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
     final user = context.read<AuthProvider>().currentUser;
     final orderStatus = orders.getOrderStatus(widget.table.id);
     if (user == null || orders.getOrderForTable(widget.table.id).isEmpty || orderStatus != 'served') {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bill printing is enabled after the order is served.')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bill printing is enabled after the order is served.')));
       return;
     }
-
     setState(() => _busy = true);
     try {
       final info = orders.getOrderInfo(widget.table.id);
-      final billId = (info['billNumber'] ?? '').toString().trim().isEmpty
-          ? _timestampId()
-          : info['billNumber'].toString();
+      final billId = (info['billNumber'] ?? '').toString().trim().isEmpty ? _timestampId() : info['billNumber'].toString();
       await orders.setOrderMeta(widget.table.id, {'billNumber': billId});
       final sale = _buildSale(id: billId, paymentMethod: 'Pending');
-      final pdf = await PdfService.createBillReceipt(
-        sale: sale,
-        user: user,
-        documentTitle: 'CUSTOMER BILL',
-        documentType: 'BILL',
-        showPayment: false,
-      );
+      final pdf = await PdfService.createBillReceipt(sale: sale, user: user, documentTitle: 'CUSTOMER BILL', documentType: 'BILL', showPayment: false);
       await Printing.layoutPdf(onLayout: (PdfPageFormat _) async => pdf.save());
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -231,85 +163,32 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
     final orders = context.read<TableOrderProvider>();
     final items = orders.getOrderForTable(widget.table.id);
     if (items.isEmpty || orders.getOrderStatus(widget.table.id) != 'served') return;
-
     final total = items.fold<double>(0, (sum, item) => sum + item.totalPrice);
     String method = 'Cash';
     final referenceController = TextEditingController();
-
-    final result = await showDialog<_PaymentResult>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (_, setDialogState) {
-          const methods = [
-            _PayMethod('Cash', Icons.payments_outlined),
-            _PayMethod('Card', Icons.credit_card_outlined),
-            _PayMethod('Bank', Icons.account_balance_outlined),
-            _PayMethod('Cheque', Icons.receipt_long_outlined),
-            _PayMethod('JazzCash', Icons.phone_android_rounded),
-            _PayMethod('Easypaisa', Icons.phone_iphone_rounded),
-            _PayMethod('Raast', Icons.qr_code_2_rounded),
-            _PayMethod('QR', Icons.qr_code_scanner_rounded),
-            _PayMethod('Online', Icons.language_rounded),
-          ];
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Text('Checkout'),
-            content: SizedBox(
-              width: 580,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Table ${widget.table.tableNumber}', style: const TextStyle(color: AppColors.grey500)),
-                    const SizedBox(height: 4),
-                    Text('Rs ${total.toStringAsFixed(0)}', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 16),
-                    const Text('Paid via', style: TextStyle(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: methods
-                          .map((m) => ChoiceChip(
-                                avatar: Icon(m.icon, size: 16),
-                                label: Text(m.name),
-                                selected: method == m.name,
-                                onSelected: (_) => setDialogState(() => method = m.name),
-                              ))
-                          .toList(),
-                    ),
-                    if (method != 'Cash') ...[
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: referenceController,
-                        decoration: const InputDecoration(
-                          labelText: 'Transaction / reference / cheque number',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Text('Receipt will show: Paid via $method', style: const TextStyle(fontSize: 11, color: AppColors.grey600)),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-              FilledButton(
-                onPressed: () {
-                  final ref = referenceController.text.trim();
-                  Navigator.pop(dialogContext, _PaymentResult(method, ref.isEmpty ? null : ref));
-                },
-                child: Text('Complete • $method'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+    final result = await showDialog<_PaymentResult>(context: context, builder: (dialogContext) => StatefulBuilder(builder: (_, setDialogState) {
+      const methods = [
+        _PayMethod('Cash', Icons.payments_outlined), _PayMethod('Card', Icons.credit_card_outlined),
+        _PayMethod('Bank', Icons.account_balance_outlined), _PayMethod('Cheque', Icons.receipt_long_outlined),
+        _PayMethod('JazzCash', Icons.phone_android_rounded), _PayMethod('Easypaisa', Icons.phone_iphone_rounded),
+        _PayMethod('Raast', Icons.qr_code_2_rounded), _PayMethod('QR', Icons.qr_code_scanner_rounded), _PayMethod('Online', Icons.language_rounded),
+      ];
+      return AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(children: [const Expanded(child: Text('Complete payment', style: TextStyle(fontWeight: FontWeight.w800))), Text('Rs ${total.toStringAsFixed(0)}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900))]),
+        content: SizedBox(width: 600, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Table ${widget.table.tableNumber} • Choose payment method', style: const TextStyle(color: AppColors.grey500)),
+          const SizedBox(height: 18),
+          Wrap(spacing: 8, runSpacing: 8, children: methods.map((m) => ChoiceChip(avatar: Icon(m.icon, size: 16), label: Text(m.name), selected: method == m.name, onSelected: (_) => setDialogState(() => method = m.name))).toList()),
+          if (method != 'Cash') ...[const SizedBox(height: 16), TextField(controller: referenceController, decoration: const InputDecoration(labelText: 'Transaction / reference / cheque number', border: OutlineInputBorder()))],
+        ]))),
+        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')), FilledButton(onPressed: () {
+          final ref = referenceController.text.trim();
+          Navigator.pop(dialogContext, _PaymentResult(method, ref.isEmpty ? null : ref));
+        }, child: Text('Complete • $method'))],
+      );
+    }));
     referenceController.dispose();
     if (result != null) await _completeSale(result.method, result.reference);
   }
@@ -318,7 +197,6 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
     final user = context.read<AuthProvider>().currentUser;
     final orders = context.read<TableOrderProvider>();
     if (user == null || orders.getOrderForTable(widget.table.id).isEmpty) return;
-
     setState(() => _busy = true);
     try {
       final receiptId = _timestampId();
@@ -329,26 +207,38 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
       await orders.clearTableOrder(widget.table.id);
       await context.read<TableProvider>().updateTableStatus(widget.table.id, TableStatus.empty);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$method payment complete • Table closed'), backgroundColor: AppColors.success),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$method payment complete • Table closed'), backgroundColor: AppColors.success));
       context.go('/tables');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Checkout failed: $e'), backgroundColor: AppColors.error),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Checkout failed: $e'), backgroundColor: AppColors.error));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   RestaurantTable? _currentTable(List<RestaurantTable> tables) {
-    for (final table in tables) {
-      if (table.id == widget.table.id) return table;
-    }
+    for (final table in tables) { if (table.id == widget.table.id) return table; }
     return null;
+  }
+
+  Widget _menuArea(ProductProvider provider, List<Product> products, List<String> categories) {
+    return Column(children: [
+      _CashierHeader(table: widget.table, onBack: () => context.go('/tables'), onSearch: (v) => setState(() => _search = v)),
+      _CategoryStrip(categories: categories, selected: _category, onSelect: (v) => setState(() => _category = v)),
+      Expanded(child: provider.isLoading && provider.products.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : products.isEmpty
+              ? const _EmptyMenu()
+              : LayoutBuilder(builder: (_, c) {
+                  final cols = c.maxWidth >= 1180 ? 5 : c.maxWidth >= 900 ? 4 : c.maxWidth >= 620 ? 3 : 2;
+                  return GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
+                    itemCount: products.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: cols, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: c.maxWidth < 620 ? 1.18 : 1.35),
+                    itemBuilder: (_, i) => _MenuTile(product: products[i], onTap: () => _addProduct(products[i])),
+                  );
+                })),
+    ]);
   }
 
   @override
@@ -366,203 +256,112 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
     final served = orderStatus == 'served' || tableStatus == TableStatus.served;
     final ready = orderStatus == 'ready';
     final making = orderStatus == 'making';
+    final state = served ? 'served' : ready ? 'ready' : making ? 'making' : 'open';
+
+    final panel = _TicketPanel(
+      table: widget.table, items: items, state: state, busy: _busy,
+      onMinus: (i) async { final item = items[i]; await orders.updateTableOrderQuantity(tableId: widget.table.id, itemIndex: i, quantity: item.quantity - 1); await orders.setOrderStatus(widget.table.id, 'open'); },
+      onPlus: (i) async { final item = items[i]; await orders.updateTableOrderQuantity(tableId: widget.table.id, itemIndex: i, quantity: item.quantity + 1); await orders.setOrderStatus(widget.table.id, 'open'); },
+      onDelete: (i) async { await orders.removeFromTableOrder(tableId: widget.table.id, itemIndex: i); await orders.setOrderStatus(widget.table.id, 'open'); },
+      onKot: _sendKot, onBill: served ? _printBill : null, onServed: ready ? _markServed : null, onCheckout: served ? _checkout : null,
+    );
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Row(
-        children: [
-          SizedBox(
-            width: 150,
-            child: _CategoryRail(categories: categories, selected: _category, onSelect: (v) => setState(() => _category = v)),
-          ),
-          Expanded(
-            child: Column(
-              children: [
-                _OrderTopBar(
-                  table: widget.table,
-                  onBack: () => context.go('/tables'),
-                  onSearch: (v) => setState(() => _search = v),
-                ),
-                Expanded(
-                  child: productProvider.isLoading && productProvider.products.isEmpty
-                      ? const Center(child: CircularProgressIndicator())
-                      : products.isEmpty
-                          ? const Center(child: Text('No menu items found', style: TextStyle(color: AppColors.grey500)))
-                          : LayoutBuilder(
-                              builder: (_, c) {
-                                final cols = c.maxWidth >= 1000 ? 4 : c.maxWidth >= 700 ? 3 : 2;
-                                return GridView.builder(
-                                  padding: const EdgeInsets.all(14),
-                                  itemCount: products.length,
-                                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: cols,
-                                    crossAxisSpacing: 10,
-                                    mainAxisSpacing: 10,
-                                    childAspectRatio: 1.45,
-                                  ),
-                                  itemBuilder: (_, i) => _ProductCard(product: products[i], onTap: () => _addProduct(products[i])),
-                                );
-                              },
-                            ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            width: 390,
-            child: _OrderPanel(
-              table: widget.table,
-              items: items,
-              state: served ? 'served' : ready ? 'ready' : making ? 'making' : 'open',
-              busy: _busy,
-              onMinus: (i) async {
-                final item = items[i];
-                await orders.updateTableOrderQuantity(tableId: widget.table.id, itemIndex: i, quantity: item.quantity - 1);
-                await orders.setOrderStatus(widget.table.id, 'open');
-              },
-              onPlus: (i) async {
-                final item = items[i];
-                await orders.updateTableOrderQuantity(tableId: widget.table.id, itemIndex: i, quantity: item.quantity + 1);
-                await orders.setOrderStatus(widget.table.id, 'open');
-              },
-              onDelete: (i) async {
-                await orders.removeFromTableOrder(tableId: widget.table.id, itemIndex: i);
-                await orders.setOrderStatus(widget.table.id, 'open');
-              },
-              onKot: _sendKot,
-              onBill: served ? _printBill : null,
-              onServed: ready ? _markServed : null,
-              onCheckout: served ? _checkout : null,
-            ),
-          ),
-        ],
-      ),
+      backgroundColor: const Color(0xFFF7F7F8),
+      body: SafeArea(child: LayoutBuilder(builder: (_, c) {
+        if (c.maxWidth < 850) {
+          return Column(children: [Expanded(flex: 6, child: _menuArea(productProvider, products, categories)), SizedBox(height: c.maxHeight * .42, child: panel)]);
+        }
+        return Row(children: [Expanded(child: _menuArea(productProvider, products, categories)), SizedBox(width: c.maxWidth >= 1250 ? 410 : 360, child: panel)]);
+      })),
     );
   }
 }
 
-class _OrderTopBar extends StatelessWidget {
+class _CashierHeader extends StatelessWidget {
   final RestaurantTable table;
   final VoidCallback onBack;
   final ValueChanged<String> onSearch;
-  const _OrderTopBar({required this.table, required this.onBack, required this.onSearch});
+  const _CashierHeader({required this.table, required this.onBack, required this.onSearch});
 
   @override
   Widget build(BuildContext context) => Container(
-        height: 72,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: const BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: AppColors.outlineLight))),
-        child: Row(children: [
-          IconButton(tooltip: 'Back to Tables', onPressed: onBack, icon: const Icon(Icons.arrow_back_rounded)),
-          const SizedBox(width: 6),
-          SizedBox(
-            width: 190,
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Tables / POS', style: TextStyle(fontSize: 10, color: AppColors.grey500)),
-              const SizedBox(height: 2),
-              Text('Table ${table.tableNumber}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            ]),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              onChanged: onSearch,
-              decoration: InputDecoration(
-                hintText: 'Search menu items...',
-                prefixIcon: const Icon(Icons.search_rounded),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(9), borderSide: const BorderSide(color: AppColors.outlineLight)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(9), borderSide: const BorderSide(color: AppColors.outlineLight)),
-              ),
-            ),
-          ),
-        ]),
-      );
+    padding: const EdgeInsets.fromLTRB(16, 12, 18, 12),
+    color: Colors.white,
+    child: Row(children: [
+      _SquareAction(icon: Icons.arrow_back_rounded, tooltip: 'Tables', onTap: onBack),
+      const SizedBox(width: 12),
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('NEW ORDER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.grey500, letterSpacing: .8)),
+        Text('Table ${table.tableNumber}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, height: 1.1)),
+      ]),
+      const SizedBox(width: 20),
+      Expanded(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 560), child: TextField(
+        onChanged: onSearch,
+        decoration: InputDecoration(hintText: 'Search dishes, drinks or categories', prefixIcon: const Icon(Icons.search_rounded, size: 20), filled: true, fillColor: const Color(0xFFF7F7F8), isDense: true, contentPadding: const EdgeInsets.symmetric(vertical: 13), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+      ))),
+      const Spacer(),
+      const _HeaderPill(icon: Icons.restaurant_rounded, text: 'Dine in'),
+    ]),
+  );
 }
 
-class _CategoryRail extends StatelessWidget {
+class _CategoryStrip extends StatelessWidget {
   final List<String> categories;
   final String selected;
   final ValueChanged<String> onSelect;
-  const _CategoryRail({required this.categories, required this.selected, required this.onSelect});
+  const _CategoryStrip({required this.categories, required this.selected, required this.onSelect});
 
   @override
   Widget build(BuildContext context) => Container(
-        color: Colors.white,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(14, 17, 14, 8),
-            child: Text('CATEGORIES', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.grey400, letterSpacing: 1)),
-          ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              itemCount: categories.length,
-              itemBuilder: (_, i) {
-                final category = categories[i];
-                final active = category == selected;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Material(
-                    color: active ? AppColors.primarySoft : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    child: InkWell(
-                      onTap: () => onSelect(category),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
-                        child: Text(
-                          category,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? AppColors.primaryDark : AppColors.grey700),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ]),
-      );
+    height: 58,
+    color: Colors.white,
+    child: ListView.separated(
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 10), scrollDirection: Axis.horizontal, itemCount: categories.length,
+      separatorBuilder: (_, __) => const SizedBox(width: 7),
+      itemBuilder: (_, i) {
+        final item = categories[i]; final active = item == selected;
+        return ChoiceChip(label: Text(item), selected: active, onSelected: (_) => onSelect(item), showCheckmark: false,
+          selectedColor: AppColors.primary, backgroundColor: const Color(0xFFF7F7F8), side: BorderSide(color: active ? AppColors.primary : AppColors.outlineLight),
+          labelStyle: TextStyle(color: active ? Colors.white : AppColors.grey700, fontWeight: FontWeight.w700, fontSize: 11));
+      },
+    ),
+  );
 }
 
-class _ProductCard extends StatelessWidget {
+class _MenuTile extends StatefulWidget {
   final Product product;
   final VoidCallback onTap;
-  const _ProductCard({required this.product, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) => Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.outlineLight)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(width: 34, height: 34, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.restaurant_rounded, color: AppColors.primary, size: 16)),
-                const Spacer(),
-                Container(width: 30, height: 30, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.add_rounded, color: Colors.white, size: 18)),
-              ]),
-              const Spacer(),
-              Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 3),
-              Text(product.category, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: AppColors.grey500)),
-              const SizedBox(height: 7),
-              Text('Rs ${product.salePrice.toStringAsFixed(0)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-            ]),
-          ),
-        ),
-      );
+  const _MenuTile({required this.product, required this.onTap});
+  @override State<_MenuTile> createState() => _MenuTileState();
 }
 
-class _OrderPanel extends StatelessWidget {
+class _MenuTileState extends State<_MenuTile> {
+  bool hover = false;
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    onEnter: (_) => setState(() => hover = true), onExit: (_) => setState(() => hover = false),
+    child: AnimatedScale(duration: const Duration(milliseconds: 120), scale: hover ? 1.015 : 1,
+      child: Material(color: Colors.white, borderRadius: BorderRadius.circular(14), child: InkWell(onTap: widget.onTap, borderRadius: BorderRadius.circular(14), child: Container(
+        padding: const EdgeInsets.all(13), decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: hover ? AppColors.primary.withValues(alpha: .35) : AppColors.outlineLight), boxShadow: hover ? [BoxShadow(color: Colors.black.withValues(alpha: .05), blurRadius: 14, offset: const Offset(0, 5))] : null),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(width: 38, height: 38, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.restaurant_menu_rounded, color: AppColors.primary, size: 18)),
+            const Spacer(),
+            AnimatedContainer(duration: const Duration(milliseconds: 120), width: 32, height: 32, decoration: BoxDecoration(color: hover ? AppColors.primary : const Color(0xFFF4F4F5), borderRadius: BorderRadius.circular(9)), child: Icon(Icons.add_rounded, color: hover ? Colors.white : AppColors.grey700, size: 19)),
+          ]),
+          const Spacer(),
+          Text(widget.product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, height: 1.2)),
+          const SizedBox(height: 4),
+          Text(widget.product.category, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: AppColors.grey500)),
+          const SizedBox(height: 8),
+          Text('Rs ${widget.product.salePrice.toStringAsFixed(0)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.primaryDark)),
+        ]),
+      )))),
+  );
+}
+
+class _TicketPanel extends StatelessWidget {
   final RestaurantTable table;
   final List<dynamic> items;
   final String state;
@@ -574,193 +373,98 @@ class _OrderPanel extends StatelessWidget {
   final VoidCallback? onBill;
   final VoidCallback? onServed;
   final VoidCallback? onCheckout;
-
-  const _OrderPanel({
-    required this.table,
-    required this.items,
-    required this.state,
-    required this.busy,
-    required this.onMinus,
-    required this.onPlus,
-    required this.onDelete,
-    required this.onKot,
-    required this.onBill,
-    required this.onServed,
-    required this.onCheckout,
-  });
+  const _TicketPanel({required this.table, required this.items, required this.state, required this.busy, required this.onMinus, required this.onPlus, required this.onDelete, required this.onKot, required this.onBill, required this.onServed, required this.onCheckout});
 
   @override
   Widget build(BuildContext context) {
     final total = items.fold<double>(0, (sum, item) => sum + item.totalPrice);
     final count = items.fold<int>(0, (sum, item) => sum + item.quantity as int);
-    final making = state == 'making';
-    final ready = state == 'ready';
-    final served = state == 'served';
-    final statusLabel = making
-        ? 'ORDER IN MAKING'
-        : ready
-            ? 'READY TO SERVE'
-            : served
-                ? 'SERVED • CHECKOUT READY'
-                : 'ORDER OPEN';
-    final statusColor = making
-        ? AppColors.warning
-        : ready
-            ? AppColors.success
-            : served
-                ? AppColors.info
-                : AppColors.primary;
-
+    final making = state == 'making', ready = state == 'ready', served = state == 'served';
+    final label = making ? 'IN KITCHEN' : ready ? 'READY' : served ? 'SERVED' : 'OPEN';
+    final color = making ? AppColors.warning : ready ? AppColors.success : served ? AppColors.info : AppColors.primary;
     return Container(
       decoration: const BoxDecoration(color: Colors.white, border: Border(left: BorderSide(color: AppColors.outlineLight))),
       child: Column(children: [
-        Padding(
-          padding: const EdgeInsets.all(15),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              const Expanded(child: Text('Current Order', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
-              Text('Table ${table.tableNumber}', style: const TextStyle(fontSize: 10, color: AppColors.grey500)),
-            ]),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(color: statusColor.withValues(alpha: .10), borderRadius: BorderRadius.circular(8)),
-              child: Text(statusLabel, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: statusColor)),
-            ),
-          ]),
-        ),
+        Padding(padding: const EdgeInsets.fromLTRB(18, 16, 18, 13), child: Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Current ticket', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)), const SizedBox(height: 2), Text('$count item${count == 1 ? '' : 's'} • Table ${table.tableNumber}', style: const TextStyle(fontSize: 10.5, color: AppColors.grey500))])),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6), decoration: BoxDecoration(color: color.withValues(alpha: .1), borderRadius: BorderRadius.circular(20)), child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 9))),
+        ])),
         const Divider(height: 1),
-        Expanded(
-          child: items.isEmpty
-              ? const Center(child: Text('Add items to this table', style: TextStyle(color: AppColors.grey500)))
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                  itemCount: items.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    final item = items[i];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
-                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(item.displayName, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                            const SizedBox(height: 4),
-                            Text('Rs ${item.unitPrice.toStringAsFixed(0)} each', style: const TextStyle(fontSize: 9.5, color: AppColors.grey500)),
-                            const SizedBox(height: 4),
-                            Row(children: [
-                              IconButton(onPressed: making || ready || served ? null : () => onMinus(i), visualDensity: VisualDensity.compact, icon: const Icon(Icons.remove_rounded, size: 15)),
-                              Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                              IconButton(onPressed: making || ready || served ? null : () => onPlus(i), visualDensity: VisualDensity.compact, icon: const Icon(Icons.add_rounded, size: 15)),
-                            ]),
-                          ]),
-                        ),
-                        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                          Text('Rs ${item.totalPrice.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                          IconButton(onPressed: making || ready || served ? null : () => onDelete(i), visualDensity: VisualDensity.compact, icon: const Icon(Icons.delete_outline_rounded, size: 17, color: AppColors.grey400)),
-                        ]),
-                      ]),
-                    );
-                  },
-                ),
-        ),
-        Container(
-          padding: const EdgeInsets.fromLTRB(15, 11, 15, 13),
-          decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.outlineLight))),
-          child: Column(children: [
-            _BillLine(label: 'Items', value: '$count'),
-            const SizedBox(height: 5),
-            _BillLine(label: 'Subtotal', value: 'Rs ${total.toStringAsFixed(0)}'),
-            const Divider(height: 20),
-            _BillLine(label: 'Total', value: 'Rs ${total.toStringAsFixed(0)}', strong: true),
-            if (items.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              if (state == 'open')
-                SizedBox(width: double.infinity, height: 43, child: FilledButton.icon(onPressed: busy ? null : onKot, icon: const Icon(Icons.soup_kitchen_outlined), label: const Text('SEND KOT')))
-              else if (making)
-                _StateBox(icon: Icons.soup_kitchen_outlined, text: 'Kitchen is preparing this order', color: AppColors.warning)
-              else if (ready)
-                SizedBox(width: double.infinity, height: 43, child: FilledButton.icon(onPressed: busy ? null : onServed, icon: const Icon(Icons.room_service_outlined), label: const Text('MARK SERVED')))
-              else if (served)
-                SizedBox(width: double.infinity, height: 45, child: FilledButton.icon(onPressed: busy ? null : onCheckout, icon: const Icon(Icons.payments_outlined), label: Text('CHECKOUT • Rs ${total.toStringAsFixed(0)}'))),
-              const SizedBox(height: 7),
-              Row(children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 38,
-                    child: OutlinedButton.icon(
-                      onPressed: busy ? null : onKot,
-                      icon: const Icon(Icons.print_outlined, size: 15),
-                      label: Text(state == 'open' ? 'PRINT KOT' : 'REPRINT KOT'),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: SizedBox(
-                    height: 38,
-                    child: OutlinedButton.icon(
-                      onPressed: busy ? null : onBill,
-                      icon: const Icon(Icons.receipt_long_outlined, size: 15),
-                      label: const Text('PRINT BILL'),
-                    ),
-                  ),
-                ),
-              ]),
-              if (!served)
-                const Padding(
-                  padding: EdgeInsets.only(top: 6),
-                  child: Text('Print Bill unlocks after the order is served.', style: TextStyle(fontSize: 9, color: AppColors.grey500)),
-                ),
+        Expanded(child: items.isEmpty ? const _EmptyTicket() : ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6), itemCount: items.length, separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (_, i) { final item = items[i]; final locked = making || ready || served; return Padding(padding: const EdgeInsets.symmetric(vertical: 9), child: Row(children: [
+            Container(width: 34, height: 34, alignment: Alignment.center, decoration: BoxDecoration(color: const Color(0xFFF5F5F6), borderRadius: BorderRadius.circular(9)), child: Text('${item.quantity}×', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900))),
+            const SizedBox(width: 9),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.displayName, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)), const SizedBox(height: 3), Text('Rs ${item.unitPrice.toStringAsFixed(0)}', style: const TextStyle(fontSize: 9.5, color: AppColors.grey500))])),
+            if (!locked) ...[
+              _MiniAction(icon: Icons.remove_rounded, onTap: () => onMinus(i)), const SizedBox(width: 3), _MiniAction(icon: Icons.add_rounded, onTap: () => onPlus(i)),
             ],
-          ]),
-        ),
+            const SizedBox(width: 8), Text('Rs ${item.totalPrice.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+            if (!locked) ...[const SizedBox(width: 4), _MiniAction(icon: Icons.close_rounded, onTap: () => onDelete(i))],
+          ])); },
+        )),
+        Container(padding: const EdgeInsets.fromLTRB(18, 12, 18, 16), decoration: const BoxDecoration(color: Color(0xFFFCFCFD), border: Border(top: BorderSide(color: AppColors.outlineLight))), child: Column(children: [
+          _BillLine(label: 'Items', value: '$count'), const SizedBox(height: 5), _BillLine(label: 'Subtotal', value: 'Rs ${total.toStringAsFixed(0)}'), const Divider(height: 18), _BillLine(label: 'TOTAL', value: 'Rs ${total.toStringAsFixed(0)}', strong: true),
+          if (items.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            if (state == 'open') _PrimaryTicketButton(icon: Icons.soup_kitchen_outlined, text: 'Send to kitchen', onTap: busy ? null : onKot)
+            else if (making) const _StateBox(icon: Icons.local_fire_department_outlined, text: 'Kitchen is preparing this order', color: AppColors.warning)
+            else if (ready) _PrimaryTicketButton(icon: Icons.room_service_outlined, text: 'Mark served', onTap: busy ? null : onServed)
+            else _PrimaryTicketButton(icon: Icons.payments_outlined, text: 'Proceed to pay  •  Rs ${total.toStringAsFixed(0)}', onTap: busy ? null : onCheckout),
+            const SizedBox(height: 8),
+            Row(children: [Expanded(child: OutlinedButton.icon(onPressed: busy ? null : onKot, icon: const Icon(Icons.print_outlined, size: 15), label: Text(state == 'open' ? 'KOT' : 'Reprint KOT'))), const SizedBox(width: 8), Expanded(child: OutlinedButton.icon(onPressed: busy ? null : onBill, icon: const Icon(Icons.receipt_long_outlined, size: 15), label: const Text('Bill')))]),
+          ],
+        ])),
       ]),
     );
   }
 }
 
-class _StateBox extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  final Color color;
-  const _StateBox({required this.icon, required this.text, required this.color});
+class _PrimaryTicketButton extends StatelessWidget {
+  final IconData icon; final String text; final VoidCallback? onTap;
+  const _PrimaryTicketButton({required this.icon, required this.text, required this.onTap});
+  @override Widget build(BuildContext context) => SizedBox(width: double.infinity, height: 48, child: FilledButton.icon(onPressed: onTap, icon: Icon(icon, size: 18), label: Text(text, style: const TextStyle(fontWeight: FontWeight.w800))));
+}
 
-  @override
-  Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        height: 43,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(color: color.withValues(alpha: .10), borderRadius: BorderRadius.circular(8)),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: color, size: 17),
-          const SizedBox(width: 7),
-          Text(text, style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w800)),
-        ]),
-      );
+class _SquareAction extends StatelessWidget {
+  final IconData icon; final String tooltip; final VoidCallback onTap;
+  const _SquareAction({required this.icon, required this.tooltip, required this.onTap});
+  @override Widget build(BuildContext context) => Tooltip(message: tooltip, child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(10), child: Container(width: 40, height: 40, decoration: BoxDecoration(color: const Color(0xFFF7F7F8), borderRadius: BorderRadius.circular(10)), child: Icon(icon, size: 19))));
+}
+
+class _MiniAction extends StatelessWidget {
+  final IconData icon; final VoidCallback onTap;
+  const _MiniAction({required this.icon, required this.onTap});
+  @override Widget build(BuildContext context) => InkWell(onTap: onTap, borderRadius: BorderRadius.circular(7), child: Container(width: 27, height: 27, decoration: BoxDecoration(color: const Color(0xFFF5F5F6), borderRadius: BorderRadius.circular(7)), child: Icon(icon, size: 14, color: AppColors.grey700)));
+}
+
+class _HeaderPill extends StatelessWidget {
+  final IconData icon; final String text;
+  const _HeaderPill({required this.icon, required this.text});
+  @override Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9), decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(10)), child: Row(children: [Icon(icon, size: 15, color: AppColors.primary), const SizedBox(width: 6), Text(text, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: AppColors.primaryDark))]));
+}
+
+class _EmptyMenu extends StatelessWidget {
+  const _EmptyMenu();
+  @override Widget build(BuildContext context) => const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.search_off_rounded, size: 34, color: AppColors.grey400), SizedBox(height: 8), Text('No menu items found', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.grey600)), SizedBox(height: 3), Text('Try another search or category', style: TextStyle(fontSize: 10, color: AppColors.grey500))]));
+}
+
+class _EmptyTicket extends StatelessWidget {
+  const _EmptyTicket();
+  @override Widget build(BuildContext context) => const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.receipt_long_outlined, size: 34, color: AppColors.grey400), SizedBox(height: 8), Text('Ticket is empty', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.grey700)), SizedBox(height: 3), Text('Tap a menu item to start the order', style: TextStyle(fontSize: 10, color: AppColors.grey500))]));
+}
+
+class _StateBox extends StatelessWidget {
+  final IconData icon; final String text; final Color color;
+  const _StateBox({required this.icon, required this.text, required this.color});
+  @override Widget build(BuildContext context) => Container(width: double.infinity, height: 46, alignment: Alignment.center, decoration: BoxDecoration(color: color.withValues(alpha: .10), borderRadius: BorderRadius.circular(10)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, color: color, size: 17), const SizedBox(width: 7), Text(text, style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w800))]));
 }
 
 class _BillLine extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool strong;
+  final String label; final String value; final bool strong;
   const _BillLine({required this.label, required this.value, this.strong = false});
-
-  @override
-  Widget build(BuildContext context) => Row(children: [
-        Expanded(child: Text(label, style: TextStyle(fontSize: strong ? 13 : 10.5, fontWeight: strong ? FontWeight.w800 : FontWeight.w500, color: strong ? AppColors.grey900 : AppColors.grey500))),
-        Text(value, style: TextStyle(fontSize: strong ? 19 : 11, fontWeight: strong ? FontWeight.w900 : FontWeight.w700)),
-      ]);
+  @override Widget build(BuildContext context) => Row(children: [Expanded(child: Text(label, style: TextStyle(fontSize: strong ? 12 : 10.5, fontWeight: strong ? FontWeight.w900 : FontWeight.w500, color: strong ? AppColors.grey900 : AppColors.grey500))), Text(value, style: TextStyle(fontSize: strong ? 21 : 11, fontWeight: strong ? FontWeight.w900 : FontWeight.w700, color: strong ? AppColors.primaryDark : AppColors.grey900))]);
 }
 
-class _PaymentResult {
-  final String method;
-  final String? reference;
-  const _PaymentResult(this.method, this.reference);
-}
-
-class _PayMethod {
-  final String name;
-  final IconData icon;
-  const _PayMethod(this.name, this.icon);
-}
+class _PaymentResult { final String method; final String? reference; const _PaymentResult(this.method, this.reference); }
+class _PayMethod { final String name; final IconData icon; const _PayMethod(this.name, this.icon); }
