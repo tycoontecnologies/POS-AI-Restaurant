@@ -122,17 +122,26 @@ class _CategoryArrow extends StatelessWidget {
 
 class _MenuTile'''
 pos, n = old_category.subn(new_category, pos, count=1)
-if n != 1:
+if n == 1:
+    print('OK: category strip left/right controls')
+elif 'class _CategoryStrip extends StatefulWidget' in pos:
+    print('SKIP: category strip already patched')
+else:
     raise SystemExit(f'ERROR: category strip replacement count={n}')
-print('OK: category strip left/right controls')
 
 # 2) Remove the ghost/disabled Bill half-button. KOT takes full width when Bill is unavailable.
-old_actions = "Row(children: [Expanded(child: OutlinedButton.icon(onPressed: busy ? null : onKot, icon: const Icon(Icons.print_outlined, size: 15), label: Text(state == 'open' ? 'KOT' : 'Reprint KOT'))), const SizedBox(width: 8), Expanded(child: OutlinedButton.icon(onPressed: busy ? null : onBill, icon: const Icon(Icons.receipt_long_outlined, size: 15), label: const Text('Bill')))]),"
+actions = re.compile(
+    r"Row\(children:\s*\[\s*Expanded\(child:\s*OutlinedButton\.icon\(onPressed:\s*busy \? null : onKot,.*?label:\s*Text\(state == 'open' \? 'KOT' : 'Reprint KOT'\)\)\),\s*const SizedBox\(width:\s*8\),\s*Expanded\(child:\s*OutlinedButton\.icon\(onPressed:\s*busy \? null : onBill,.*?label:\s*const Text\('Bill'\)\)\)\s*\]\),",
+    re.S,
+)
 new_actions = "if (onBill == null) SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: busy ? null : onKot, icon: const Icon(Icons.print_outlined, size: 15), label: Text(state == 'open' ? 'KOT' : 'Reprint KOT'))) else Row(children: [Expanded(child: OutlinedButton.icon(onPressed: busy ? null : onKot, icon: const Icon(Icons.print_outlined, size: 15), label: Text(state == 'open' ? 'KOT' : 'Reprint KOT'))), const SizedBox(width: 8), Expanded(child: OutlinedButton.icon(onPressed: busy ? null : onBill, icon: const Icon(Icons.receipt_long_outlined, size: 15), label: const Text('Bill')))]),"
-if old_actions not in pos:
+pos, n = actions.subn(new_actions, pos, count=1)
+if n == 1:
+    print('OK: removed ghost disabled Bill area')
+elif 'if (onBill == null) SizedBox(width: double.infinity' in pos:
+    print('SKIP: ghost Bill area already patched')
+else:
     raise SystemExit('ERROR: ticket secondary action anchor not found')
-pos = pos.replace(old_actions, new_actions, 1)
-print('OK: removed ghost disabled Bill area')
 
 POS.write_text(pos)
 
@@ -280,9 +289,12 @@ class _SalesOverviewCardState extends State<_SalesOverviewCard> {
 
 class _RecentOrdersCard'''
 dash, n = chart.subn(new_chart, dash, count=1)
-if n != 1:
+if n == 1:
+    print('OK: interactive 7D/30D/90D sales chart')
+elif 'class _SalesOverviewCard extends StatefulWidget' in dash:
+    print('SKIP: interactive sales chart already patched')
+else:
     raise SystemExit(f'ERROR: sales chart replacement count={n}')
-print('OK: interactive 7D/30D/90D sales chart')
 
 DASH.write_text(dash)
 print('OK: POS + dashboard source written')
