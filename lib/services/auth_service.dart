@@ -74,9 +74,18 @@ class AuthService {
           .doc(userCredential.user!.uid)
           .get();
       if (userDoc.exists) return UserModel.fromMap(userDoc.data()!, userDoc.id);
-      return null;
-    } catch (e) {
-      throw FirebaseAuthException(code: 'signin-failed', message: e.toString());
+      await _auth.signOut();
+      throw FirebaseAuthException(
+        code: 'profile-not-found',
+        message: 'This login exists, but its POS profile is missing. Contact Tycoon support.',
+      );
+    } on FirebaseAuthException {
+      rethrow;
+    } catch (_) {
+      throw FirebaseAuthException(
+        code: 'signin-failed',
+        message: 'Unable to connect to Firebase. Check the internet connection and try again.',
+      );
     }
   }
 
