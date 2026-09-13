@@ -21,6 +21,7 @@ import 'package:pos/screens/settings_hub_screen.dart';
 import 'package:pos/screens/expenses_screen.dart';
 import 'package:pos/screens/branches_screen.dart';
 import 'package:pos/screens/pra_settings_screen.dart';
+import 'package:pos/screens/help_ai_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:pos/screens/category_products_screen.dart';
 import 'package:pos/providers/auth_provider.dart';
@@ -67,6 +68,7 @@ class AppRouter {
   static const String discounts = '/discounts';
   static const String orders = '/orders';
   static const String tables = '/tables';
+  static const String helpAi = '/help-ai';
 
   static final GoRouter router = GoRouter(
     initialLocation: login,
@@ -112,6 +114,7 @@ class AppRouter {
           GoRoute(path: ingredients, name: 'ingredients', builder: (context, state) => const IngredientsScreen(), redirect: _checkSubscription),
           GoRoute(path: customers, name: 'customers', builder: (context, state) => const CustomersScreen(), redirect: _checkSubscription),
           GoRoute(path: discounts, name: 'Goodies', builder: (context, state) => const DiscountsScreen(), redirect: _checkSubscription),
+          GoRoute(path: helpAi, name: 'help-ai', builder: (context, state) => const HelpAiScreen(), redirect: _checkSubscription),
           GoRoute(
             path: orders,
             name: 'orders',
@@ -152,6 +155,13 @@ class AppRouter {
     final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
     if (!authProvider.isAuthenticated) return null;
 
+    final user = authProvider.currentUser;
+    if (user != null &&
+        user.subscriptionType == SubscriptionType.trial &&
+        user.isTrialActive) {
+      return null;
+    }
+
     final access = await subscriptionProvider.getAccessLevel();
     final path = state.uri.path;
     final isCommercialRoute = path == pricing || path.startsWith(payment) || path == paymentSuccess;
@@ -188,7 +198,8 @@ class AppRouter {
       NavigationItem(icon: Icons.local_shipping_rounded, label: 'Vendors', route: suppliers, roles: [UserRole.superAdmin, UserRole.admin, UserRole.manager, UserRole.operations, UserRole.accounts, UserRole.inventory]),
       NavigationItem(icon: Icons.account_tree_outlined, label: 'Branches', route: branches, roles: adminRoles),
       NavigationItem(icon: Icons.verified_user_outlined, label: 'PRA', route: praSettings, roles: adminRoles),
-      NavigationItem(icon: Icons.psychology_alt_rounded, label: 'Help AI', route: dashboard, roles: adminRoles),
+      NavigationItem(icon: Icons.discount_outlined, label: 'Discounts', route: discounts, roles: managementRoles),
+      NavigationItem(icon: Icons.psychology_alt_rounded, label: 'Help AI', route: helpAi, roles: adminRoles),
     ];
     return allItems.where((item) => item.roles.contains(role)).toList();
   }
