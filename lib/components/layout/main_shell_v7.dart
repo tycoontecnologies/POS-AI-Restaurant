@@ -127,6 +127,7 @@ class _MainShellState extends State<MainShell> {
       'Vendors': 'V',
       'Branches': 'N',
       'PRA': 'F',
+      'Discounts': 'G',
       'Help AI': 'H',
     };
     return map[label] ?? label.substring(0, 1).toUpperCase();
@@ -1641,11 +1642,12 @@ class _VerticalNav extends StatelessWidget {
                   ),
           ),
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(8, 9, 8, 9),
-              itemCount: navItems.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 2),
-              itemBuilder: (_, index) {
+            child: LayoutBuilder(
+              builder: (_, constraints) {
+                final tileHeight = (constraints.maxHeight / navItems.length)
+                    .clamp(32.0, 45.0);
+                return Column(
+                  children: List.generate(navItems.length, (index) {
                 final item = navItems[index];
                 final active =
                     currentRoute == item.route ||
@@ -1662,7 +1664,7 @@ class _VerticalNav extends StatelessWidget {
                     onTap: () => context.go(item.route),
                     onLongPress: () => onFavorite(item.route),
                     child: SizedBox(
-                      height: 43,
+                      height: tileHeight,
                       child: Row(
                         mainAxisAlignment: iconsOnly
                             ? MainAxisAlignment.center
@@ -1724,7 +1726,9 @@ class _VerticalNav extends StatelessWidget {
                 );
                 if (iconsOnly || iconsKeys)
                   tile = Tooltip(message: item.label, child: tile);
-                return tile;
+                return Expanded(child: tile);
+              }),
+                );
               },
             ),
           ),
