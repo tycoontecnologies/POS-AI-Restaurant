@@ -108,12 +108,36 @@ class AuthProvider with ChangeNotifier {
         );
       }
       return true;
-    } catch (e) {
-      _error = e.toString();
+    } on FirebaseAuthException catch (e) {
+      _error = _friendlySignInError(e);
+      return false;
+    } catch (_) {
+      _error = 'Unable to sign in. Check the internet connection and try again.';
       return false;
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  String _friendlySignInError(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'invalid-credential':
+      case 'wrong-password':
+      case 'user-not-found':
+        return 'Incorrect email address or password.';
+      case 'invalid-email':
+        return 'Enter a valid email address.';
+      case 'user-disabled':
+        return 'This account has been disabled. Contact Tycoon support.';
+      case 'too-many-requests':
+        return 'Too many login attempts. Please wait a few minutes and try again.';
+      case 'network-request-failed':
+        return 'Firebase could not be reached. Check the internet connection and try again.';
+      case 'profile-not-found':
+        return error.message ?? 'The POS profile for this login is missing.';
+      default:
+        return error.message ?? 'Unable to sign in.';
     }
   }
 
@@ -149,8 +173,11 @@ class AuthProvider with ChangeNotifier {
         debugPrint('Login notification failed: $e');
       }
       return true;
-    } catch (e) {
-      _error = e.toString();
+    } on FirebaseAuthException catch (e) {
+      _error = _friendlySignInError(e);
+      return false;
+    } catch (_) {
+      _error = 'Unable to sign in. Check the internet connection and try again.';
       return false;
     } finally {
       _isLoading = false;
