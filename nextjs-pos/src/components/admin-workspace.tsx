@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, onSnapshot, query, limit, Firestore, Timestamp, updateDoc } from "firebase/firestore";
+import { addDoc, collection, onSnapshot, query, limit, Firestore, Timestamp, updateDoc, doc } from "firebase/firestore";
 import { Search, RefreshCw, Database, FileText } from "lucide-react";
 
 type ModuleKey = "dashboard" | "products" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders";
@@ -43,7 +43,8 @@ export default function AdminWorkspace({ db, vendorId, moduleKey }: { db: Firest
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Row | null>(null);
-  const [formOpen, setFormOpen] = useState(false);\n  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string,string>>({});
   const [saving, setSaving] = useState(false);
 
