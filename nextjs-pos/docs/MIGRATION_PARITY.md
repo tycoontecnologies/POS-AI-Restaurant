@@ -18,7 +18,9 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 - Product search/category filtering, variant-aware cart and client-side stock checks.
 - Table order save/restore.
 - KOT queue and basic status transitions.
-- Basic checkout document creation, usage ledger, browser receipt/KOT print.\n- Live management data views for dashboard/sales, products, categories, customers, discounts, ingredients, purchases/returns, sales/returns, suppliers, staff, attendance, store-out, branches, expenses and orders. Product/category/customer/supplier/discount/ingredient modules have schema-shaped create/edit forms; unsupported business side effects remain unimplemented.\n- Table creation uses the original table document fields; POS navigation is partially role-filtered using the Flutter role map.
+- Basic checkout document creation, usage ledger, browser receipt/KOT print.
+- Live management data views for dashboard/sales, products, categories, customers, discounts, ingredients, purchases/returns, sales/returns, suppliers, staff, attendance, store-out, branches, expenses and orders. Product (including JSON-based variants), category, customer, supplier, discount and ingredient modules have schema-shaped create/edit forms; unsupported business side effects remain unimplemented.
+- Table creation uses the original table document fields; POS navigation is partially role-filtered using the Flutter role map.
 - Hamburger-only Tables/Items and Modern/Legacy controls; product card click adds to cart.
 
 ## Route/screen parity register
