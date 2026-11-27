@@ -268,7 +268,13 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     if (!canEdit || saving) return;
     setSaving(true);
     setError("");
+    let recordId: string | null = editingId;
     try {
+      if (imageFile) {
+        if (!storage) throw new Error("Firebase Storage is not configured.");
+        if (imageFile.size > 5 * 1024 * 1024) throw new Error("Image must be smaller than 5 MB.");
+        if (!imageFile.type.startsWith("image/")) throw new Error("Choose a valid image file.");
+      }
       const now = new Date();
       const payload = makePayload(now);
       const ref = collection(db, "vendors", vendorId, config.collection);
@@ -313,7 +319,6 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
         else { const created = await addDoc(ref, payload); await updateDoc(created, { id: created.id }); }
         setForm({}); setEditingId(null); setFormOpen(false); return;
       }
-      let recordId = editingId;
       if (editingId) {
         const patch = moduleKey === "discounts"
           ? { ...payload, updatedAt: Timestamp.fromDate(now) }
@@ -353,7 +358,8 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
       setEditingId(null);
       setFormOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save record.");
+      if (!editingId && recordId) setEditingId(recordId);
+      setError(!editingId && recordId && imageFile ? "Record saved, but its image upload did not finish. Retry Save to complete the image upload." : err instanceof Error ? err.message : "Unable to save record.");
     } finally {
       setSaving(false);
     }
