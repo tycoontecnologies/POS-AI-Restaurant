@@ -19,7 +19,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 - Table order save/restore.
 - KOT queue and basic status transitions.
 - Basic checkout document creation, usage ledger, browser receipt/KOT print.
-- Live management data views for dashboard/sales, products, categories, customers, discounts, ingredients, purchases/returns, sales/returns, suppliers, staff, attendance, store-out, branches, expenses and orders. Product (including JSON-based variants), category, customer, supplier, discount and ingredient modules have schema-shaped create/edit forms; unsupported business side effects remain unimplemented.
+- Live management data views for dashboard/sales, products, categories, customers, discounts, ingredients, purchases/returns, sales/returns, suppliers, staff, attendance, store-out, branches, expenses and orders. Product (including JSON-based variants), category, customer, supplier, discount and ingredient modules have schema-shaped create/edit forms; product/category/discount images upload to Firebase Storage; unsupported business side effects remain unimplemented.
 - Table creation uses the original table document fields; POS navigation is partially role-filtered using the Flutter role map.
 - Hamburger-only Tables/Items and Modern/Legacy controls; product card click adds to cart.
 
@@ -94,7 +94,7 @@ All of these Flutter providers require schema-accurate ports and tests; only the
 | sale_service.dart | Sales, billing counters, idempotency, history and exports | Partial |
 | transaction_billing_service.dart; usage_billing_reconciliation_service.dart | Exact billing/usage semantics and reconciliation | Partial; transaction behavior requires dedicated tests |
 | document_print_service.dart; pdf_service.dart | Exact receipt/KOT PDF layouts, browser print and supported printer workflows | Partial |
-| image_upload_service.dart | Firebase Storage upload/delete and image URL lifecycle | Missing |
+| image_upload_service.dart | Firebase Storage upload/delete and image URL lifecycle | Partial: product/category/discount upload and replaced-image cleanup |
 | stripe_service.dart; subscription_service.dart | Stripe checkout, webhook/server verification, plan/access lifecycle | Missing |
 | purchase_service.dart; purchase_return_service.dart | Purchases and purchase returns | Missing |
 | sale_return_service.dart | Sale returns/refunds and inventory restoration | Missing |
