@@ -396,7 +396,7 @@ function RecordsTable({ moduleKey, rows, loading, error, search, setSearch, sele
   selected: Row | null; setSelected: (r: Row | null) => void; canEdit?: boolean; onEdit?: (r: Row) => void; onReprint?:(r:Row)=>void; canDelete?: boolean; onDelete?: (r:Row)=>void; onLoadMore?:()=>void; hasMore?:boolean; loadingMore?:boolean;
 }) {
   const keys = useMemo(() => {
-    const preferred = moduleKey === "products" ? ["name", "imageUrl", "category", "unit", "salePrice", "quantity", "hasVariants", "active"] : ["supplierName", "status", "total", "date", "createdAt", "createdOn", "reason"];
+    const preferred = moduleKey === "products" ? ["name", "imageUrl", "category", "unit", "salePrice", "quantity", "hasVariants", "active"] : moduleKey === "purchase_returns" ? ["supplierName", "originalPurchaseId", "totalRefund", "reason", "createdAt"] : ["supplierName", "status", "total", "date", "createdOn"];
     const all = Array.from(new Set(rows.flatMap(r => Object.keys(r).filter(k => k !== "id"))));
     return [...preferred.filter(k => all.includes(k)), ...all.filter(k => !preferred.includes(k))].slice(0, moduleKey === "products" ? 8 : 6);
   }, [rows]);
