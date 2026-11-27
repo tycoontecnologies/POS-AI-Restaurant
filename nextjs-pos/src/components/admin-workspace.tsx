@@ -97,7 +97,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint }: {
   function makePayload(now: Date): Record<string, unknown> {
     if (moduleKey === "products") {
       const parsed = form.variantsJson?.trim() ? JSON.parse(form.variantsJson) : [];
-      if (!Array.isArray(parsed)) throw new Error("Variants must be a JSON array.");
+      if (!Array.isArray(parsed) || parsed.some(v => !v || typeof v !== "object" || Array.isArray(v))) throw new Error("Variants must be a JSON array of objects.");
       const variants = parsed.map((v: Record<string, unknown>) => ({
         id: String(v.id || crypto.randomUUID()),
         name: String(v.name || ""),
