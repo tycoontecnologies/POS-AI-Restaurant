@@ -333,7 +333,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
         if (!imageFile.type.startsWith("image/")) throw new Error("Choose a valid image file.");
       }
       const now = new Date();
-      const payload = makePayload(now);
+      const payload = await makePayload(now);
       const ref = collection(db, "vendors", vendorId, config.collection);
       if (moduleKey === "store_out") {
         let parsed:unknown;try{parsed=JSON.parse(form.productsJson||"[]")}catch{throw new Error("Store-out products must be valid JSON.")}
