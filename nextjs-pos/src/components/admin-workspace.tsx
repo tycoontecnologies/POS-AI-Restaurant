@@ -143,7 +143,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
       const name = form.name?.trim() || "";
       const role = form.role?.trim() || "";
       if (!name || !role) throw new Error("Staff name and role are required.");
-      if ((form.phone || "").replace(/\\D/g, "").length < 8) throw new Error("Enter a valid staff phone number.");
+      if ((form.phone || "").replace(/\D/g, "").length < 8) throw new Error("Enter a valid staff phone number.");
       const joinDate = form.joinDate || new Date().toISOString().slice(0, 10);
       return { name, role, dailyWage: Math.max(0, Number(form.dailyWage || 0)), phone: form.phone || "", address: form.address || "", active: form.active !== "false", joinDate: new Date(joinDate + "T00:00:00").toISOString(), searchKeywords: Array.from(new Set([name.toLowerCase(), role.toLowerCase(), (form.phone || "").toLowerCase(), ...name.toLowerCase().split(" "), ...role.toLowerCase().split(" ")].filter(Boolean))), commissionRate: Math.max(0, Number(form.commissionRate || 0)), showCommissionToStaff: form.showCommissionToStaff === "true" };
     }
