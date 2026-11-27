@@ -28,5 +28,9 @@ jobs:
           cache: npm
           cache-dependency-path: nextjs-pos/package.json
       - run: npm install
+      - name: Summarize dependency audit
+        run: |
+          npm audit --json > audit-report.json || true
+          node -e 'const a=require("./audit-report.json"); for (const [name,v] of Object.entries(a.vulnerabilities||{})) console.log(name+": "+v.severity+"; range="+v.range+"; fix="+JSON.stringify(v.fixAvailable))'
       - run: npm run typecheck
       - run: npm run build
