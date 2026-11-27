@@ -95,11 +95,25 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint }: {
   }
 
   function makePayload(now: Date): Record<string, unknown> {
-    if (moduleKey === "products") return {
-      name: form.name?.trim() || "", category: form.category || "", unit: form.unit || "piece",
-      salePrice: Number(form.salePrice || 0), purchasePrice: Number(form.purchasePrice || 0),
-      quantity: Number(form.quantity || 0), imageUrl: form.imageUrl || "",
-    };
+    if (moduleKey === "products") {
+      const parsed = form.variantsJson?.trim() ? JSON.parse(form.variantsJson) : [];
+      if (!Array.isArray(parsed)) throw new Error("Variants must be a JSON array.");
+      const variants = parsed.map((v: Record<string, unknown>) => ({
+        id: String(v.id || crypto.randomUUID()),
+        name: String(v.name || ""),
+        priceModifier: Number(v.priceModifier || 0),
+        quantity: Number(v.quantity || 0),
+        active: v.active !== false,
+        attributes: v.attributes && typeof v.attributes === "object" ? v.attributes : {},
+      }));
+      if (variants.some(v => !v.name)) throw new Error("Every variant needs a name.");
+      return {
+        name: form.name?.trim() || "", category: form.category || "", unit: form.unit || "piece",
+        salePrice: Number(form.salePrice || 0), purchasePrice: Number(form.purchasePrice || 0),
+        quantity: Number(form.quantity || 0), hasVariants: variants.length > 0, variants,
+        imageUrl: form.imageUrl || "",
+      };
+    }
     if (moduleKey === "categories") return { name: form.name?.trim() || "", imageUrl: form.imageUrl || "" };
     if (moduleKey === "customers") return { name: form.name?.trim() || "", phone: form.phone || "", email: form.email || null, address: form.address || "", city: form.city || null };
     if (moduleKey === "suppliers") return { name: form.name?.trim() || "", phone: form.phone || "", address: form.address || "" };
