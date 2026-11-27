@@ -51,7 +51,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | store_out_screen.dart; add_edit_store_out_screen.dart | Partial: create/edit, product snapshot records, base/variant stock validation and deduction on create, soft-delete via active=false; product picker, cards/list/table views, pagination and full edit parity pending |
 | expenses_screen.dart | Partial: add/list/delete, expense categories, amount/note and creator/branch metadata; edit/report parity pending |
 | staff_screen.dart | Partial: staff create/edit/delete with model fields and search keywords; photo, attendance and performance workflows pending |
-| attendance_screen.dart | Partial: staff/date selection, present/absent marking, duplicate-safe daily update and Flutter-compatible attendance document fields; check-in/out and monthly summaries pending |
+| attendance_screen.dart; monthly_attendance_screen.dart | Improved partial parity: daily staff/date present/absent marking with duplicate-safe updates, monthly staff grouping, present-day counts, hour totals and wage calculations matching the Attendance model; visual parity and dedicated-tenant tests pending |
 | monthly_attendance_screen.dart | Missing |
 | branches_screen.dart | Missing |
 | users_roles_screen.dart | Missing |
