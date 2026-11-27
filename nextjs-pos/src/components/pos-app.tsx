@@ -30,6 +30,7 @@ const managementMenuItems = [
  {key:"users_roles",roles:["superAdmin","super_admin","admin"]},
  {key:"settings",roles:["superAdmin","super_admin","admin"]},
  {key:"pra_settings",roles:["superAdmin","super_admin","admin"]},
+ {key:"audit_sessions",roles:["superAdmin","super_admin","admin"]},
  {key:"expenses",roles:["superAdmin","super_admin","admin","manager","accounts"]},
  {key:"orders",roles:["superAdmin","super_admin","admin","manager","cashier","waiter","staff","kitchen","delivery"]}
 ] as const;
@@ -52,7 +53,7 @@ export default function PosApp(){
  const [authMode,setAuthMode]=useState<"login"|"signup">("login");
  const [firebaseUser,setFirebaseUser]=useState<User|null>(null); const [vendor,setVendor]=useState<Vendor|null>(null); const [booting,setBooting]=useState(true); const [authError,setAuthError]=useState("");
  const [products,setProducts]=useState<Product[]>([]); const [tables,setTables]=useState<Table[]>([]); const [tableOrders,setTableOrders]=useState<Record<string,any>>({});
- const [activeView,setActiveView]=useState<"items"|"tables"|"kitchen"|"admin">("items"); const [adminModule,setAdminModule]=useState<"dashboard"|"products"|"categories"|"customers"|"discounts"|"ingredients"|"purchases"|"purchase_returns"|"sales"|"sale_returns"|"suppliers"|"staff"|"attendance"|"store_out"|"branches"|"expenses"|"orders"|"users_roles"|"settings"|"pra_settings">("dashboard"); const [activeTable,setActiveTable]=useState<Table|null>(null); const [cart,setCart]=useState<CartLine[]>([]);
+ const [activeView,setActiveView]=useState<"items"|"tables"|"kitchen"|"admin">("items"); const [adminModule,setAdminModule]=useState<"dashboard"|"products"|"categories"|"customers"|"discounts"|"ingredients"|"purchases"|"purchase_returns"|"sales"|"sale_returns"|"suppliers"|"staff"|"attendance"|"store_out"|"branches"|"expenses"|"orders"|"users_roles"|"settings"|"pra_settings"|"audit_sessions">("dashboard"); const [activeTable,setActiveTable]=useState<Table|null>(null); const [cart,setCart]=useState<CartLine[]>([]);
  const [kitchenFilter,setKitchenFilter]=useState("active"); const [category,setCategory]=useState("All"); const [search,setSearch]=useState(""); const [variantChoice,setVariantChoice]=useState<Record<string,string>>({});
  const sessionRef=useRef<{id:string;tenantId:string;loginAt:number}|null>(null);
  const [menuOpen,setMenuOpen]=useState(false); const [showAddTable,setShowAddTable]=useState(false); const [newTableNumber,setNewTableNumber]=useState(""); const [newTableSeats,setNewTableSeats]=useState("4"); const [paymentMethod,setPaymentMethod]=useState("Cash"); const [paymentReference,setPaymentReference]=useState(""); const [quickSaleReceiptId,setQuickSaleReceiptId]=useState<string|null>(null); const [busy,setBusy]=useState(false); const [layoutMode,setLayoutMode]=useState<"modern"|"legacy">("modern"); const [notice,setNotice]=useState("");
