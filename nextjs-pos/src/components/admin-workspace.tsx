@@ -401,7 +401,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     }
   }
 
-  if (moduleKey === "dashboard") return <DashboardWorkspace db={db} vendorId={vendorId} actorId={actorId} actorRole={actorRole} actorName={actorName} branchName={branchName}/>;
+  if (moduleKey === "dashboard") return <DashboardWorkspace db={db} vendorId={vendorId} actorId={actorId} actorRole={actorRole} actorName={actorName} branchName={branchName} storage={storage}/>;
 
   if (moduleKey === "attendance") return <AttendanceWorkspace db={db} vendorId={vendorId} staff={staffOptions}/>;
   if (moduleKey === "users_roles") return <UsersRolesWorkspace db={db} vendorId={vendorId} actorId={actorId} actorRole={actorRole}/>;
@@ -443,7 +443,7 @@ function RecordsTable({ moduleKey, rows, loading, error, search, setSearch, sele
 
 
 
-function DashboardWorkspace({db,vendorId,actorId,actorRole,actorName,branchName}:{db:Firestore;vendorId:string;actorId:string;actorRole:string;actorName:string;branchName:string}) {
+function DashboardWorkspace({db,vendorId,actorId,actorRole,actorName,branchName,storage}:{db:Firestore;vendorId:string;actorId:string;actorRole:string;actorName:string;branchName:string;storage:FirebaseStorage|null}) {
   const [sales,setSales]=useState<Row[]>([]);const [tables,setTables]=useState<Row[]>([]);const [tableOrders,setTableOrders]=useState<Row[]>([]);const [products,setProducts]=useState<Row[]>([]);const [branches,setBranches]=useState<Row[]>([]);const [owner,setOwner]=useState<Row>({id:""});
   const [error,setError]=useState("");
   useEffect(()=>{
@@ -457,7 +457,7 @@ function DashboardWorkspace({db,vendorId,actorId,actorRole,actorName,branchName}
     getDoc(doc(db,"vendors",vendorId)).then(snap=>setOwner({...snap.data(),id:snap.id} as Row)).catch(e=>setError(e.message));
     return ()=>stops.forEach(stop=>stop());
   },[db,vendorId]);
-  if(!["admin","superAdmin","super_admin","auditor"].includes(actorRole))return <EmployeeDashboardWorkspace db={db} vendorId={vendorId} actorId={actorId} actorName={actorName} actorRole={actorRole} branchName={branchName}/>;
+  if(!["admin","superAdmin","super_admin","auditor"].includes(actorRole))return <EmployeeDashboardWorkspace db={db} vendorId={vendorId} actorId={actorId} actorName={actorName} actorRole={actorRole} branchName={branchName} storage={storage}/>;
   const now=new Date();const startToday=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
   const todaySales=sales.filter(x=>(dateMillis(x.createdAt)||0)>=startToday);
   const todayRevenue=todaySales.reduce((sum,x)=>sum+Number(x.total||0),0);
@@ -487,8 +487,8 @@ function DashboardWorkspace({db,vendorId,actorId,actorRole,actorName,branchName}
 }
 
 
-function EmployeeDashboardWorkspace({db,vendorId,actorId,actorName,actorRole,branchName}:{db:Firestore;vendorId:string;actorId:string;actorName:string;actorRole:string;branchName:string}) {
-  const [staff,setStaff]=useState<Row>({id:actorId});const [attendance,setAttendance]=useState<Row|null>(null);const [error,setError]=useState("");
+function EmployeeDashboardWorkspace({db,vendorId,actorId,actorName,actorRole,branchName,storage}:{db:Firestore;vendorId:string;actorId:string;actorName:string;actorRole:string;branchName:string;storage:FirebaseStorage|null}) {
+  const [staff,setStaff]=useState<Row>({id:actorId});const [attendance,setAttendance]=useState<Row|null>(null);const [error,setError]=useState("");const [uploading,setUploading]=useState(false);
   useEffect(()=>{
     const start=new Date();start.setHours(0,0,0,0);const end=new Date(start);end.setDate(end.getDate()+1);
     const stops=[
@@ -498,11 +498,12 @@ function EmployeeDashboardWorkspace({db,vendorId,actorId,actorName,actorRole,bra
   },[db,vendorId,actorId]);
   const start=dateMillis(attendance?.checkInTime),end=dateMillis(attendance?.checkOutTime);
   const workedHours=start!==null&&end!==null&&end>=start?(end-start)/3600000:null;
+  async function uploadPhoto(file:File){if(!staff.canChangePhoto)return;if(!storage){setError("Profile photo storage is unavailable.");return;}if(!file.type.startsWith("image/")||file.size>5*1024*1024){setError("Choose an image smaller than 5 MB.");return;}setUploading(true);setError("");try{const ref=storageRef(storage,"vendors/"+vendorId+"/staff/"+actorId+"/profile.jpg");await uploadBytes(ref,file,{contentType:file.type});const url=await getDownloadURL(ref);const batch=writeBatch(db);batch.set(doc(db,"vendors",vendorId,"staff",actorId),{photoUrl:url},{merge:true});batch.set(doc(db,"vendors",actorId),{photoUrl:url},{merge:true});await batch.commit();}catch(e){setError(e instanceof Error?e.message:"Unable to upload profile photo.");}finally{setUploading(false);}}
   const showCommission=staff.showCommissionToStaff===true;
   const metrics=[{label:"My tips",value:display(staff.tipsEarned)},{label:"Service charges",value:display(staff.serviceChargesEarned)},{label:"My points",value:display(staff.pointsEarned)},{label:"Customer rating",value:Number(staff.averageRating||0).toFixed(1)},{label:"Customer reviews",value:display(staff.reviewCount)}];
   if(showCommission)metrics.splice(2,0,{label:"My commission",value:display(staff.commissionEarned)});
   return <section className="admin-module"><div className="section-head"><div><p className="eyebrow">MY WORKSPACE</p><h1>{actorRole.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase())} dashboard</h1><p className="muted">{actorName} · {branchName||"Main Branch"}</p></div><span className="live-pill"><span/> Live</span></div>{error&&<p className="error-text">{error}</p>}
-    <div className="dashboard-panel"><div className="record-detail-head"><strong>My profile</strong></div><div className="dashboard-list-row"><span>Name</span><strong>{String(staff.name||actorName)}</strong></div><div className="dashboard-list-row"><span>Department</span><strong>{String(staff.role||actorRole)}</strong></div><div className="dashboard-list-row"><span>Attendance today</span><strong>{attendance?(attendance.isPresent===true?"Present":"Absent"):"Not marked"}</strong></div><div className="dashboard-list-row"><span>Worked today</span><strong>{workedHours===null?"—":workedHours.toFixed(1)+" hours"}</strong></div></div>
+    <div className="dashboard-panel"><div className="record-detail-head"><strong>My profile</strong></div><div className="employee-profile-row">{typeof staff.photoUrl==="string"&&staff.photoUrl?<img src={staff.photoUrl} alt="Profile"/>:<div className="employee-avatar">{String(staff.name||actorName).slice(0,1).toUpperCase()}</div>}<div><strong>{String(staff.name||actorName)}</strong><small>{String(staff.role||actorRole)} · {branchName||"Main Branch"}</small>{staff.canChangePhoto===true&&<label className="employee-photo-upload">{uploading?"Uploading…":"Change profile photo"}<input type="file" accept="image/*" disabled={uploading} onChange={e=>{const file=e.target.files?.[0];if(file)uploadPhoto(file);e.currentTarget.value="";}}/></label>}</div></div><div className="dashboard-list-row"><span>Name</span><strong>{String(staff.name||actorName)}</strong></div><div className="dashboard-list-row"><span>Department</span><strong>{String(staff.role||actorRole)}</strong></div><div className="dashboard-list-row"><span>Attendance today</span><strong>{attendance?(attendance.isPresent===true?"Present":"Absent"):"Not marked"}</strong></div><div className="dashboard-list-row"><span>Worked today</span><strong>{workedHours===null?"—":workedHours.toFixed(1)+" hours"}</strong></div></div>
     <div className="admin-kpis">{metrics.map(metric=><article key={metric.label}><small>{metric.label}</small><strong>{metric.value}</strong></article>)}</div>
     <p className="admin-note">Only your own staff profile and attendance information are shown in this role-based dashboard.</p>
   </section>;
