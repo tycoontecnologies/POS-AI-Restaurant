@@ -492,7 +492,7 @@ function EmployeeDashboardWorkspace({db,vendorId,actorId,actorName,actorRole,bra
     const start=new Date();start.setHours(0,0,0,0);const end=new Date(start);end.setDate(end.getDate()+1);
     const stops=[
       onSnapshot(doc(db,"vendors",vendorId,"staff",actorId),snap=>setStaff({...snap.data(),id:snap.id} as Row),e=>setError(e.message)),
-      onSnapshot(query(collection(db,"vendors",vendorId,"attendance"),where("staffId","==",actorId),where("date",">=",Timestamp.fromDate(start)),where("date","<",Timestamp.fromDate(end)),limit(1)),snap=>setAttendance(snap.empty?null:{...snap.docs[0].data(),id:snap.docs[0].id} as Row),e=>setError(e.message)),
+      onSnapshot(query(collection(db,"vendors",vendorId,"attendance"),where("staffId","==",actorId),limit(100)),snap=>{const match=snap.docs.find(d=>{const t=dateMillis(d.data().date)||0;return t>=start.getTime()&&t<end.getTime();});setAttendance(match?{...match.data(),id:match.id} as Row:null);},e=>setError(e.message)),
     ];return ()=>stops.forEach(stop=>stop());
   },[db,vendorId,actorId]);
   const start=dateMillis(attendance?.checkInTime),end=dateMillis(attendance?.checkOutTime);
