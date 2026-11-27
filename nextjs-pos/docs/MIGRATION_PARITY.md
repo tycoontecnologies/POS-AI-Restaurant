@@ -107,7 +107,7 @@ All of these Flutter providers require schema-accurate ports and tests; only the
 | ingredient_service.dart; recipe_service.dart | Ingredients, recipes and stock consumption | Partial: ingredient CRUD and per-product recipe document save/load/delete are implemented; recipe-driven ingredient deductions during checkout and inventory reconciliation pending |
 | store_out_service.dart | Store-out CRUD and stock movement | Partial: source snapshot schema, create-time stock deduction, edit-without-stock-movement and soft-delete semantics ported; bulk/date/reason search and transaction-level E2E coverage pending |
 | staff_service.dart; attendance_service.dart; staff_performance_service.dart | Staff, roles, attendance and performance | Missing |
-| session_audit_service.dart | Session/audit trail | Missing |
+| session_audit_service.dart | Session/audit trail | Partial: login/logout audit sessions with user, role, branch, source, timestamps, duration and active state; session history screen and abnormal-session cleanup pending |
 | notification_service.dart | Notification behavior | Missing |
 | dummy_data_service.dart | Test/demo data only; never production-seeded | Not assessed |
 
