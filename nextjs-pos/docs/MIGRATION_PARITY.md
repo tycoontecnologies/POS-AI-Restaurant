@@ -96,7 +96,7 @@ All of these Flutter providers require schema-accurate ports and tests; only the
 | sale_service.dart | Sales, billing counters, idempotency, history and exports | Partial |
 | transaction_billing_service.dart; usage_billing_reconciliation_service.dart | Exact billing/usage semantics and reconciliation | Partial; transaction behavior requires dedicated tests |
 | document_print_service.dart; pdf_service.dart | Exact receipt/KOT PDF layouts, browser print and supported printer workflows | Partial |
-| image_upload_service.dart | Firebase Storage upload/delete and image URL lifecycle | Partial: product/category/discount upload and replaced-image cleanup |
+| image_upload_service.dart | Firebase Storage upload/delete and image URL lifecycle | Partial: product/category/discount upload and replaced-image cleanup; product primary-image cleanup on delete |
 | stripe_service.dart; subscription_service.dart | Stripe checkout, webhook/server verification, plan/access lifecycle | Missing |
 | purchase_service.dart | Purchase create/edit/delete with purchase item schema and stock adjustments | Partial: core writes/stock effects ported; transaction safety, edge cases and UI parity need tests |\n| purchase_return_service.dart | Purchase return records and detail workflow | Partial: create record schema ported; update/delete and source UI flow pending |
 | sale_return_service.dart | Sale return records and detail workflow | Partial: create record schema ported; original Flutter service does not restore inventory; selected-item UI and list parity pending |
