@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, doc, onSnapshot, query, limit, Firestore, Timestamp, updateDoc } from "firebase/firestore";
+import { addDoc, collection, doc, onSnapshot, query, limit, Firestore, Timestamp, updateDoc, deleteDoc } from "firebase/firestore";
 import { Search, RefreshCw, Database, FileText } from "lucide-react";
 import { getDownloadURL, ref as storageRef, deleteObject, uploadBytes, type FirebaseStorage } from "firebase/storage";
 
@@ -28,7 +28,7 @@ const modules: Record<ModuleKey, { title: string; collection: string; descriptio
   orders: { title: "Orders", collection: "orders", description: "Order records" },
 };
 
-const editableModules: ModuleKey[] = ["products", "categories", "customers", "suppliers", "discounts", "ingredients"];
+const editableModules: ModuleKey[] = ["products", "categories", "customers", "suppliers", "discounts", "ingredients", "staff", "expenses"];
 const fields: Record<string, string[]> = {
   products: ["name", "category", "unit", "salePrice", "purchasePrice", "quantity", "variantsJson", "imageUrl"],
   categories: ["name", "imageUrl"],
@@ -36,6 +36,8 @@ const fields: Record<string, string[]> = {
   suppliers: ["name", "phone", "address"],
   discounts: ["name", "description", "type", "value", "imageUrl"],
   ingredients: ["name", "unit", "quantityInStock", "lowStockThreshold"],
+  staff: ["name", "role", "dailyWage", "phone", "address", "active", "joinDate", "commissionRate", "showCommissionToStaff"],
+  expenses: ["category", "amount", "note"],
 };
 
 function display(value: unknown): string {
@@ -117,6 +119,18 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
       };
     }
     if (moduleKey === "categories") return { name: form.name?.trim() || "", imageUrl: form.imageUrl || "" };
+    if (moduleKey === "expenses") {
+      const amount = Number(form.amount || 0);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error("Expense amount must be greater than zero.");
+      return { category: form.category || "General", amount, note: form.note?.trim() || "" };
+    }
+    if (moduleKey === "staff") {
+      const name = form.name?.trim() || "";
+      const role = form.role?.trim() || "";
+      if (!name || !role) throw new Error("Staff name and role are required.");
+      const joinDate = form.joinDate || new Date().toISOString().slice(0, 10);
+      return { name, role, dailyWage: Math.max(0, Number(form.dailyWage || 0)), phone: form.phone || "", address: form.address || "", active: form.active !== "false", joinDate: new Date(joinDate + "T00:00:00").toISOString(), searchKeywords: Array.from(new Set([name.toLowerCase(), role.toLowerCase(), (form.phone || "").toLowerCase(), ...name.toLowerCase().split(" "), ...role.toLowerCase().split(" ")].filter(Boolean))), commissionRate: Math.max(0, Number(form.commissionRate || 0)), showCommissionToStaff: form.showCommissionToStaff === "true", tipsEarned: 0, commissionEarned: 0, serviceChargesEarned: 0, pointsEarned: 0, averageRating: 0, reviewCount: 0, leakageTotal: 0, deductionsTotal: 0 };
+    }
     if (moduleKey === "customers") return { name: form.name?.trim() || "", phone: form.phone || "", email: form.email || null, address: form.address || "", city: form.city || null };
     if (moduleKey === "suppliers") return { name: form.name?.trim() || "", phone: form.phone || "", address: form.address || "" };
     if (moduleKey === "discounts") return { name: form.name?.trim() || "", description: form.description || "", type: form.type || "percentage", value: Number(form.value || 0), imageUrl: form.imageUrl || "" };
@@ -143,6 +157,8 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
         if (moduleKey === "products") data = { ...data, id: "", active: true, createdOn: now.toISOString(), attributes: [] };
         if (moduleKey === "categories") data = { ...data, id: "", active: true, createdOn: now.toISOString() };
         if (moduleKey === "customers") data = { ...data, id: "", active: true, createdOn: Timestamp.fromDate(now), totalSpent: 0 };
+        if (moduleKey === "expenses") data = { ...data, createdAt: serverTimestamp(), createdBy: "Next.js POS", createdById: vendorId };
+        if (moduleKey === "staff") data = { ...data, id: "" };
         if (moduleKey === "suppliers") data = { ...data, id: "", active: true, createdOn: Timestamp.fromDate(now), amountToReceive: 0, amountToPay: 0 };
         if (moduleKey === "discounts") data = { ...data, isActive: true, vendorId, createdAt: Timestamp.fromDate(now), updatedAt: Timestamp.fromDate(now) };
         if (moduleKey === "ingredients") data = { ...data, id: "", createdOn: now.toISOString() };
@@ -189,14 +205,14 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
       <div className="admin-form-grid">{(fields[moduleKey] || []).map(field => <label key={field}>{field.replace(/([A-Z])/g, " $1")}{field === "variantsJson" && <textarea rows={6} value={form[field] || "[]"} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}></textarea>}{field !== "variantsJson" && <input required={field === "name"} type={["value", "salePrice", "purchasePrice", "quantity", "quantityInStock", "lowStockThreshold"].includes(field) ? "number" : "text"} step="any" value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}/>}{field === "imageUrl" && ["products", "categories", "discounts"].includes(moduleKey) && <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files?.[0] || null)}/>}</label>)}</div>
       <button className="primary-btn" disabled={saving}>{saving ? "Saving…" : editingId ? "Update record" : "Save record"}</button>
     </form>}
-    <RecordsTable rows={filtered} loading={loading} error={error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} canEdit={canEdit} onEdit={beginEdit} onReprint={moduleKey==="sales"?onReprint:undefined}/>
+    <RecordsTable rows={filtered} loading={loading} error={error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} canEdit={canEdit} onEdit={beginEdit} onReprint={moduleKey==="sales"?onReprint:undefined} canDelete={moduleKey==="expenses"} onDelete={moduleKey==="expenses"?async row=>{if(!window.confirm("Delete this expense record?"))return;try{await deleteDoc(doc(db,"vendors",vendorId,config.collection,row.id));setSelected(null)}catch(err){setError(err instanceof Error?err.message:"Unable to delete expense.")}}:undefined}/>
     <p className="admin-note"><FileText size={17}/> This module is a migration slice. Unsupported workflow side effects, permissions and validations are not simulated here.</p>
   </section>;
 }
 
-function RecordsTable({ rows, loading, error, search, setSearch, selected, setSelected, canEdit = false, onEdit, onReprint }: {
+function RecordsTable({ rows, loading, error, search, setSearch, selected, setSelected, canEdit = false, onEdit, onReprint, canDelete = false, onDelete }: {
   rows: Row[]; loading: boolean; error: string; search: string; setSearch: (s: string) => void;
-  selected: Row | null; setSelected: (r: Row | null) => void; canEdit?: boolean; onEdit?: (r: Row) => void; onReprint?:(r:Row)=>void;
+  selected: Row | null; setSelected: (r: Row | null) => void; canEdit?: boolean; onEdit?: (r: Row) => void; onReprint?:(r:Row)=>void; canDelete?: boolean; onDelete?: (r:Row)=>void;
 }) {
   const keys = useMemo(() => {
     const preferred = ["name", "number", "customerName", "supplierName", "productName", "status", "total", "amount", "createdAt", "createdOn"];
@@ -207,6 +223,6 @@ function RecordsTable({ rows, loading, error, search, setSearch, selected, setSe
     <div className="admin-toolbar"><div className="search-wrap"><Search size={17}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search records…"/></div><button className="secondary-btn" onClick={() => setSearch("")}><RefreshCw size={15}/> Clear</button></div>
     {error && <p className="error-text">{error}</p>}
     {loading ? <div className="empty-state">Loading records…</div> : !rows.length ? <div className="empty-state">No records found in this collection.</div> : <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Document ID</th>{keys.map(k => <th key={k}>{k}</th>)}</tr></thead><tbody>{rows.map(row => <tr key={row.id} onClick={() => setSelected(row)}><td><button className="record-link">{row.id}</button></td>{keys.map(k => <td key={k}>{display(row[k])}</td>)}</tr>)}</tbody></table></div>}
-    {selected && <div className="record-detail"><div className="record-detail-head"><strong>Record details</strong><div className="record-actions">{canEdit && onEdit && <button className="secondary-btn" onClick={() => onEdit(selected)}>Edit record</button>}{onReprint&&<button className="secondary-btn" onClick={()=>onReprint(selected)}>Reprint receipt</button>}<button className="icon-btn" onClick={() => setSelected(null)}>×</button></div></div><pre>{JSON.stringify(selected, null, 2)}</pre></div>}
+    {selected && <div className="record-detail"><div className="record-detail-head"><strong>Record details</strong><div className="record-actions">{canEdit && onEdit && <button className="secondary-btn" onClick={() => onEdit(selected)}>Edit record</button>}{canDelete && onDelete && <button className="secondary-btn danger-btn" onClick={() => onDelete(selected)}>Delete record</button>}{onReprint&&<button className="secondary-btn" onClick={()=>onReprint(selected)}>Reprint receipt</button>}<button className="icon-btn" onClick={() => setSelected(null)}>×</button></div></div><pre>{JSON.stringify(selected, null, 2)}</pre></div>}
   </>;
 }
