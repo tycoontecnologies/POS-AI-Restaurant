@@ -42,7 +42,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | payment_screen.dart; payment_success_screen.dart; pricing_screen.dart | Missing: Stripe/subscription lifecycle not ported |
 | sale_screen.dart | Partial: basic sale creation, history list and receipt reprint; filters/export and full parity pending |
 | sale_return_screen.dart; select_return_items_screen.dart | Missing |
-| purchases_screen.dart; purchase_return_screen.dart; select_purchase_return_items_screen.dart | Missing |
+| purchases_screen.dart | Partial: purchase create/edit/delete with purchase item snapshots and batched base/variant stock adjustments; supplier/product picker, filters, pagination and complete tab parity pending |\n| purchase_return_screen.dart; select_purchase_return_items_screen.dart | Missing |
 | suppliers_screen.dart | Missing |
 | customers_screen.dart | Missing |
 | discounts_screen.dart | Missing |
@@ -98,7 +98,7 @@ All of these Flutter providers require schema-accurate ports and tests; only the
 | document_print_service.dart; pdf_service.dart | Exact receipt/KOT PDF layouts, browser print and supported printer workflows | Partial |
 | image_upload_service.dart | Firebase Storage upload/delete and image URL lifecycle | Partial: product/category/discount upload and replaced-image cleanup |
 | stripe_service.dart; subscription_service.dart | Stripe checkout, webhook/server verification, plan/access lifecycle | Missing |
-| purchase_service.dart; purchase_return_service.dart | Purchases and purchase returns | Missing |
+| purchase_service.dart | Purchase create/edit/delete with purchase item schema and stock adjustments | Partial: core writes/stock effects ported; transaction safety, edge cases and UI parity need tests |\n| purchase_return_service.dart | Purchase return records and detail workflow | Missing |
 | sale_return_service.dart | Sale returns/refunds and inventory restoration | Missing |
 | supplier_service.dart; customer_service.dart | Supplier/customer CRUD and relations | Missing |
 | discount_service.dart | Discount rules and application | Missing |
