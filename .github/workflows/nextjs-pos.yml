@@ -15,9 +15,12 @@ jobs:
       run:
         working-directory: nextjs-pos
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+      - name: Checkout source without broken legacy submodule hook
+        run: |
+          git init
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "${GITHUB_SHA}"
+          git checkout FETCH_HEAD
       - uses: actions/setup-node@v4
         with:
           node-version: 20
