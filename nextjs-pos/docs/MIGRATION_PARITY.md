@@ -27,20 +27,20 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 
 | Flutter source screen | Next.js parity |
 |---|---|
-| auth/login_screen.dart; auth/login_screen_v2.dart | Partial: Firebase login flow exists; visual/validation parity pending |
-| auth/signup_screen.dart | Missing |
+| auth/login_screen.dart; auth/login_screen_v2.dart; auth/signup_screen.dart | Partial: Firebase sign-in, signup and password reset exist; visual/validation parity pending |
+| auth/signup_screen.dart | Partial: basic signup and plan selection exist; full onboarding parity pending |
 | dashboard_screen.dart | Missing |
 | restaurant_dashboard_screen.dart; restaurant_dashboard_screen_v2.dart; restaurant_dashboard_screen_v3.dart | Missing |
 | restaurant_command_center_screen.dart | Missing |
 | employee_dashboard_screen.dart; role_home_screen.dart | Missing |
 | categories_screen.dart; category_products_screen.dart | Missing |
-| products_screen.dart | Partial: read/list only; full CRUD, upload, variants and flags missing |
+| products_screen.dart | Partial: base product create/edit, JSON variants and Storage image upload; flags/attributes and full parity pending |
 | pos_order_screen_v2.dart through pos_order_screen_v7.dart | Partial: core order/cart slice only; exact workflow parity pending |
-| table_management_screen.dart; table_management_screen_v2.dart | Partial: table list/order save-restore only |
+| table_management_screen.dart; table_management_screen_v2.dart | Partial: table list/create and order save-restore; edit/delete and full layout parity pending |
 | table_order_screen.dart | Partial |
 | orders_screen.dart; kitchen_kot_screen.dart | Partial |
 | payment_screen.dart; payment_success_screen.dart; pricing_screen.dart | Missing: Stripe/subscription lifecycle not ported |
-| sale_screen.dart | Partial: basic sale creation only; history/filter/export/reprint pending |
+| sale_screen.dart | Partial: basic sale creation, history list and receipt reprint; filters/export and full parity pending |
 | sale_return_screen.dart; select_return_items_screen.dart | Missing |
 | purchases_screen.dart; purchase_return_screen.dart; select_purchase_return_items_screen.dart | Missing |
 | suppliers_screen.dart | Missing |
