@@ -29,8 +29,8 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 |---|---|
 | auth/login_screen.dart; auth/login_screen_v2.dart; auth/signup_screen.dart | Partial: Firebase sign-in, signup and password reset exist; visual/validation parity pending |
 | auth/signup_screen.dart | Partial: basic signup and plan selection exist; full onboarding parity pending |
-| dashboard_screen.dart | Missing |
-| restaurant_dashboard_screen.dart; restaurant_dashboard_screen_v2.dart; restaurant_dashboard_screen_v3.dart | Missing |
+| dashboard_screen.dart | Partial: admin/super-admin live operations dashboard implemented; role-specific employee dashboard pending |
+| restaurant_dashboard_screen.dart; restaurant_dashboard_screen_v2.dart; restaurant_dashboard_screen_v3.dart | Partial: live today sales/receipts/average bill, active tables, PRA finalized, 7-day sales chart, KOT queue counts, top-selling items, low-stock alerts, recent receipts and branch cards; dashboard section customization and full analytics parity pending |
 | restaurant_command_center_screen.dart | Missing |
 | employee_dashboard_screen.dart; role_home_screen.dart | Missing |
 | categories_screen.dart; category_products_screen.dart | Partial: category create/edit/delete, active state and image upload lifecycle; category-specific product browsing and full pagination parity pending |
