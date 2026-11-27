@@ -1,0 +1,26 @@
+name: Next.js POS validation
+on:
+  pull_request:
+    paths:
+      - "nextjs-pos/**"
+  push:
+    branches:
+      - nextjs-pos-rebuild
+    paths:
+      - "nextjs-pos/**"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nextjs-pos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: nextjs-pos/package.json
+      - run: npm install
+      - run: npm run typecheck
+      - run: npm run build
