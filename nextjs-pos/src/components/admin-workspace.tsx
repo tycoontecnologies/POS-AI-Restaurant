@@ -87,6 +87,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const loadedPageCount = useRef(0);
+  const firstPageIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     setLoading(true);
@@ -95,13 +96,14 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     const paged = ["products", "purchases", "purchase_returns"].includes(moduleKey);
     const orderField = moduleKey === "purchase_returns" ? "createdAt" : "createdOn";
     const firstQuery = paged ? query(ref, orderBy(orderField, "desc"), limit(20)) : query(ref, limit(250));
-    setLastDoc(null); setHasMore(false); loadedPageCount.current = 0;
+    setLastDoc(null); setHasMore(false); loadedPageCount.current = 0; firstPageIds.current = new Set();
     const stop = onSnapshot(firstQuery, snap => {
       const pageRows = snap.docs.map(d => ({ ...d.data(), id: d.id } as Row));
       if (paged && loadedPageCount.current > 0) {
-        const pageIds = new Set(pageRows.map(row => row.id));
-        setRows(current => [...pageRows, ...current.filter(row => !pageIds.has(row.id))]);
+        const previousFirstPageIds = firstPageIds.current;
+        setRows(current => [...pageRows, ...current.filter(row => !previousFirstPageIds.has(row.id))]);
       } else setRows(pageRows);
+      if (paged) firstPageIds.current = new Set(pageRows.map(row => row.id));
       if (paged && loadedPageCount.current === 0) { setLastDoc(snap.docs.length ? snap.docs[snap.docs.length - 1] : null); setHasMore(snap.docs.length === 20); }
       setLoading(false);
     }, err => {
