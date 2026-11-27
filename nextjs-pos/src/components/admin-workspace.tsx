@@ -463,9 +463,9 @@ function AttendanceWorkspace({db,vendorId,staff}:{db:Firestore;vendorId:string;s
       const existing=daily.find(x=>String(x.staffId)===key);
       if(existing)await updateDoc(doc(db,"vendors",vendorId,"attendance",existing.id),{isPresent:value==="Present",updatedAt:Timestamp.fromDate(new Date())});
       else{
-        const created=doc(collection(db,"vendors",vendorId,"attendance"));
         const now=new Date();
-        await addDoc(collection(db,"vendors",vendorId,"attendance"),{id:created.id,vendorId,staffId:key,staffName:String(staffMember.name||""),dailyWage:Number(staffMember.dailyWage||0),date:Timestamp.fromDate(start),isPresent:value==="Present",checkInTime:null,checkOutTime:null,createdAt:Timestamp.fromDate(now),updatedAt:Timestamp.fromDate(now)});
+        const created=await addDoc(collection(db,"vendors",vendorId,"attendance"),{vendorId,staffId:key,staffName:String(staffMember.name||""),dailyWage:Number(staffMember.dailyWage||0),date:Timestamp.fromDate(start),isPresent:value==="Present",checkInTime:null,checkOutTime:null,createdAt:Timestamp.fromDate(now),updatedAt:Timestamp.fromDate(now)});
+        await updateDoc(created,{id:created.id});
       }
     }catch(e){setError(e instanceof Error?e.message:"Unable to save attendance.");}
     finally{setBusy("");}
