@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, doc, onSnapshot, query, limit, Firestore, Timestamp, updateDoc, deleteDoc, getDocs, where, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, doc, onSnapshot, query, limit, Firestore, Timestamp, updateDoc, deleteDoc, getDocs, getDoc, writeBatch, where, serverTimestamp } from "firebase/firestore";
 import { Search, RefreshCw, Database, FileText } from "lucide-react";
 import { getDownloadURL, ref as storageRef, deleteObject, uploadBytes, type FirebaseStorage } from "firebase/storage";
 
@@ -28,7 +28,7 @@ const modules: Record<ModuleKey, { title: string; collection: string; descriptio
   orders: { title: "Orders", collection: "orders", description: "Order records" },
 };
 
-const editableModules: ModuleKey[] = ["products", "categories", "customers", "suppliers", "discounts", "ingredients", "staff", "expenses", "attendance"];
+const editableModules: ModuleKey[] = ["products", "categories", "customers", "suppliers", "discounts", "ingredients", "staff", "expenses", "attendance", "purchases"];
 const fields: Record<string, string[]> = {
   products: ["name", "category", "unit", "salePrice", "purchasePrice", "quantity", "variantsJson", "imageUrl"],
   categories: ["name", "imageUrl"],
@@ -38,6 +38,7 @@ const fields: Record<string, string[]> = {
   ingredients: ["name", "unit", "quantityInStock", "lowStockThreshold"],
   staff: ["name", "role", "dailyWage", "phone", "address", "active", "joinDate", "commissionRate", "showCommissionToStaff"],
   expenses: ["category", "amount", "note"],
+  purchases: ["supplierId", "supplierName", "date", "status", "itemsJson"],
   attendance: ["staffId", "date", "isPresent"],
 };
 
@@ -102,7 +103,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
 
   function beginEdit(row: Row) {
     setEditingId(row.id);
-    setForm(Object.fromEntries((fields[moduleKey] || []).map(field => [field, field === "variantsJson" ? JSON.stringify(row.variants || [], null, 2) : field === "joinDate" ? String(row.joinDate || "").slice(0, 10) : String(row[field] ?? "")])));
+    setForm(Object.fromEntries((fields[moduleKey] || []).map(field => [field, field === "variantsJson" ? JSON.stringify(row.variants || [], null, 2) : field === "itemsJson" ? JSON.stringify(row.items || [], null, 2) : field === "joinDate" ? String(row.joinDate || "").slice(0, 10) : String(row[field] ?? "")])));
     setFormOpen(true);
   }
 
@@ -127,6 +128,15 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
       };
     }
     if (moduleKey === "categories") return { name: form.name?.trim() || "", imageUrl: form.imageUrl || "" };
+    if (moduleKey === "purchases") {
+      let parsed: unknown;
+      try { parsed = JSON.parse(form.itemsJson || "[]"); } catch { throw new Error("Purchase items must be valid JSON."); }
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("Add at least one purchase item.");
+      const items = parsed.map((v: Record<string, unknown>) => { const quantity=Number(v.quantity||0), unitPrice=Number(v.unitPrice||0); if(!v.productId||!v.productName||!Number.isInteger(quantity)||quantity<=0||!Number.isFinite(unitPrice)||unitPrice<0) throw new Error("Each item needs productId, productName, positive integer quantity and non-negative unitPrice."); return {productId:String(v.productId),productName:String(v.productName),quantity,unitPrice,total:quantity*unitPrice,variantId:v.variantId?String(v.variantId):null,variantName:v.variantName?String(v.variantName):null}; });
+      if(!form.supplierId?.trim()||!form.supplierName?.trim()) throw new Error("Supplier ID and supplier name are required.");
+      const date=new Date((form.date||new Date().toISOString().slice(0,10))+"T00:00:00"); if(!Number.isFinite(date.getTime())) throw new Error("Choose a valid purchase date.");
+      return {id:editingId||"",supplierId:form.supplierId.trim(),supplierName:form.supplierName.trim(),items,total:items.reduce((sum,item)=>sum+item.total,0),date:Timestamp.fromDate(date),status:form.status||"Pending",createdOn:editingId?(selected?.createdOn||Timestamp.fromDate(now)):Timestamp.fromDate(now)};
+    }
     if (moduleKey === "attendance") {
       const staff = staffOptions.find(item => item.id === form.staffId);
       if (!staff) throw new Error("Select an active staff member.");
@@ -162,6 +172,16 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
       const now = new Date();
       const payload = makePayload(now);
       const ref = collection(db, "vendors", vendorId, config.collection);
+      if (moduleKey === "purchases") {
+        const oldItems=editingId?((await getDoc(doc(db,"vendors",vendorId,"purchases",editingId))).data()?.items as Array<Record<string,unknown>>||[]):[];
+        const newItems=payload.items as Array<Record<string,unknown>>;
+        const ids=Array.from(new Set([...oldItems,...newItems].map(item=>String(item.productId))));
+        const snaps=await Promise.all(ids.map(id=>getDoc(doc(db,"vendors",vendorId,"products",id))));
+        const batch=writeBatch(db); const target=editingId?doc(db,"vendors",vendorId,"purchases",editingId):doc(ref);
+        batch.set(target,{...payload,id:target.id});
+        for(let i=0;i<ids.length;i++){const snap=snaps[i];if(!snap.exists())continue;const data=snap.data();const oldFor=oldItems.filter(item=>String(item.productId)===ids[i]);const newFor=newItems.filter(item=>String(item.productId)===ids[i]);const baseDelta=newFor.filter(item=>!item.variantId).reduce((s,item)=>s+Number(item.quantity||0),0)-oldFor.filter(item=>!item.variantId).reduce((s,item)=>s+Number(item.quantity||0),0);const vd=new Map<string,number>();for(const item of oldFor)if(item.variantId){const id=String(item.variantId);vd.set(id,(vd.get(id)||0)-Number(item.quantity||0));}for(const item of newFor)if(item.variantId){const id=String(item.variantId);vd.set(id,(vd.get(id)||0)+Number(item.quantity||0));}const patch:Record<string,unknown>={};if(baseDelta)patch.quantity=Number(data.quantity||0)+baseDelta;if(vd.size)patch.variants=(Array.isArray(data.variants)?data.variants:[]).map((v:Record<string,unknown>)=>vd.has(String(v.id))?{...v,quantity:Number(v.quantity||0)+(vd.get(String(v.id))||0)}:v);if(Object.keys(patch).length)batch.update(snap.ref,patch);}
+        await batch.commit();setForm({});setEditingId(null);setFormOpen(false);return;
+      }
       if (moduleKey === "attendance") {
         const attendanceDate = new Date((form.date || now.toISOString().slice(0, 10)) + "T00:00:00");
         const dayEnd = new Date(attendanceDate); dayEnd.setHours(23, 59, 59, 999);
@@ -226,10 +246,10 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     <div className="section-head"><div><p className="eyebrow">MANAGEMENT</p><h1>{config.title}</h1><p className="muted">{config.description}</p></div><div className="admin-head-actions"><span className="count-badge">{rows.length} records</span>{canEdit && <button className="primary-btn" onClick={beginCreate}>+ Add new</button>}</div></div>
     {formOpen && <form className="admin-create-form" onSubmit={saveRecord}>
       <div className="record-detail-head"><strong>{editingId ? "Edit" : "New"} {config.title.replace(/s$/, "")}</strong><button type="button" className="icon-btn" onClick={() => { setFormOpen(false); setEditingId(null); }}>×</button></div>
-      <div className="admin-form-grid">{(fields[moduleKey] || []).map(field => <label key={field}>{field.replace(/([A-Z])/g, " $1")}{field === "variantsJson" && <textarea rows={6} value={form[field] || "[]"} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}></textarea>}{field !== "variantsJson" && !["active", "showCommissionToStaff", "category"].includes(field) && <input required={field === "name" || field === "role" || field === "amount" || (field === "phone" && moduleKey === "staff")} type={["value", "salePrice", "purchasePrice", "quantity", "quantityInStock", "lowStockThreshold", "dailyWage", "commissionRate", "amount"].includes(field) ? "number" : ["joinDate", "date"].includes(field) ? "date" : "text"} step="any" value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}/>}{field === "category" && moduleKey === "products" && <input required value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))} placeholder="Product category"/>} {field === "staffId" && moduleKey === "attendance" && <select required value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}><option value="">Select staff member</option>{staffOptions.filter(staff => staff.active !== false).map(staff => <option key={staff.id} value={staff.id}>{String(staff.name || "Unnamed")} · {String(staff.role || "")}</option>)}</select>} {field === "category" && moduleKey === "expenses" && <select value={form[field] || "General"} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}>{["General", "Salaries", "Rent", "Electricity", "Gas", "Maintenance", "Transport", "Marketing", "Purchases", "Other"].map(value => <option key={value}>{value}</option>)}</select>} {["active", "showCommissionToStaff", "isPresent"].includes(field) && <select value={form[field] || (field === "active" ? "true" : "false")} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}><option value="true">{field === "isPresent" ? "Present" : "Yes"}</option><option value="false">{field === "isPresent" ? "Absent" : "No"}</option></select>}{field === "imageUrl" && ["products", "categories", "discounts"].includes(moduleKey) && <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files?.[0] || null)}/>}</label>)}</div>
+      <div className="admin-form-grid">{(fields[moduleKey] || []).map(field => <label key={field}>{field.replace(/([A-Z])/g, " $1")}{field === "variantsJson" && <textarea rows={6} value={form[field] || "[]"} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}></textarea>}{field !== "variantsJson" && !["active", "showCommissionToStaff", "category"].includes(field) && <input required={field === "name" || field === "role" || field === "amount" || (field === "phone" && moduleKey === "staff")} type={["value", "salePrice", "purchasePrice", "quantity", "quantityInStock", "lowStockThreshold", "dailyWage", "commissionRate", "amount"].includes(field) ? "number" : ["joinDate", "date"].includes(field) ? "date" : "text"} step="any" value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}/>}{field === "category" && moduleKey === "products" && <input required value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))} placeholder="Product category"/>} {field === "itemsJson" && moduleKey === "purchases" && <textarea rows={7} value={form[field] || "[{\"productId\":\"PRODUCT_DOC_ID\",\"productName\":\"Product name\",\"quantity\":1,\"unitPrice\":0,\"variantId\":null,\"variantName\":null}]"} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}/>} {field === "status" && moduleKey === "purchases" && <select value={form[field] || "Pending"} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}><option>Pending</option><option>Received</option><option>Cancelled</option></select>} {field === "staffId" && moduleKey === "attendance" && <select required value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}><option value="">Select staff member</option>{staffOptions.filter(staff => staff.active !== false).map(staff => <option key={staff.id} value={staff.id}>{String(staff.name || "Unnamed")} · {String(staff.role || "")}</option>)}</select>} {field === "category" && moduleKey === "expenses" && <select value={form[field] || "General"} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}>{["General", "Salaries", "Rent", "Electricity", "Gas", "Maintenance", "Transport", "Marketing", "Purchases", "Other"].map(value => <option key={value}>{value}</option>)}</select>} {["active", "showCommissionToStaff", "isPresent"].includes(field) && <select value={form[field] || (field === "active" ? "true" : "false")} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}><option value="true">{field === "isPresent" ? "Present" : "Yes"}</option><option value="false">{field === "isPresent" ? "Absent" : "No"}</option></select>}{field === "imageUrl" && ["products", "categories", "discounts"].includes(moduleKey) && <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files?.[0] || null)}/>}</label>)}</div>
       <button className="primary-btn" disabled={saving}>{saving ? "Saving…" : editingId ? "Update record" : "Save record"}</button>
     </form>}
-    <RecordsTable rows={filtered} loading={loading} error={error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} canEdit={canEdit && moduleKey !== "expenses" && moduleKey !== "attendance"} onEdit={beginEdit} onReprint={moduleKey==="sales"?onReprint:undefined} canDelete={moduleKey==="expenses" || moduleKey==="staff"} onDelete={moduleKey==="expenses" || moduleKey==="staff"?async row=>{const label=moduleKey==="staff"?"employee":"expense";if(!window.confirm(`Delete this ${label} record${moduleKey==="staff" && row.name?` for ${String(row.name)}`:""}?`))return;try{await deleteDoc(doc(db,"vendors",vendorId,config.collection,row.id));setSelected(null)}catch(err){setError(err instanceof Error?err.message:`Unable to delete ${label}.`)}}:undefined}/>
+    <RecordsTable rows={filtered} loading={loading} error={error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} canEdit={canEdit && moduleKey !== "expenses" && moduleKey !== "attendance"} onEdit={beginEdit} onReprint={moduleKey==="sales"?onReprint:undefined} canDelete={moduleKey==="expenses" || moduleKey==="staff" || moduleKey==="purchases"} onDelete={moduleKey==="expenses" || moduleKey==="staff" || moduleKey==="purchases"?async row=>{const label=moduleKey==="staff"?"employee":moduleKey==="purchases"?"purchase":"expense";if(!window.confirm(`Delete this ${label} record${moduleKey==="staff" && row.name?` for ${String(row.name)}`:""}?`))return;try{if(moduleKey==="purchases"){const items=Array.isArray(row.items)?row.items as Array<Record<string,unknown>>:[];const ids=Array.from(new Set(items.map(item=>String(item.productId))));const snaps=await Promise.all(ids.map(id=>getDoc(doc(db,"vendors",vendorId,"products",id))));const batch=writeBatch(db);for(let i=0;i<ids.length;i++){if(!snaps[i].exists())continue;const data=snaps[i].data();const selectedItems=items.filter(item=>String(item.productId)===ids[i]);const base=selectedItems.filter(item=>!item.variantId).reduce((s,item)=>s+Number(item.quantity||0),0);const vd=new Map<string,number>();for(const item of selectedItems)if(item.variantId){const id=String(item.variantId);vd.set(id,(vd.get(id)||0)+Number(item.quantity||0));}const patch:Record<string,unknown>={};if(base)patch.quantity=Number(data.quantity||0)-base;if(vd.size)patch.variants=(Array.isArray(data.variants)?data.variants:[]).map((v:Record<string,unknown>)=>vd.has(String(v.id))?{...v,quantity:Number(v.quantity||0)-(vd.get(String(v.id))||0)}:v);if(Object.keys(patch).length)batch.update(snaps[i].ref,patch);}batch.delete(doc(db,"vendors",vendorId,"purchases",row.id));await batch.commit();}else await deleteDoc(doc(db,"vendors",vendorId,config.collection,row.id));setSelected(null)}catch(err){setError(err instanceof Error?err.message:`Unable to delete ${label}.`)}}:undefined}/>
     <p className="admin-note"><FileText size={17}/> This module is a migration slice. Unsupported workflow side effects, permissions and validations are not simulated here.</p>
   </section>;
 }
