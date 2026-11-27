@@ -38,7 +38,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | pos_order_screen_v2.dart through pos_order_screen_v7.dart | Partial: core order/cart slice only; exact workflow parity pending |
 | table_management_screen.dart; table_management_screen_v2.dart | Partial: table list/create and order save-restore; edit/delete and full layout parity pending |
 | table_order_screen.dart | Partial |
-| orders_screen.dart; kitchen_kot_screen.dart | Partial |
+| orders_screen.dart; kitchen_kot_screen.dart | Orders partial parity: status/date filters, 20-record cursor pagination, structured order/item details, mark-completed action and delete confirmation. Kitchen KOT remains implemented with queue status transitions; delivery/customer lifecycle and visual parity pending |
 | payment_screen.dart; payment_success_screen.dart; pricing_screen.dart | Missing: Stripe/subscription lifecycle not ported |
 | sale_screen.dart | Improved partial parity: sale history search, date filters, 20-record cursor pagination, structured sale/item details and receipt reprint; export and full parity pending |
 | sale_return_screen.dart; select_return_items_screen.dart | Improved partial parity: original-sale picker, selected item workflow with all items selected by default, individual product selection, source-sale and quantity validation, refund calculation, structured details, search/date filters and 20-record cursor pagination; dedicated-tenant tests pending. Flutter return flow does not restore inventory. |
