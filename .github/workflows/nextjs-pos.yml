@@ -21,6 +21,7 @@ jobs:
           git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
           git fetch --depth=1 origin "${GITHUB_SHA}"
           git checkout FETCH_HEAD
+        working-directory: .
       - uses: actions/setup-node@v4
         with:
           node-version: 20
