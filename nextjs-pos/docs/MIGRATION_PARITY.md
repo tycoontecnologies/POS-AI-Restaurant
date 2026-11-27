@@ -55,8 +55,8 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | monthly_attendance_screen.dart | Missing |
 | branches_screen.dart | Partial: branch create/edit/delete, active status, branch code/address and source premiumFeature/createdAt metadata; main-branch card and branch-scoped data enforcement pending |
 | users_roles_screen.dart | Partial: department account creation using a secondary Firebase Auth app, linked vendor/staff documents, standard role permission presets, active/disabled toggle, password reset and profile-photo/commission visibility controls; dedicated-tenant account lifecycle tests and custom permission editing pending |
-| settings_hub_screen.dart; settings_screen.dart | Missing |
-| pra_settings_screen.dart | Missing |
+| settings_hub_screen.dart; settings_screen.dart | Partial: admin-only restaurant profile editing for account name, restaurant name, location, phone and logo upload to the Flutter Storage path; settings hub tiles and password/security workflows pending |
+| pra_settings_screen.dart | Partial: load/save registration number, POS ID, masked token and enabled state in the original integrations/pra document; no live PRA API transmission is attempted |
 | splash_screen.dart | Missing |
 
 ## Provider/domain parity
