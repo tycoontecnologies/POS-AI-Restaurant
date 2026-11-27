@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot, query, limit, Firestore } from "firebase/firestore";
+import { addDoc, collection, onSnapshot, query, limit, Firestore, Timestamp } from "firebase/firestore";
 import { Search, RefreshCw, Database, FileText } from "lucide-react";
 
 type ModuleKey = "dashboard" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders";
@@ -41,7 +41,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey }: { db: Firest
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Row | null>(null);
+  const [selected, setSelected] = useState<Row | null>(null);\n  const [formOpen, setFormOpen] = useState(false);\n  const [form, setForm] = useState<Record<string,string>>({});\n  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setLoading(true); setError("");
@@ -54,7 +54,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey }: { db: Firest
   }, [db, vendorId, config.collection]);
 
   const filtered = useMemo(() => rows.filter(row => JSON.stringify(row).toLowerCase().includes(search.toLowerCase())), [rows, search]);
-  const total = useMemo(() => rows.reduce((sum, row) => {
+  const canCreate = ["categories","customers","suppliers","discounts","ingredients"].includes(moduleKey);\n  const formFields: Record<string,string[]> = { categories:["name","imageUrl"], customers:["name","phone","email","address","city"], suppliers:["name","phone","address"], discounts:["name","description","type","value","imageUrl"], ingredients:["name","unit","quantityInStock","lowStockThreshold"] };\n  async function createRecord(e: React.FormEvent) {\n    e.preventDefault(); if (!canCreate || saving) return; setSaving(true);\n    try {\n      const now = new Date(); const idRef = collection(db, "vendors", vendorId, config.collection);\n      let data: Record<string,unknown>;\n      if (moduleKey === "categories") data = { id: "", name: form.name?.trim() || "", active: true, imageUrl: form.imageUrl || "", createdOn: now.toISOString() };\n      else if (moduleKey === "customers") data = { id: "", name: form.name?.trim() || "", phone: form.phone || "", email: form.email || null, address: form.address || "", city: form.city || null, active: true, createdOn: Timestamp.fromDate(now), totalSpent: 0 };\n      else if (moduleKey === "suppliers") data = { id: "", name: form.name?.trim() || "", phone: form.phone || "", address: form.address || "", active: true, createdOn: Timestamp.fromDate(now), amountToReceive: 0, amountToPay: 0 };\n      else if (moduleKey === "discounts") data = { name: form.name?.trim() || "", description: form.description || "", type: form.type || "percentage", value: Number(form.value || 0), imageUrl: form.imageUrl || "", isActive: true, vendorId, createdAt: Timestamp.fromDate(now), updatedAt: Timestamp.fromDate(now) };\n      else data = { id: "", name: form.name?.trim() || "", unit: form.unit || "g", quantityInStock: Number(form.quantityInStock || 0), lowStockThreshold: Number(form.lowStockThreshold || 20), createdOn: now.toISOString() };\n      const created = await addDoc(idRef, data); if (moduleKey !== "discounts") await (await import("firebase/firestore")).updateDoc(created, { id: created.id });\n      setForm({}); setFormOpen(false);\n    } catch (err) { setError(err instanceof Error ? err.message : "Unable to save record."); } finally { setSaving(false); }\n  }\n  const total = useMemo(() => rows.reduce((sum, row) => {
     const amount = Number(row.total ?? row.amount ?? row.totalAmount ?? 0);
     return sum + (Number.isFinite(amount) ? amount : 0);
   }, 0), [rows]);
