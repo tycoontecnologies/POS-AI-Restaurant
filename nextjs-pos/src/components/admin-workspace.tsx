@@ -399,6 +399,8 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     <RecordsTable moduleKey={moduleKey} rows={filtered} loading={loading} error={error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected}/>
   </section>;
 
+  if (moduleKey === "attendance") return <AttendanceWorkspace db={db} vendorId={vendorId} staff={staffOptions}/>;
+
   return <section className="admin-module">
     <div className="section-head"><div><p className="eyebrow">MANAGEMENT</p><h1>{config.title}</h1><p className="muted">{config.description}</p></div><div className="admin-head-actions"><span className="count-badge">{rows.length} records</span>{canEdit && <button className="primary-btn" onClick={beginCreate}>+ Add new</button>}</div></div>
     {formOpen && <form className="admin-create-form" onSubmit={saveRecord}>
@@ -430,6 +432,65 @@ function RecordsTable({ moduleKey, rows, loading, error, search, setSearch, sele
   </>;
 }
 
+
+
+function AttendanceWorkspace({db,vendorId,staff}:{db:Firestore;vendorId:string;staff:Row[]}) {
+  const today=new Date().toISOString().slice(0,10);
+  const [selectedDate,setSelectedDate]=useState(today);
+  const [selectedMonth,setSelectedMonth]=useState(today.slice(0,7));
+  const [view,setView]=useState<"daily"|"monthly">("daily");
+  const [daily,setDaily]=useState<Row[]>([]);
+  const [monthly,setMonthly]=useState<Row[]>([]);
+  const [search,setSearch]=useState("");
+  const [busy,setBusy]=useState("");
+  const [error,setError]=useState("");
+  useEffect(()=>{
+    const start=new Date(selectedDate+"T00:00:00");const end=new Date(start);end.setDate(end.getDate()+1);
+    if(!Number.isFinite(start.getTime()))return;
+    return onSnapshot(query(collection(db,"vendors",vendorId,"attendance"),where("date",">=",Timestamp.fromDate(start)),where("date","<",Timestamp.fromDate(end))),snap=>setDaily(snap.docs.map(d=>({...d.data(),id:d.id} as Row))),err=>setError(err.message));
+  },[db,vendorId,selectedDate]);
+  useEffect(()=>{
+    const [year,month]=selectedMonth.split("-").map(Number);const start=new Date(year,month-1,1);const end=new Date(year,month,1);
+    if(!Number.isFinite(start.getTime()))return;
+    return onSnapshot(query(collection(db,"vendors",vendorId,"attendance"),where("date",">=",Timestamp.fromDate(start)),where("date","<",Timestamp.fromDate(end))),snap=>setMonthly(snap.docs.map(d=>({...d.data(),id:d.id} as Row))),err=>setError(err.message));
+  },[db,vendorId,selectedMonth]);
+  async function mark(staffMember:Row,value:string){
+    if(value==="")return;
+    const key=String(staffMember.id);setBusy(key);setError("");
+    try{
+      const start=new Date(selectedDate+"T00:00:00");const end=new Date(start);end.setDate(end.getDate()+1);
+      if(!Number.isFinite(start.getTime()))throw new Error("Choose a valid attendance date.");
+      const existing=daily.find(x=>String(x.staffId)===key);
+      if(existing)await updateDoc(doc(db,"vendors",vendorId,"attendance",existing.id),{isPresent:value==="Present",updatedAt:Timestamp.fromDate(new Date())});
+      else{
+        const created=doc(collection(db,"vendors",vendorId,"attendance"));
+        const now=new Date();
+        await addDoc(collection(db,"vendors",vendorId,"attendance"),{id:created.id,vendorId,staffId:key,staffName:String(staffMember.name||""),dailyWage:Number(staffMember.dailyWage||0),date:Timestamp.fromDate(start),isPresent:value==="Present",checkInTime:null,checkOutTime:null,createdAt:Timestamp.fromDate(now),updatedAt:Timestamp.fromDate(now)});
+      }
+    }catch(e){setError(e instanceof Error?e.message:"Unable to save attendance.");}
+    finally{setBusy("");}
+  }
+  const activeStaff=staff.filter(x=>x.active!==false&&String(x.name||"").toLowerCase().includes(search.toLowerCase()));
+  const monthlySummary=staff.filter(x=>x.active!==false).map(person=>{
+    const entries=monthly.filter(x=>String(x.staffId)===person.id);
+    let presentDays=0,totalHours=0,totalWage=0;
+    for(const entry of entries){
+      const present=entry.isPresent===true;if(present)presentDays++;
+      const start=dateMillis(entry.checkInTime),end=dateMillis(entry.checkOutTime);
+      const hasTimes=start!==null&&end!==null&&end>=start;
+      const hours=hasTimes?(end!-start!)/3600000:0;
+      totalHours+=hours;
+      if(present)totalWage+=hasTimes?(hours/8)*Number(entry.dailyWage||person.dailyWage||0):Number(entry.dailyWage||person.dailyWage||0);
+    }
+    return {person,presentDays,totalHours,totalWage,records:entries.length};
+  }).filter(x=>x.records>0||x.person.name);
+  return <section className="admin-module">
+    <div className="section-head"><div><p className="eyebrow">PEOPLE & OPERATIONS</p><h1>Attendance</h1><p className="muted">Daily staff attendance and monthly wage summary</p></div><div className="admin-head-actions"><button className={view==="daily"?"primary-btn":"secondary-btn"} onClick={()=>setView("daily")}>Daily view</button><button className={view==="monthly"?"primary-btn":"secondary-btn"} onClick={()=>setView("monthly")}>Monthly report</button></div></div>
+    {error&&<p className="error-text">{error}</p>}
+    {view==="daily"?<><div className="record-filter-bar"><label>Attendance date <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} max={today}/></label><div className="search-wrap"><Search size={17}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search staff by name…"/></div><span className="count-badge">{activeStaff.length} staff</span></div><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>#</th><th>Employee</th><th>Role</th><th>Daily wage</th><th>Attendance</th></tr></thead><tbody>{activeStaff.map((person,index)=>{const record=daily.find(x=>String(x.staffId)===person.id);const status=record?(record.isPresent===true?"Present":"Absent"):"";return <tr key={person.id}><td>{index+1}</td><td>{String(person.name||"—")}</td><td>{String(person.role||"—")}</td><td>{Number(person.dailyWage||0).toLocaleString("en-PK")}</td><td><select aria-label={"Attendance for "+String(person.name||"staff")} value={status} disabled={busy===person.id} onChange={e=>mark(person,e.target.value)}><option value="">Not marked</option><option value="Present">Present</option><option value="Absent">Absent</option></select>{busy===person.id&&<small> Saving…</small>}</td></tr>;})}{!activeStaff.length&&<tr><td colSpan={5}>No active staff found.</td></tr>}</tbody></table></div></>:<><div className="record-filter-bar"><label>Month <input type="month" value={selectedMonth} onChange={e=>setSelectedMonth(e.target.value)}/></label><span className="count-badge">{monthly.length} attendance records</span></div><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Staff member</th><th>Present days</th><th>Total hours</th><th>Total wage (Rs)</th></tr></thead><tbody>{monthlySummary.map(x=><tr key={x.person.id}><td>{String(x.person.name||"—")}</td><td>{x.presentDays}</td><td>{x.totalHours.toFixed(1)}</td><td>{x.totalWage.toLocaleString("en-PK",{maximumFractionDigits:0})}</td></tr>)}</tbody></table></div></>}
+    <p className="admin-note"><FileText size={17}/> Attendance records use the Flutter-compatible date, staff, wage, status, check-in/out and timestamp fields. Monthly wages follow the source model: full daily wage without both time punches, otherwise prorated over an 8-hour day.</p>
+  </section>;
+}
 
 function ProductVariantsEditor({value,onChange}:{value:string;onChange:(value:string)=>void}) {
   const [attributeDrafts,setAttributeDrafts]=useState<Record<string,string>>({});
