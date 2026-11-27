@@ -94,7 +94,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
 
   function beginEdit(row: Row) {
     setEditingId(row.id);
-    setForm(Object.fromEntries((fields[moduleKey] || []).map(field => [field, field === "variantsJson" ? JSON.stringify(row.variants || [], null, 2) : String(row[field] ?? "")])));
+    setForm(Object.fromEntries((fields[moduleKey] || []).map(field => [field, field === "variantsJson" ? JSON.stringify(row.variants || [], null, 2) : field === "joinDate" ? String(row.joinDate || "").slice(0, 10) : String(row[field] ?? "")])));
     setFormOpen(true);
   }
 
