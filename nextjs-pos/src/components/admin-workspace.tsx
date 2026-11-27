@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, doc, onSnapshot, query, limit, Firestore, Timestamp, updateDoc } from "firebase/firestore";
 import { Search, RefreshCw, Database, FileText } from "lucide-react";
+import { getDownloadURL, ref as storageRef, uploadBytes, type FirebaseStorage } from "firebase/storage";
 
 type ModuleKey = "dashboard" | "products" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders";
 type Row = Record<string, unknown> & { id: string };
@@ -46,7 +47,7 @@ function display(value: unknown): string {
   return typeof value === "number" ? value.toLocaleString("en-PK") : String(value);
 }
 
-export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint }: { db: Firestore; vendorId: string; moduleKey: ModuleKey; onReprint?:(row:Row)=>void }) {
+export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, storage }: { db: Firestore; vendorId: string; moduleKey: ModuleKey; storage: FirebaseStorage | null; onReprint?:(row:Row)=>void }) {
   const config = modules[moduleKey];
   const canEdit = editableModules.includes(moduleKey);
   const [rows, setRows] = useState<Row[]>([]);
@@ -57,7 +58,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint }: {
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState(false);\n  const [imageFile, setImageFile] = useState<File | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -130,6 +131,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint }: {
       const now = new Date();
       const payload = makePayload(now);
       const ref = collection(db, "vendors", vendorId, config.collection);
+      let recordId = editingId;
       if (editingId) {
         const patch = moduleKey === "discounts"
           ? { ...payload, updatedAt: Timestamp.fromDate(now) }
@@ -144,9 +146,22 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint }: {
         if (moduleKey === "discounts") data = { ...data, isActive: true, vendorId, createdAt: Timestamp.fromDate(now), updatedAt: Timestamp.fromDate(now) };
         if (moduleKey === "ingredients") data = { ...data, id: "", createdOn: now.toISOString() };
         const created = await addDoc(ref, data);
+        recordId = created.id;
         if (moduleKey !== "discounts") await updateDoc(created, { id: created.id });
       }
+      if (imageFile && recordId && ["products", "categories", "discounts"].includes(moduleKey)) {
+        if (!storage) throw new Error("Firebase Storage is not configured.");
+        if (imageFile.size > 5 * 1024 * 1024) throw new Error("Image must be smaller than 5 MB.");
+        if (!imageFile.type.startsWith("image/")) throw new Error("Choose a valid image file.");
+        const extension = imageFile.name.includes(".") ? imageFile.name.slice(imageFile.name.lastIndexOf(".")) : ".jpg";
+        const folder = moduleKey === "products" ? "products" : moduleKey === "categories" ? "categories" : "discounts";
+        const prefix = moduleKey === "products" ? "product" : moduleKey === "categories" ? "category" : "discount";
+        const destination = storageRef(storage, "vendors/" + vendorId + "/" + folder + "/" + recordId + "/" + prefix + "_" + Date.now() + extension);
+        const uploaded = await uploadBytes(destination, imageFile, { contentType: imageFile.type });
+        await updateDoc(doc(db, "vendors", vendorId, config.collection, recordId), { imageUrl: await getDownloadURL(uploaded.ref) });
+      }
       setForm({});
+      setImageFile(null);
       setEditingId(null);
       setFormOpen(false);
     } catch (err) {
@@ -167,7 +182,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint }: {
     <div className="section-head"><div><p className="eyebrow">MANAGEMENT</p><h1>{config.title}</h1><p className="muted">{config.description}</p></div><div className="admin-head-actions"><span className="count-badge">{rows.length} records</span>{canEdit && <button className="primary-btn" onClick={beginCreate}>+ Add new</button>}</div></div>
     {formOpen && <form className="admin-create-form" onSubmit={saveRecord}>
       <div className="record-detail-head"><strong>{editingId ? "Edit" : "New"} {config.title.replace(/s$/, "")}</strong><button type="button" className="icon-btn" onClick={() => { setFormOpen(false); setEditingId(null); }}>×</button></div>
-      <div className="admin-form-grid">{(fields[moduleKey] || []).map(field => <label key={field}>{field.replace(/([A-Z])/g, " $1")}{field === "variantsJson" && <textarea rows={6} value={form[field] || "[]"} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}></textarea>}{field !== "variantsJson" && <input required={field === "name"} type={["value", "salePrice", "purchasePrice", "quantity", "quantityInStock", "lowStockThreshold"].includes(field) ? "number" : "text"} step="any" value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}/>}</label>)}</div>
+      <div className="admin-form-grid">{(fields[moduleKey] || []).map(field => <label key={field}>{field.replace(/([A-Z])/g, " $1")}{field === "variantsJson" && <textarea rows={6} value={form[field] || "[]"} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}></textarea>}{field !== "variantsJson" && <input required={field === "name"} type={["value", "salePrice", "purchasePrice", "quantity", "quantityInStock", "lowStockThreshold"].includes(field) ? "number" : "text"} step="any" value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}/ >}{field === "imageUrl" && ["products", "categories", "discounts"].includes(moduleKey) && <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files?.[0] || null)}/>}</label>)}</div>
       <button className="primary-btn" disabled={saving}>{saving ? "Saving…" : editingId ? "Update record" : "Save record"}</button>
     </form>}
     <RecordsTable rows={filtered} loading={loading} error={error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} canEdit={canEdit} onEdit={beginEdit} onReprint={moduleKey==="sales"?onReprint:undefined}/>
