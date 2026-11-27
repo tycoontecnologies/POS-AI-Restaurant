@@ -19,7 +19,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 - Table order save/restore.
 - KOT queue and basic status transitions.
 - Basic checkout document creation, usage ledger, browser receipt/KOT print.
-- Live management data views for dashboard/sales, products, categories, customers, discounts, ingredients, purchases/returns, sales/returns, suppliers, staff, attendance, store-out, branches, expenses and orders. Product (including JSON-based variants), category, customer, supplier, discount and ingredient modules have schema-shaped create/edit forms; product/category/discount images upload to Firebase Storage; unsupported business side effects remain unimplemented.
+- Live management data views for dashboard/sales, products, categories, customers, discounts, ingredients, purchases/returns, sales/returns, suppliers, staff, attendance, store-out, branches, expenses and orders. Product (including JSON-based variants), category, customer, supplier, discount, ingredient and staff modules have schema-shaped create/edit forms; expenses support Flutter-shaped create and delete operations with creator and branch metadata; product/category/discount images upload to Firebase Storage; unsupported business side effects remain unimplemented.
 - Table creation uses the original table document fields; POS navigation is partially role-filtered using the Flutter role map.
 - Hamburger-only Tables/Items and Modern/Legacy controls; product card click adds to cart.
 
@@ -48,8 +48,8 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | discounts_screen.dart | Missing |
 | ingredients_screen.dart; recipe_assignment_screen.dart | Missing |
 | store_out_screen.dart; add_edit_store_out_screen.dart | Missing |
-| expenses_screen.dart | Missing |
-| staff_screen.dart; attendance_screen.dart; monthly_attendance_screen.dart | Missing |
+| expenses_screen.dart | Partial: add/list/delete, expense categories, amount/note and creator/branch metadata; edit/report parity pending |
+| staff_screen.dart | Partial: staff create/edit with model fields and search keywords; delete, photo, attendance and performance workflows pending |\n| attendance_screen.dart; monthly_attendance_screen.dart | Missing |
 | branches_screen.dart | Missing |
 | users_roles_screen.dart | Missing |
 | settings_hub_screen.dart; settings_screen.dart | Missing |
@@ -129,4 +129,4 @@ All of these Flutter providers require schema-accurate ports and tests; only the
 8. Typecheck, production build, automated tests and dedicated-tenant end-to-end tests pass.
 9. Production cutover plan, backup and rollback are prepared; production deployment remains a separate approval step.
 
-**Current overall status: INCOMPLETE.** Most management collections remain read-only, and the limited create/edit forms are not full CRUD. Inventory side effects, reports, subscription gates, complete role/branch enforcement and model-specific validation are still incomplete. This register records scope and prevents the partial POS slice from being mistaken for feature parity.
+**Current overall status: INCOMPLETE.** Most management collections remain read-only; staff and expense operations are still partial, and several other limited create/edit forms are not full CRUD. Inventory side effects, reports, subscription gates, complete role/branch enforcement and model-specific validation are still incomplete. This register records scope and prevents the partial POS slice from being mistaken for feature parity.
