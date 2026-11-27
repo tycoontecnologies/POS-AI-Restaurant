@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { initializeApp, deleteApp } from "firebase/app";
+import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail, deleteUser, signOut } from "firebase/auth";
+import { firebaseApp } from "../lib/firebase";
 import { addDoc, collection, doc, onSnapshot, query, limit, Firestore, Timestamp, updateDoc, deleteDoc, getDocs, getDoc, setDoc, writeBatch, where, serverTimestamp, orderBy, startAfter, type QueryDocumentSnapshot, type DocumentData } from "firebase/firestore";
 import { Search, RefreshCw, Database, FileText } from "lucide-react";
 import { getDownloadURL, ref as storageRef, deleteObject, uploadBytes, type FirebaseStorage } from "firebase/storage";
 
-type ModuleKey = "dashboard" | "products" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders";
+type ModuleKey = "dashboard" | "products" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders" | "users_roles";
 type Row = Record<string, unknown> & { id: string };
 
 const modules: Record<ModuleKey, { title: string; collection: string; description: string }> = {
@@ -26,6 +29,7 @@ const modules: Record<ModuleKey, { title: string; collection: string; descriptio
   branches: { title: "Branches", collection: "branches", description: "Multi-branch locations and active status" },
   expenses: { title: "Expenses", collection: "expenses", description: "Expense records" },
   orders: { title: "Orders", collection: "orders", description: "Order records" },
+  users_roles: { title: "Users & roles", collection: "vendors", description: "Department accounts and role permissions" },
 };
 
 const editableModules: ModuleKey[] = ["products", "categories", "customers", "suppliers", "discounts", "ingredients", "staff", "expenses", "attendance", "purchases", "purchase_returns", "sale_returns", "store_out", "branches"];
@@ -63,7 +67,7 @@ function display(value: unknown): string {
   return typeof value === "number" ? value.toLocaleString("en-PK") : String(value);
 }
 
-export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, storage, actorName = "Next.js POS", actorId = vendorId, branchId = "", branchName = "" }: { db: Firestore; vendorId: string; moduleKey: ModuleKey; storage: FirebaseStorage | null; onReprint?:(row:Row)=>void; actorName?:string; actorId?:string; branchId?:string; branchName?:string }) {
+export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, storage, actorName = "Next.js POS", actorId = vendorId, actorRole = "user", branchId = "", branchName = "" }: { db: Firestore; vendorId: string; moduleKey: ModuleKey; storage: FirebaseStorage | null; onReprint?:(row:Row)=>void; actorName?:string; actorId?:string; actorRole?:string; branchId?:string; branchName?:string }) {
   const config = modules[moduleKey];
   const canEdit = editableModules.includes(moduleKey);
   const [rows, setRows] = useState<Row[]>([]);
@@ -405,6 +409,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
   </section>;
 
   if (moduleKey === "attendance") return <AttendanceWorkspace db={db} vendorId={vendorId} staff={staffOptions}/>;
+  if (moduleKey === "users_roles") return <UsersRolesWorkspace db={db} vendorId={vendorId} actorId={actorId} actorRole={actorRole}/>;
   if (moduleKey === "ingredients" && recipeMode) return <RecipeWorkspace db={db} vendorId={vendorId} onBack={()=>setRecipeMode(false)}/>;
 
   return <section className="admin-module">
@@ -440,6 +445,48 @@ function RecordsTable({ moduleKey, rows, loading, error, search, setSearch, sele
 
 
 
+
+
+const departmentRolePresets = [
+  {role:"admin",label:"Restaurant Admin",department:"Administration",permissions:["dashboard.view","tables.manage","orders.manage","billing.manage","inventory.manage","customers.manage","purchases.manage","suppliers.manage","recipes.manage","reports.view","users.manage","settings.manage"]},
+  {role:"manager",label:"Manager",department:"Management",permissions:["dashboard.view","tables.manage","orders.manage","billing.manage","inventory.view","customers.view","reports.view"]},
+  {role:"cashier",label:"Cashier / POS Operator",department:"Cash Counter",permissions:["tables.view","tables.open","orders.create","orders.edit","kot.send","billing.create","payments.receive","receipts.print","sales.own_shift"]},
+  {role:"waiter",label:"Waiter / Server",department:"Service",permissions:["tables.view","tables.open","orders.create","orders.edit","kot.send","bill.request"]},
+  {role:"kitchen",label:"Kitchen / KDS",department:"Kitchen",permissions:["kot.view","kot.accept","kot.making","kot.ready"]},
+  {role:"operations",label:"Operations",department:"Operations",permissions:["tables.view","orders.view","inventory.manage","purchases.manage","suppliers.manage","recipes.manage"]},
+  {role:"accounts",label:"Accounts",department:"Accounts",permissions:["sales.view","purchases.view","expenses.manage","supplier_ledger.view","returns.manage","reports.financial"]},
+  {role:"inventory",label:"Inventory / Store Keeper",department:"Store",permissions:["inventory.manage","stock.receive","stock.adjust","wastage.manage","suppliers.view"]},
+  {role:"delivery",label:"Delivery / Dispatcher",department:"Delivery",permissions:["delivery.orders","customers.delivery","delivery.assign","delivery.status"]},
+  {role:"reception",label:"Reception / Host",department:"Front Desk",permissions:["tables.view","reservations.manage","waitlist.manage"]},
+  {role:"auditor",label:"Owner / Auditor",department:"Audit",permissions:["dashboard.view","sales.view","inventory.view","accounts.view","reports.view","audit.view"]},
+] as const;
+
+function UsersRolesWorkspace({db,vendorId,actorId,actorRole}:{db:Firestore;vendorId:string;actorId:string;actorRole:string}) {
+  const [accounts,setAccounts]=useState<Row[]>([]);const [owner,setOwner]=useState<Record<string,unknown>>({});
+  const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [error,setError]=useState("");const [notice,setNotice]=useState("");
+  const [name,setName]=useState("");const [email,setEmail]=useState("");const [phone,setPhone]=useState("");const [password,setPassword]=useState("");const [role,setRole]=useState("cashier");const [showForm,setShowForm]=useState(false);
+  useEffect(()=>{getDoc(doc(db,"vendors",vendorId)).then(snap=>setOwner(snap.data()||{})).catch(e=>setError(e instanceof Error?e.message:"Unable to load restaurant account."));return onSnapshot(query(collection(db,"vendors"),where("ownerId","==",vendorId)),snap=>{setAccounts(snap.docs.map(d=>({...d.data(),id:d.id} as Row)).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))));setLoading(false);},e=>{setError(e.message);setLoading(false);});},[db,vendorId]);
+  async function createAccount(e:React.FormEvent){e.preventDefault();if(saving)return;const preset=departmentRolePresets.find(x=>x.role===role);if(!preset){setError("Choose a valid department role.");return;}if(!name.trim()||!/^\S+@\S+\.\S+$/.test(email.trim())||password.length<6){setError("Enter a full name, valid email and temporary password of at least 6 characters.");return;}if(!firebaseApp){setError("Firebase is not configured.");return;}setSaving(true);setError("");setNotice("");let secondaryApp:any=null;let secondaryAuth:any=null;let authUserCreated=false;
+    try{
+      secondaryApp=initializeApp(firebaseApp.options,"department-"+Date.now()+"-"+Math.random().toString(36).slice(2));secondaryAuth=getAuth(secondaryApp);
+      const credential=await createUserWithEmailAndPassword(secondaryAuth,email.trim().toLowerCase(),password);const uid=credential.user.uid;authUserCreated=true;const now=new Date();
+      const trialEnd=owner.trialEndsAt&&typeof owner.trialEndsAt==="object"&&"seconds" in (owner.trialEndsAt as object)?Timestamp.fromMillis(Number((owner.trialEndsAt as {seconds:number}).seconds)*1000):Timestamp.fromDate(new Date(now.getTime()+3*86400000));
+      const accountRef=doc(db,"vendors",uid),staffRef=doc(db,"vendors",vendorId,"staff",uid),batch=writeBatch(db);
+      batch.set(accountRef,{ownerId:vendorId,restaurantId:vendorId,branchId:String(owner.branchId||"main"),branchName:String(owner.branchName||"Main Branch"),staffId:uid,email:email.trim().toLowerCase(),name:name.trim(),phoneNo:phone.trim(),role:preset.role,department:preset.department,permissions:[...preset.permissions],createdAt:Timestamp.fromDate(now),isActive:true,trialEndsAt:trialEnd,subscriptionType:String(owner.subscriptionType||"trial"),subscriptionEndsAt:owner.subscriptionEndsAt||null,hasActiveSubscription:owner.hasActiveSubscription===true,location:String(owner.location||""),restaurantName:String(owner.restaurantName||""),restaurantLogoUrl:owner.restaurantLogoUrl||null,createdBy:actorId,photoUrl:null,canChangePhoto:false,showCommissionToStaff:false});
+      batch.set(staffRef,{id:uid,authUid:uid,name:name.trim(),role:preset.label,dailyWage:0,phone:phone.trim(),address:"",active:true,joinDate:now.toISOString(),searchKeywords:[name.toLowerCase(),preset.label.toLowerCase(),phone.toLowerCase()].filter(Boolean),photoUrl:null,canChangePhoto:false,commissionRate:0,showCommissionToStaff:false,tipsEarned:0,commissionEarned:0,serviceChargesEarned:0,pointsEarned:0,averageRating:0,reviewCount:0,leakageTotal:0,deductionsTotal:0,branchId:String(owner.branchId||"main"),branchName:String(owner.branchName||"Main Branch")});
+      await batch.commit();await signOut(secondaryAuth);setNotice(preset.label+" account created successfully.");setName("");setEmail("");setPhone("");setPassword("");setRole("cashier");setShowForm(false);
+    }catch(e){if(authUserCreated&&secondaryAuth?.currentUser){try{await deleteUser(secondaryAuth.currentUser);}catch{/* Best-effort rollback of the newly-created auth account. */}}setError(e instanceof Error?e.message:"Unable to create department account.");}
+    finally{if(secondaryApp){try{await deleteApp(secondaryApp);}catch{/* Secondary app cleanup is best-effort. */}}setSaving(false);}
+  }
+  async function accountAction(row:Row,action:string){const ref=doc(db,"vendors",row.id);const staffId=String(row.staffId||row.id);try{setError("");if(action==="toggle")await updateDoc(ref,{isActive:row.isActive===false,updatedAt:serverTimestamp()});if(action==="reset"){const address=String(row.email||"");if(!address)throw new Error("This account has no email address.");if(!firebaseApp)throw new Error("Firebase is not configured.");await sendPasswordResetEmail(getAuth(firebaseApp),address);setNotice("Password reset email sent.");}if(action==="photo"){const allowed=row.canChangePhoto!==true;await updateDoc(ref,{canChangePhoto:allowed,updatedAt:serverTimestamp()});await setDoc(doc(db,"vendors",vendorId,"staff",staffId),{canChangePhoto:allowed},{merge:true});}if(action==="commission"){const visible=row.showCommissionToStaff!==true;await updateDoc(ref,{showCommissionToStaff:visible,updatedAt:serverTimestamp()});await setDoc(doc(db,"vendors",vendorId,"staff",staffId),{showCommissionToStaff:visible},{merge:true});}}catch(e){setError(e instanceof Error?e.message:"Unable to update department account.");}}
+  if(actorRole!=="admin"&&actorRole!=="superAdmin"&&actorRole!=="super_admin")return <section className="admin-module"><h1>Users & roles</h1><p className="error-text">Only restaurant administrators can manage department accounts.</p></section>;
+  return <section className="admin-module"><div className="section-head"><div><p className="eyebrow">ACCESS CONTROL</p><h1>Users & roles</h1><p className="muted">Create department logins and control their access to this restaurant</p></div><button className="primary-btn" onClick={()=>setShowForm(v=>!v)}>{showForm?"Close form":"+ Create account"}</button></div>
+    {error&&<p className="error-text">{error}</p>}{notice&&<p className="success-text">{notice}</p>}
+    {showForm&&<form className="admin-create-form" onSubmit={createAccount}><div className="admin-form-grid"><label>Role / department<select value={role} onChange={e=>setRole(e.target.value)}>{departmentRolePresets.map(p=><option key={p.role} value={p.role}>{p.label} · {p.department}</option>)}</select></label><label>Full name<input required value={name} onChange={e=>setName(e.target.value)}/></label><label>Login email<input required type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Phone (optional)<input value={phone} onChange={e=>setPhone(e.target.value)}/></label><label>Temporary password<input required type="password" minLength={6} value={password} onChange={e=>setPassword(e.target.value)}/></label></div><p className="admin-note">This creates a Firebase Authentication account, a linked vendor login document and a staff performance profile. The new account inherits this restaurant’s branch and subscription context.</p><button className="primary-btn" disabled={saving}>{saving?"Creating account…":"Create department account"}</button></form>}
+    <div className="record-detail"><div className="record-detail-head"><strong>Standard role permissions</strong></div><div className="workflow-lines">{departmentRolePresets.map(p=><div className="workflow-line" key={p.role}><div><strong>{p.label}</strong><small>{p.department}</small><div className="role-permission-chips">{p.permissions.map(x=><span key={x}>{x}</span>)}</div></div></div>)}</div></div>
+    <div className="record-detail"><div className="record-detail-head"><strong>Restaurant accounts</strong><span className="count-badge">{accounts.length}</span></div>{loading?<p className="muted">Loading accounts…</p>:!accounts.length?<p className="muted">No department accounts yet. Create a cashier, kitchen, accounts or other login.</p>:<div className="workflow-lines">{accounts.map(row=><div className="workflow-line" key={row.id}><div><strong>{String(row.name||"User")}</strong><small>{String(row.role||"user")} · {String(row.email||"")}</small><small>{row.isActive===false?"Disabled":"Active"} · {String(row.branchName||"Main Branch")}</small></div><div className="record-actions"><button className="secondary-btn" onClick={()=>accountAction(row,"toggle")}>{row.isActive===false?"Enable":"Disable"}</button><button className="secondary-btn" onClick={()=>accountAction(row,"reset")}>Reset password</button><button className="secondary-btn" onClick={()=>accountAction(row,"photo")}>{row.canChangePhoto===true?"Block photo":"Allow photo"}</button><button className="secondary-btn" onClick={()=>accountAction(row,"commission")}>{row.showCommissionToStaff===true?"Hide commission":"Show commission"}</button></div></div>)}</div>}</div>
+  </section>;
+}
 
 function RecipeWorkspace({db,vendorId,onBack}:{db:Firestore;vendorId:string;onBack:()=>void}) {
   const [products,setProducts]=useState<Row[]>([]);const [ingredients,setIngredients]=useState<Row[]>([]);
