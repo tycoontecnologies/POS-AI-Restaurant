@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, doc, onSnapshot, query, limit, Firestore, Timestamp, updateDoc } from "firebase/firestore";
 import { Search, RefreshCw, Database, FileText } from "lucide-react";
-import { getDownloadURL, ref as storageRef, uploadBytes, type FirebaseStorage } from "firebase/storage";
+import { getDownloadURL, ref as storageRef, refFromURL, deleteObject, uploadBytes, type FirebaseStorage } from "firebase/storage";
 
 type ModuleKey = "dashboard" | "products" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders";
 type Row = Record<string, unknown> & { id: string };
@@ -159,7 +159,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
         const prefix = moduleKey === "products" ? "product" : moduleKey === "categories" ? "category" : "discount";
         const destination = storageRef(storage, "vendors/" + vendorId + "/" + folder + "/" + recordId + "/" + prefix + "_" + Date.now() + extension);
         const uploaded = await uploadBytes(destination, imageFile, { contentType: imageFile.type });
-        await updateDoc(doc(db, "vendors", vendorId, config.collection, recordId), { imageUrl: await getDownloadURL(uploaded.ref) });
+        const newUrl = await getDownloadURL(uploaded.ref);\n        await updateDoc(doc(db, "vendors", vendorId, config.collection, recordId), { imageUrl: newUrl });\n        const oldUrl = rows.find(row => row.id === recordId)?.imageUrl;\n        if (typeof oldUrl === "string" && oldUrl && oldUrl !== newUrl) { try { await deleteObject(refFromURL(storage, oldUrl)); } catch { /* old image cleanup is best-effort */ } }
       }
       setForm({});
       setImageFile(null);
