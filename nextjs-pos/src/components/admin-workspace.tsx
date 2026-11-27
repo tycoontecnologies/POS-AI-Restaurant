@@ -106,7 +106,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
 
   function beginEdit(row: Row) {
     setEditingId(row.id);
-    setForm(Object.fromEntries((fields[moduleKey] || []).map(field => [field, field === "variantsJson" ? JSON.stringify(row.variants || [], null, 2) : field === "attributesJson" ? JSON.stringify(row.attributes || [], null, 2) : field === "itemsJson" ? JSON.stringify(row.items || [], null, 2) : field === "productsJson" ? JSON.stringify(((row.products as Array<Record<string,unknown>>)||[]).map(item => ({productId:String(((item.product as Record<string,unknown>)?.id)||""),quantity:Number(item.quantity||0)})), null, 2) : field === "joinDate" ? String(row.joinDate || "").slice(0, 10) : String(row[field] ?? "")])));
+    setForm(Object.fromEntries((fields[moduleKey] || []).map(field => [field, field === "variantsJson" ? JSON.stringify(row.variants || [], null, 2) : field === "attributesJson" ? JSON.stringify(row.attributes || [], null, 2) : field === "itemsJson" ? JSON.stringify(row.items || [], null, 2) : field === "productsJson" ? JSON.stringify(((row.products as Array<Record<string,unknown>>)||[]).map(item => ({productId:String(((item.product as Record<string,unknown>)?.id)||""),quantity:Number(item.quantity||0)})), null, 2) : field === "joinDate" ? String(row.joinDate || "").slice(0, 10) : field === "date" ? (row.date && typeof row.date === "object" && "seconds" in (row.date as object) ? new Date(Number((row.date as {seconds:number}).seconds)*1000).toISOString().slice(0,10) : String(row.date || "").slice(0,10)) : String(row[field] ?? "")])));
     setFormOpen(true);
   }
 
