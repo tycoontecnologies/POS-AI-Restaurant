@@ -55,3 +55,11 @@
 .dashboard-list-row strong{font-size:11px}
 .dashboard-list-row small{grid-column:1/-1;color:#667085;font-size:10px}
 @media(max-width:760px){.dashboard-grid{grid-template-columns:1fr}.dashboard-wide{grid-column:auto}.dashboard-kot-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-bars{gap:6px}.dashboard-bar-item strong{font-size:9px}}
+
+
+.employee-profile-row{display:flex;align-items:center;gap:14px;padding:14px 0}
+.employee-profile-row img,.employee-avatar{width:64px;height:64px;border-radius:50%;object-fit:cover;background:#eee9ff;display:grid;place-items:center;font-size:24px;font-weight:800;color:#6044d8}
+.employee-profile-row>div:last-child{display:flex;flex-direction:column;gap:5px}
+.employee-profile-row small{color:#667085;font-size:11px}
+.employee-photo-upload{display:inline-flex;align-items:center;width:max-content;padding:6px 10px;border:1px solid #d8d2f4;border-radius:8px;color:#6044d8;font-size:11px;font-weight:700;cursor:pointer}
+.employee-photo-upload input{max-width:170px;font-size:10px}
