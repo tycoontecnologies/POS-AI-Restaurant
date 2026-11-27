@@ -16,7 +16,10 @@ This application is developed alongside the existing Flutter POS. It is isolated
 - Save KOT state as making and mark the table occupied.
 - Tables / Items and Modern / Legacy controls remain inside the hamburger menu.
 
-## Management workspace added\nThe hamburger menu now exposes live vendor-scoped record views for dashboard/sales, categories, customers, discounts, ingredients, purchases and returns, suppliers, staff, attendance, store-out, branches, expenses and orders. Categories, customers, suppliers, discounts and ingredients have schema-shaped create forms. Other management views remain read-only; this is not yet full Flutter CRUD or workflow parity.\n\n## Not yet production-ready
+## Management workspace added
+The hamburger menu now exposes live vendor-scoped record views for dashboard/sales, categories, customers, discounts, ingredients, purchases and returns, suppliers, staff, attendance, store-out, branches, expenses and orders. Products, categories, customers, suppliers, discounts and ingredients have schema-shaped create/edit forms. Other management views remain read-only. Table creation is available in the Tables workspace. Role filtering is partial and does not replace the full Flutter route, subscription or permission guards.
+
+## Not yet production-ready
 The Flutter application also contains sale finalization and receipt metering, thermal/PDF printing, kitchen workflow, order history, discounts, checkout/subscriptions, inventory, purchases, staff, attendance, expenses, returns, PRA, permissions, branch behavior, and settings. Those still require migration and verification against their existing Firestore schemas.
 
-This first slice does not create completed sales or decrement stock. Sale finalization must preserve TransactionBillingService.recordSuccessfulReceipt idempotency and must not bypass the current billing ledger. No sample data is written to Firestore.
+The current checkout creates completed sales and records the idempotent per-receipt billing ledger, but it does not yet reproduce all Flutter checkout, inventory, discount, customer, PRA or receipt/PDF behaviors. No sample data is written to Firestore.
