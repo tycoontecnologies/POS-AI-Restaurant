@@ -33,7 +33,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | restaurant_dashboard_screen.dart; restaurant_dashboard_screen_v2.dart; restaurant_dashboard_screen_v3.dart | Missing |
 | restaurant_command_center_screen.dart | Missing |
 | employee_dashboard_screen.dart; role_home_screen.dart | Missing |
-| categories_screen.dart; category_products_screen.dart | Missing |
+| categories_screen.dart; category_products_screen.dart | Partial: category create/edit/delete, active state and image upload lifecycle; category-specific product browsing and full pagination parity pending |
 | products_screen.dart | Improved partial parity: create/edit/delete, active status, active-category selection, structured variant and ProductAttribute editors, image preview/upload/replacement/removal, best-effort primary-image cleanup, image column and structured details, and 20-record cursor pagination; exact Flutter layout and dedicated-tenant tests pending. Flutter Product model has no variant-image or extra flag fields beyond active/hasVariants. |
 | pos_order_screen_v2.dart through pos_order_screen_v7.dart | Partial: core order/cart slice only; exact workflow parity pending |
 | table_management_screen.dart; table_management_screen_v2.dart | Partial: table list/create and order save-restore; edit/delete and full layout parity pending |
@@ -92,7 +92,7 @@ All of these Flutter providers require schema-accurate ports and tests; only the
 | Flutter service | Required Next.js equivalent | Status |
 |---|---|---|
 | firebase_service.dart; auth_service.dart | Firebase initialization, auth, tenant resolution and access rules | Partial |
-| product_service.dart; category_service.dart | Product/category CRUD, active state, variants, attributes, images and stock | Partial; source-model parity implemented for current product fields, dedicated tenant tests pending |
+| product_service.dart; category_service.dart | Product/category CRUD, active state, variants, attributes, images and stock | Partial; category active-state CRUD and product source-model parity implemented, dedicated tenant tests pending |
 | order_service.dart | Full order lifecycle, KOT, per-item status and kitchen queue | Partial |
 | sale_service.dart | Sales, billing counters, idempotency, history and exports | Partial |
 | transaction_billing_service.dart; usage_billing_reconciliation_service.dart | Exact billing/usage semantics and reconciliation | Partial; transaction behavior requires dedicated tests |
