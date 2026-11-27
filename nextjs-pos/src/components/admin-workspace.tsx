@@ -99,7 +99,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
   const firstPageIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (moduleKey === "dashboard" || moduleKey === "users_roles") { setRows([]); setLoading(false); setLastDoc(null); setHasMore(false); return; }
+    if (moduleKey === "dashboard" || moduleKey === "users_roles" || moduleKey === "attendance") { setRows([]); setLoading(false); setLastDoc(null); setHasMore(false); return; }
     setLoading(true);
     setError("");
     const ref = collection(db, "vendors", vendorId, config.collection);
