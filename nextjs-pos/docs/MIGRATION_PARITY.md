@@ -47,7 +47,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | customers_screen.dart | Missing |
 | discounts_screen.dart | Missing |
 | ingredients_screen.dart; recipe_assignment_screen.dart | Missing |
-| store_out_screen.dart; add_edit_store_out_screen.dart | Missing |
+| store_out_screen.dart; add_edit_store_out_screen.dart | Partial: create/edit, product snapshot records, base/variant stock validation and deduction on create, soft-delete via active=false; product picker, cards/list/table views, pagination and full edit parity pending |
 | expenses_screen.dart | Partial: add/list/delete, expense categories, amount/note and creator/branch metadata; edit/report parity pending |
 | staff_screen.dart | Partial: staff create/edit/delete with model fields and search keywords; photo, attendance and performance workflows pending |
 | attendance_screen.dart | Partial: staff/date selection, present/absent marking, duplicate-safe daily update and Flutter-compatible attendance document fields; check-in/out and monthly summaries pending |
@@ -103,7 +103,7 @@ All of these Flutter providers require schema-accurate ports and tests; only the
 | supplier_service.dart; customer_service.dart | Supplier/customer CRUD and relations | Missing |
 | discount_service.dart | Discount rules and application | Missing |
 | ingredient_service.dart; recipe_service.dart | Ingredients, recipes and stock consumption | Missing |
-| store_out_service.dart | Store-out and stock movement | Missing |
+| store_out_service.dart | Store-out CRUD and stock movement | Partial: create-time stock deduction and soft-delete semantics ported; bulk/date/reason search and transaction-level E2E coverage pending |
 | staff_service.dart; attendance_service.dart; staff_performance_service.dart | Staff, roles, attendance and performance | Missing |
 | session_audit_service.dart | Session/audit trail | Missing |
 | notification_service.dart | Notification behavior | Missing |
