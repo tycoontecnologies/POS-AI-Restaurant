@@ -49,7 +49,7 @@ function display(value: unknown): string {
   return typeof value === "number" ? value.toLocaleString("en-PK") : String(value);
 }
 
-export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, storage }: { db: Firestore; vendorId: string; moduleKey: ModuleKey; storage: FirebaseStorage | null; onReprint?:(row:Row)=>void }) {
+export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, storage, actorName = "Next.js POS", actorId = vendorId, branchId = "", branchName = "" }: { db: Firestore; vendorId: string; moduleKey: ModuleKey; storage: FirebaseStorage | null; onReprint?:(row:Row)=>void; actorName?:string; actorId?:string; branchId?:string; branchName?:string }) {
   const config = modules[moduleKey];
   const canEdit = editableModules.includes(moduleKey);
   const [rows, setRows] = useState<Row[]>([]);
@@ -157,7 +157,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
         if (moduleKey === "products") data = { ...data, id: "", active: true, createdOn: now.toISOString(), attributes: [] };
         if (moduleKey === "categories") data = { ...data, id: "", active: true, createdOn: now.toISOString() };
         if (moduleKey === "customers") data = { ...data, id: "", active: true, createdOn: Timestamp.fromDate(now), totalSpent: 0 };
-        if (moduleKey === "expenses") data = { ...data, createdAt: serverTimestamp(), createdBy: "Next.js POS", createdById: vendorId };
+        if (moduleKey === "expenses") data = { ...data, createdAt: serverTimestamp(), createdBy: actorName, createdById: actorId, branchId, branchName };
         if (moduleKey === "staff") data = { ...data, id: "", tipsEarned: 0, commissionEarned: 0, serviceChargesEarned: 0, pointsEarned: 0, averageRating: 0, reviewCount: 0, leakageTotal: 0, deductionsTotal: 0 };
         if (moduleKey === "suppliers") data = { ...data, id: "", active: true, createdOn: Timestamp.fromDate(now), amountToReceive: 0, amountToPay: 0 };
         if (moduleKey === "discounts") data = { ...data, isActive: true, vendorId, createdAt: Timestamp.fromDate(now), updatedAt: Timestamp.fromDate(now) };
