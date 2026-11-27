@@ -70,3 +70,9 @@
 
 .widget-hide{float:right;border:0;background:transparent;color:#98a2b3;cursor:pointer;font-size:15px;line-height:1;padding:0 3px}
 .widget-hide:hover{color:#d92d20}
+
+.table-card-wrap{display:flex;flex-direction:column;gap:7px;min-width:0}
+.table-card-wrap>.table-card{width:100%}
+.table-card-actions{display:flex;gap:6px}
+.table-card-actions .secondary-btn{flex:1;min-height:30px;padding:5px 8px;font-size:10px}
+.table-card-actions .danger-btn{color:#b42318}
