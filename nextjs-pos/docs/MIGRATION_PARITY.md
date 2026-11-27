@@ -19,7 +19,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 - Table order save/restore.
 - KOT queue and basic status transitions.
 - Basic checkout document creation, usage ledger, browser receipt/KOT print.
-- Live management data views for dashboard/sales, products, categories, customers, discounts, ingredients, purchases/returns, sales/returns, suppliers, staff, attendance, store-out, branches, expenses and orders. Product (including JSON-based variants), category, customer, supplier, discount, ingredient and staff modules have schema-shaped create/edit forms; expenses support Flutter-shaped create and delete operations with creator and branch metadata; product/category/discount images upload to Firebase Storage; unsupported business side effects remain unimplemented.
+- Live management data views for dashboard/sales, products, categories, customers, discounts, ingredients, purchases/returns, sales/returns, suppliers, staff, attendance, store-out, branches, expenses and orders. Product (including JSON-based variants and attributes), category, customer, supplier, discount, ingredient and staff modules have schema-shaped create/edit forms; expenses support Flutter-shaped create and delete operations with creator and branch metadata; product/category/discount images upload to Firebase Storage; unsupported business side effects remain unimplemented.
 - Table creation uses the original table document fields; POS navigation is partially role-filtered using the Flutter role map.
 - Hamburger-only Tables/Items and Modern/Legacy controls; product card click adds to cart.
 
@@ -34,7 +34,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | restaurant_command_center_screen.dart | Missing |
 | employee_dashboard_screen.dart; role_home_screen.dart | Missing |
 | categories_screen.dart; category_products_screen.dart | Missing |
-| products_screen.dart | Partial: base product create/edit, JSON variants and Storage image upload; flags/attributes and full parity pending |
+| products_screen.dart | Partial: base product create/edit, JSON variants and Flutter-shaped product attributes, and Storage image upload; flags and full parity pending |
 | pos_order_screen_v2.dart through pos_order_screen_v7.dart | Partial: core order/cart slice only; exact workflow parity pending |
 | table_management_screen.dart; table_management_screen_v2.dart | Partial: table list/create and order save-restore; edit/delete and full layout parity pending |
 | table_order_screen.dart | Partial |
