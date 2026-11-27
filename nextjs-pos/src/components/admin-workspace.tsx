@@ -29,7 +29,7 @@ const modules: Record<ModuleKey, { title: string; collection: string; descriptio
 
 const editableModules: ModuleKey[] = ["products", "categories", "customers", "suppliers", "discounts", "ingredients"];
 const fields: Record<string, string[]> = {
-  products: ["name", "category", "unit", "salePrice", "purchasePrice", "quantity", "imageUrl"],
+  products: ["name", "category", "unit", "salePrice", "purchasePrice", "quantity", "variantsJson", "imageUrl"],
   categories: ["name", "imageUrl"],
   customers: ["name", "phone", "email", "address", "city"],
   suppliers: ["name", "phone", "address"],
@@ -90,7 +90,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint }: {
 
   function beginEdit(row: Row) {
     setEditingId(row.id);
-    setForm(Object.fromEntries((fields[moduleKey] || []).map(field => [field, String(row[field] ?? "")])));
+    setForm(Object.fromEntries((fields[moduleKey] || []).map(field => [field, field === "variantsJson" ? JSON.stringify(row.variants || [], null, 2) : String(row[field] ?? "")])));
     setFormOpen(true);
   }
 
@@ -123,7 +123,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint }: {
         await updateDoc(doc(db, "vendors", vendorId, config.collection, editingId), patch);
       } else {
         let data: Record<string, unknown> = { ...payload };
-        if (moduleKey === "products") data = { ...data, id: "", active: true, createdOn: now.toISOString(), hasVariants: false, variants: [], attributes: [] };
+        if (moduleKey === "products") data = { ...data, id: "", active: true, createdOn: now.toISOString(), attributes: [] };
         if (moduleKey === "categories") data = { ...data, id: "", active: true, createdOn: now.toISOString() };
         if (moduleKey === "customers") data = { ...data, id: "", active: true, createdOn: Timestamp.fromDate(now), totalSpent: 0 };
         if (moduleKey === "suppliers") data = { ...data, id: "", active: true, createdOn: Timestamp.fromDate(now), amountToReceive: 0, amountToPay: 0 };
@@ -153,7 +153,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint }: {
     <div className="section-head"><div><p className="eyebrow">MANAGEMENT</p><h1>{config.title}</h1><p className="muted">{config.description}</p></div><div className="admin-head-actions"><span className="count-badge">{rows.length} records</span>{canEdit && <button className="primary-btn" onClick={beginCreate}>+ Add new</button>}</div></div>
     {formOpen && <form className="admin-create-form" onSubmit={saveRecord}>
       <div className="record-detail-head"><strong>{editingId ? "Edit" : "New"} {config.title.replace(/s$/, "")}</strong><button type="button" className="icon-btn" onClick={() => { setFormOpen(false); setEditingId(null); }}>×</button></div>
-      <div className="admin-form-grid">{(fields[moduleKey] || []).map(field => <label key={field}>{field.replace(/([A-Z])/g, " $1")}<input required={field === "name"} type={["value", "salePrice", "purchasePrice", "quantity", "quantityInStock", "lowStockThreshold"].includes(field) ? "number" : "text"} step="any" value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}/></label>)}</div>
+      <div className="admin-form-grid">{(fields[moduleKey] || []).map(field => <label key={field}>{field.replace(/([A-Z])/g, " $1")}<input required={field === "name"} {field === "variantsJson" ? <textarea rows={5} value={form[field] || "[]"} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}/> : <input required={field === "name"} type={["value", "salePrice", "purchasePrice", "quantity", "quantityInStock", "lowStockThreshold"].includes(field) ? "number" : "text"} step="any" value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}/>}</label>)}</div>
       <button className="primary-btn" disabled={saving}>{saving ? "Saving…" : editingId ? "Update record" : "Save record"}</button>
     </form>}
     <RecordsTable rows={filtered} loading={loading} error={error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} canEdit={canEdit} onEdit={beginEdit} onReprint={moduleKey==="sales"?onReprint:undefined}/>
