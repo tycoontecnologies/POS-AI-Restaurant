@@ -34,7 +34,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | restaurant_command_center_screen.dart | Missing |
 | employee_dashboard_screen.dart; role_home_screen.dart | Missing |
 | categories_screen.dart; category_products_screen.dart | Missing |
-| products_screen.dart | Improved partial parity: create/edit/delete, active status, active-category selection, variant and ProductAttribute editing, image preview/upload/replacement/removal and best-effort primary-image cleanup; pagination and exact screen layout still pending. Flutter Product model has no variant-image or extra flag fields beyond active/hasVariants. |
+| products_screen.dart | Improved partial parity: create/edit/delete, active status, active-category selection, variant and ProductAttribute editing, image preview/upload/replacement/removal, best-effort primary-image cleanup and 20-record cursor pagination; exact screen layout and dedicated-tenant tests pending. Flutter Product model has no variant-image or extra flag fields beyond active/hasVariants. |
 | pos_order_screen_v2.dart through pos_order_screen_v7.dart | Partial: core order/cart slice only; exact workflow parity pending |
 | table_management_screen.dart; table_management_screen_v2.dart | Partial: table list/create and order save-restore; edit/delete and full layout parity pending |
 | table_order_screen.dart | Partial |
@@ -42,7 +42,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | payment_screen.dart; payment_success_screen.dart; pricing_screen.dart | Missing: Stripe/subscription lifecycle not ported |
 | sale_screen.dart | Partial: basic sale creation, history list and receipt reprint; filters/export and full parity pending |
 | sale_return_screen.dart; select_return_items_screen.dart | Partial: sale return record creation with original sale ID, selected item snapshots, refund totals and reason; sale picker, selected-item workflow, details and pagination pending |
-| purchases_screen.dart | Improved partial parity: supplier picker, product/variant picker, editable purchase line items, status/date, create/edit/delete and batched stock adjustments; full list filters, details view and server-backed pagination still pending. |\n| purchase_return_screen.dart; select_purchase_return_items_screen.dart | Improved partial parity: original-purchase selector, supplier auto-link, all items selected by default, individual item selection, return quantity editing, refund calculation and source-purchase quantity/supplier validation; dedicated details dialog and server-backed pagination still pending. Flutter return flow does not change stock. |
+| purchases_screen.dart | Improved partial parity: supplier picker, product/variant picker, editable purchase line items, status/date, create/edit/delete, batched stock adjustments, structured item details and 20-record cursor pagination; full filter parity and dedicated-tenant tests pending. |\n| purchase_return_screen.dart; select_purchase_return_items_screen.dart | Improved partial parity: original-purchase selector, supplier auto-link, all items selected by default, individual item selection, return quantity editing, refund calculation, source-purchase quantity/supplier validation, structured details and 20-record cursor pagination; dedicated visual details dialog and dedicated-tenant tests pending. Flutter return flow does not change stock. |
 | suppliers_screen.dart | Missing |
 | customers_screen.dart | Missing |
 | discounts_screen.dart | Missing |
