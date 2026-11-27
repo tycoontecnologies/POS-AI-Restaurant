@@ -400,7 +400,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     }
   }
 
-  if (moduleKey === "dashboard") return <DashboardWorkspace db={db} vendorId={vendorId}/>;
+  if (moduleKey === "dashboard") return <DashboardWorkspace db={db} vendorId={vendorId} actorId={actorId} actorRole={actorRole} actorName={actorName} branchName={branchName}/>;
 
   if (moduleKey === "attendance") return <AttendanceWorkspace db={db} vendorId={vendorId} staff={staffOptions}/>;
   if (moduleKey === "users_roles") return <UsersRolesWorkspace db={db} vendorId={vendorId} actorId={actorId} actorRole={actorRole}/>;
@@ -442,7 +442,7 @@ function RecordsTable({ moduleKey, rows, loading, error, search, setSearch, sele
 
 
 
-function DashboardWorkspace({db,vendorId}:{db:Firestore;vendorId:string}) {
+function DashboardWorkspace({db,vendorId,actorId,actorRole,actorName,branchName}:{db:Firestore;vendorId:string;actorId:string;actorRole:string;actorName:string;branchName:string}) {
   const [sales,setSales]=useState<Row[]>([]);const [tables,setTables]=useState<Row[]>([]);const [tableOrders,setTableOrders]=useState<Row[]>([]);const [products,setProducts]=useState<Row[]>([]);const [branches,setBranches]=useState<Row[]>([]);const [owner,setOwner]=useState<Row>({id:""});
   const [error,setError]=useState("");
   useEffect(()=>{
@@ -456,6 +456,7 @@ function DashboardWorkspace({db,vendorId}:{db:Firestore;vendorId:string}) {
     getDoc(doc(db,"vendors",vendorId)).then(snap=>setOwner({...snap.data(),id:snap.id} as Row)).catch(e=>setError(e.message));
     return ()=>stops.forEach(stop=>stop());
   },[db,vendorId]);
+  if(!["admin","superAdmin","super_admin","auditor"].includes(actorRole))return <EmployeeDashboardWorkspace db={db} vendorId={vendorId} actorId={actorId} actorName={actorName} actorRole={actorRole} branchName={branchName}/>;
   const now=new Date();const startToday=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
   const todaySales=sales.filter(x=>(dateMillis(x.createdAt)||0)>=startToday);
   const todayRevenue=todaySales.reduce((sum,x)=>sum+Number(x.total||0),0);
@@ -481,6 +482,28 @@ function DashboardWorkspace({db,vendorId}:{db:Firestore;vendorId:string}) {
     <section className="dashboard-panel dashboard-wide"><div className="record-detail-head"><strong>Recent sales</strong><span className="muted">Latest 8 receipts</span></div><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Receipt</th><th>Time</th><th>Table</th><th>Payment</th><th>Total</th></tr></thead><tbody>{recent.map(sale=><tr key={sale.id}><td>{sale.id}</td><td>{display(sale.createdAt)}</td><td>{String(sale.tableNumber||"Quick sale")}</td><td>{String(sale.paymentMethod||"—")}</td><td>{display(sale.total)}</td></tr>)}{!recent.length&&<tr><td colSpan={5}>No sales recorded yet.</td></tr>}</tbody></table></div></section>
     <section className="dashboard-panel"><div className="record-detail-head"><strong>Branches</strong><span className="muted">{branches.length+1} locations</span></div><div className="dashboard-list-row"><span>{String(owner.branchName||"Main Branch")}</span><strong>Main</strong><small>{String(owner.location||"")}</small></div>{branches.map(b=><div className="dashboard-list-row" key={b.id}><span>{String(b.name||"Branch")}</span><strong>{String(b.code||"")}</strong><small>{String(b.address||"")}</small></div>)}</section></div>
     <p className="admin-note"><Database size={18}/> Metrics are calculated from the live Firestore sales, table, KOT, product and branch records. Sales are limited to the latest 500 receipts for this dashboard view.</p>
+  </section>;
+}
+
+
+function EmployeeDashboardWorkspace({db,vendorId,actorId,actorName,actorRole,branchName}:{db:Firestore;vendorId:string;actorId:string;actorName:string;actorRole:string;branchName:string}) {
+  const [staff,setStaff]=useState<Row>({id:actorId});const [attendance,setAttendance]=useState<Row|null>(null);const [error,setError]=useState("");
+  useEffect(()=>{
+    const start=new Date();start.setHours(0,0,0,0);const end=new Date(start);end.setDate(end.getDate()+1);
+    const stops=[
+      onSnapshot(doc(db,"vendors",vendorId,"staff",actorId),snap=>setStaff({...snap.data(),id:snap.id} as Row),e=>setError(e.message)),
+      onSnapshot(query(collection(db,"vendors",vendorId,"attendance"),where("staffId","==",actorId),where("date",">=",Timestamp.fromDate(start)),where("date","<",Timestamp.fromDate(end)),limit(1)),snap=>setAttendance(snap.empty?null:{...snap.docs[0].data(),id:snap.docs[0].id} as Row),e=>setError(e.message)),
+    ];return ()=>stops.forEach(stop=>stop());
+  },[db,vendorId,actorId]);
+  const start=dateMillis(attendance?.checkInTime),end=dateMillis(attendance?.checkOutTime);
+  const workedHours=start!==null&&end!==null&&end>=start?(end-start)/3600000:null;
+  const showCommission=staff.showCommissionToStaff===true;
+  const metrics=[{label:"My tips",value:display(staff.tipsEarned)},{label:"Service charges",value:display(staff.serviceChargesEarned)},{label:"My points",value:display(staff.pointsEarned)},{label:"Customer rating",value:Number(staff.averageRating||0).toFixed(1)},{label:"Customer reviews",value:display(staff.reviewCount)}];
+  if(showCommission)metrics.splice(2,0,{label:"My commission",value:display(staff.commissionEarned)});
+  return <section className="admin-module"><div className="section-head"><div><p className="eyebrow">MY WORKSPACE</p><h1>{actorRole.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase())} dashboard</h1><p className="muted">{actorName} · {branchName||"Main Branch"}</p></div><span className="live-pill"><span/> Live</span></div>{error&&<p className="error-text">{error}</p>}
+    <div className="dashboard-panel"><div className="record-detail-head"><strong>My profile</strong></div><div className="dashboard-list-row"><span>Name</span><strong>{String(staff.name||actorName)}</strong></div><div className="dashboard-list-row"><span>Department</span><strong>{String(staff.role||actorRole)}</strong></div><div className="dashboard-list-row"><span>Attendance today</span><strong>{attendance?(attendance.isPresent===true?"Present":"Absent"):"Not marked"}</strong></div><div className="dashboard-list-row"><span>Worked today</span><strong>{workedHours===null?"—":workedHours.toFixed(1)+" hours"}</strong></div></div>
+    <div className="admin-kpis">{metrics.map(metric=><article key={metric.label}><small>{metric.label}</small><strong>{metric.value}</strong></article>)}</div>
+    <p className="admin-note">Only your own staff profile and attendance information are shown in this role-based dashboard.</p>
   </section>;
 }
 
