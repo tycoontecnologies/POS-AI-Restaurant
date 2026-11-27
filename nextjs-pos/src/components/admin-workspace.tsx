@@ -8,7 +8,7 @@ import { addDoc, collection, doc, onSnapshot, query, limit, Firestore, Timestamp
 import { Search, RefreshCw, Database, FileText } from "lucide-react";
 import { getDownloadURL, ref as storageRef, deleteObject, uploadBytes, type FirebaseStorage } from "firebase/storage";
 
-type ModuleKey = "dashboard" | "products" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders" | "users_roles";
+type ModuleKey = "dashboard" | "products" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders" | "users_roles" | "settings" | "pra_settings";
 type Row = Record<string, unknown> & { id: string };
 
 const modules: Record<ModuleKey, { title: string; collection: string; description: string }> = {
@@ -30,6 +30,8 @@ const modules: Record<ModuleKey, { title: string; collection: string; descriptio
   expenses: { title: "Expenses", collection: "expenses", description: "Expense records" },
   orders: { title: "Orders", collection: "orders", description: "Order records" },
   users_roles: { title: "Users & roles", collection: "vendors", description: "Department accounts and role permissions" },
+  settings: { title: "Settings", collection: "vendors", description: "Restaurant profile and account configuration" },
+  pra_settings: { title: "PRA integration", collection: "integrations", description: "Punjab Revenue Authority e-invoicing configuration" },
 };
 
 const editableModules: ModuleKey[] = ["products", "categories", "customers", "suppliers", "discounts", "ingredients", "staff", "expenses", "attendance", "purchases", "purchase_returns", "sale_returns", "store_out", "branches"];
@@ -75,7 +77,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     purchases:["admin","superAdmin","super_admin","operations","accounts","inventory"],purchase_returns:["admin","superAdmin","super_admin","operations","accounts","inventory"],
     sale_returns:["admin","superAdmin","super_admin","cashier","accounts"],suppliers:["admin","superAdmin","super_admin","operations","accounts","inventory"],
     staff:["admin","superAdmin","super_admin","manager"],attendance:["admin","superAdmin","super_admin","manager"],
-    store_out:["admin","superAdmin","super_admin","operations","inventory"],branches:["admin","superAdmin","super_admin"],users_roles:["admin","superAdmin","super_admin"],
+    store_out:["admin","superAdmin","super_admin","operations","inventory"],branches:["admin","superAdmin","super_admin"],users_roles:["admin","superAdmin","super_admin"],settings:["admin","superAdmin","super_admin"],pra_settings:["admin","superAdmin","super_admin"],
     expenses:["admin","superAdmin","super_admin","manager","accounts"],orders:["admin","superAdmin","super_admin","manager","cashier","waiter","staff","kitchen","delivery"]
   };
   const canManageModule=(roleAccess[moduleKey]||["admin","superAdmin","super_admin"]).includes(actorRole);
@@ -416,6 +418,8 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
 
   if (moduleKey === "attendance") return <AttendanceWorkspace db={db} vendorId={vendorId} staff={staffOptions}/>;
   if (moduleKey === "users_roles") return <UsersRolesWorkspace db={db} vendorId={vendorId} actorId={actorId} actorRole={actorRole}/>;
+  if (moduleKey === "settings") return <SettingsWorkspace db={db} vendorId={vendorId} actorId={actorId} actorRole={actorRole} storage={storage}/>;
+  if (moduleKey === "pra_settings") return <PraSettingsWorkspace db={db} vendorId={vendorId}/>;
   if (moduleKey === "ingredients" && recipeMode) return <RecipeWorkspace db={db} vendorId={vendorId} onBack={()=>setRecipeMode(false)}/>;
 
   return <section className="admin-module">
@@ -453,6 +457,24 @@ function RecordsTable({ moduleKey, rows, loading, error, search, setSearch, sele
 
 
 
+
+
+function SettingsWorkspace({db,vendorId,actorId,actorRole,storage}:{db:Firestore;vendorId:string;actorId:string;actorRole:string;storage:FirebaseStorage|null}) {
+  const [name,setName]=useState("");const [location,setLocation]=useState("");const [phoneNo,setPhoneNo]=useState("");const [restaurantName,setRestaurantName]=useState("");const [logoUrl,setLogoUrl]=useState("");const [logoFile,setLogoFile]=useState<File|null>(null);const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [error,setError]=useState("");const [notice,setNotice]=useState("");
+  useEffect(()=>getDoc(doc(db,"vendors",actorId)).then(snap=>{const d=snap.data()||{};setName(String(d.name||""));setLocation(String(d.location||""));setPhoneNo(String(d.phoneNo||""));setRestaurantName(String(d.restaurantName||""));setLogoUrl(String(d.restaurantLogoUrl||""));}).catch(e=>setError(e instanceof Error?e.message:"Unable to load restaurant profile.")).finally(()=>setLoading(false)),[db,actorId]);
+  async function save(e:React.FormEvent){e.preventDefault();if(!name.trim()||!restaurantName.trim()) {setError("Name and restaurant name are required.");return;}if(phoneNo.trim()&&phoneNo.replace(/\D/g,"").length<8){setError("Enter a valid phone number.");return;}setSaving(true);setError("");setNotice("");try{let nextLogo=logoUrl;if(logoFile){if(!storage)throw new Error("Firebase Storage is unavailable.");if(!logoFile.type.startsWith("image/")||logoFile.size>5*1024*1024)throw new Error("Choose an image smaller than 5 MB.");const extension=logoFile.name.includes(".")?"."+logoFile.name.split(".").pop():"jpg";const ref=storageRef(storage,"vendors/"+vendorId+"/restaurant_logo/restaurant_logo_"+Date.now()+extension);await uploadBytes(ref,logoFile,{contentType:logoFile.type});nextLogo=await getDownloadURL(ref);}await updateDoc(doc(db,"vendors",actorId),{name:name.trim(),role:actorRole,isActive:true,location:location.trim(),phoneNo:phoneNo.trim(),restaurantName:restaurantName.trim(),...(logoFile?{restaurantLogoUrl:nextLogo,updatedAt:Timestamp.fromDate(new Date())}:{})});setLogoUrl(nextLogo);setLogoFile(null);setNotice("Restaurant profile saved.");}catch(e){setError(e instanceof Error?e.message:"Unable to save profile.");}finally{setSaving(false);}}
+  if(loading)return <section className="admin-module"><p className="muted">Loading restaurant profile…</p></section>;
+  return <section className="admin-module"><div className="section-head"><div><p className="eyebrow">CONFIGURATION</p><h1>Restaurant Profile</h1><p className="muted">Restaurant identity, location and contact details</p></div></div>{error&&<p className="error-text">{error}</p>}{notice&&<p className="success-text">{notice}</p>}<form className="admin-create-form" onSubmit={save}><div className="employee-profile-row">{logoUrl?<img src={logoUrl} alt="Restaurant logo"/>:<div className="employee-avatar">R</div>}<label>Restaurant logo<input type="file" accept="image/*" onChange={e=>setLogoFile(e.target.files?.[0]||null)}/></label></div><div className="admin-form-grid"><label>Account name<input required value={name} onChange={e=>setName(e.target.value)}/></label><label>Restaurant name<input required value={restaurantName} onChange={e=>setRestaurantName(e.target.value)}/></label><label>Location / address<input value={location} onChange={e=>setLocation(e.target.value)}/></label><label>Phone number<input value={phoneNo} onChange={e=>setPhoneNo(e.target.value)}/></label></div><button className="primary-btn" disabled={saving}>{saving?"Saving…":"Save restaurant profile"}</button></form></section>;
+}
+
+function PraSettingsWorkspace({db,vendorId}:{db:Firestore;vendorId:string}) {
+  const [registrationNo,setRegistrationNo]=useState("");const [posId,setPosId]=useState("");const [token,setToken]=useState("");const [enabled,setEnabled]=useState(false);const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [error,setError]=useState("");const [notice,setNotice]=useState("");
+  useEffect(()=>getDoc(doc(db,"vendors",vendorId,"integrations","pra")).then(snap=>{const d=snap.data()||{};setRegistrationNo(String(d.registrationNo||""));setPosId(String(d.posId||""));setToken(String(d.token||""));setEnabled(d.enabled===true);}).catch(e=>setError(e instanceof Error?e.message:"Unable to load PRA configuration.")).finally(()=>setLoading(false)),[db,vendorId]);
+  async function save(e:React.FormEvent){e.preventDefault();setSaving(true);setError("");setNotice("");try{await setDoc(doc(db,"vendors",vendorId,"integrations","pra"),{registrationNo:registrationNo.trim(),posId:posId.trim(),token:token.trim(),enabled,updatedAt:serverTimestamp(),status:enabled?"configuration_saved":"disabled"},{merge:true});setNotice("PRA configuration saved. This does not confirm a live API connection.");}catch(e){setError(e instanceof Error?e.message:"Unable to save PRA configuration.");}finally{setSaving(false);}}
+  if(loading)return <section className="admin-module"><p className="muted">Loading PRA settings…</p></section>;
+  const configured=Boolean(registrationNo.trim()&&posId.trim()&&token.trim());
+  return <section className="admin-module"><div className="section-head"><div><p className="eyebrow">FISCAL INTEGRATION</p><h1>PRA Integration</h1><p className="muted">Punjab Revenue Authority e-invoicing credentials</p></div><span className="count-badge">{configured&&enabled?"Configuration ready":"Not connected"}</span></div>{error&&<p className="error-text">{error}</p>}{notice&&<p className="success-text">{notice}</p>}<form className="admin-create-form" onSubmit={save}><p className="admin-note">Saving credentials does not claim a successful PRA API connection. Live transmission must remain disabled until the endpoint and credentials are verified.</p><label>PRA Registration / NTN<input value={registrationNo} onChange={e=>setRegistrationNo(e.target.value)}/></label><label>PRA POS / Terminal ID<input value={posId} onChange={e=>setPosId(e.target.value)}/></label><label>API token / credential<input type="password" value={token} onChange={e=>setToken(e.target.value)} autoComplete="new-password"/></label><label className="checkbox-line"><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)}/> Enable PRA configuration</label><button className="primary-btn" disabled={saving}>{saving?"Saving…":"Save PRA settings"}</button></form></section>;
+}
 
 function DashboardWorkspace({db,vendorId,actorId,actorRole,actorName,branchName,storage}:{db:Firestore;vendorId:string;actorId:string;actorRole:string;actorName:string;branchName:string;storage:FirebaseStorage|null}) {
   const [sales,setSales]=useState<Row[]>([]);const [tables,setTables]=useState<Row[]>([]);const [tableOrders,setTableOrders]=useState<Row[]>([]);const [products,setProducts]=useState<Row[]>([]);const [branches,setBranches]=useState<Row[]>([]);const [owner,setOwner]=useState<Row>({id:""});
