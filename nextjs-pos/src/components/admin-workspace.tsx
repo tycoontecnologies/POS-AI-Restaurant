@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { addDoc, collection, doc, onSnapshot, query, limit, Firestore, Timestamp, updateDoc, deleteDoc, getDocs, getDoc, writeBatch, where, serverTimestamp, orderBy, startAfter, type QueryDocumentSnapshot, type DocumentData } from "firebase/firestore";
 import { Search, RefreshCw, Database, FileText } from "lucide-react";
 import { getDownloadURL, ref as storageRef, deleteObject, uploadBytes, type FirebaseStorage } from "firebase/storage";
@@ -75,6 +75,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const loadedPageCount = useRef(0);
 
   useEffect(() => {
     setLoading(true);
@@ -83,10 +84,14 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     const paged = ["products", "purchases", "purchase_returns"].includes(moduleKey);
     const orderField = moduleKey === "purchase_returns" ? "createdAt" : "createdOn";
     const firstQuery = paged ? query(ref, orderBy(orderField, "desc"), limit(20)) : query(ref, limit(250));
-    setLastDoc(null); setHasMore(false);
+    setLastDoc(null); setHasMore(false); loadedPageCount.current = 0;
     const stop = onSnapshot(firstQuery, snap => {
-      setRows(snap.docs.map(d => ({ ...d.data(), id: d.id } as Row)));
-      if (paged) { setLastDoc(snap.docs.length ? snap.docs[snap.docs.length - 1] : null); setHasMore(snap.docs.length === 20); }
+      const pageRows = snap.docs.map(d => ({ ...d.data(), id: d.id } as Row));
+      if (paged && loadedPageCount.current > 0) {
+        const pageIds = new Set(pageRows.map(row => row.id));
+        setRows(current => [...pageRows, ...current.filter(row => !pageIds.has(row.id))]);
+      } else setRows(pageRows);
+      if (paged && loadedPageCount.current === 0) { setLastDoc(snap.docs.length ? snap.docs[snap.docs.length - 1] : null); setHasMore(snap.docs.length === 20); }
       setLoading(false);
     }, err => {
       setError(err.message);
@@ -122,6 +127,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     try {
       const orderField = moduleKey === "purchase_returns" ? "createdAt" : "createdOn";
       const next = await getDocs(query(collection(db, "vendors", vendorId, config.collection), orderBy(orderField, "desc"), startAfter(lastDoc), limit(20)));
+      loadedPageCount.current += 1;
       setRows(current => [...current, ...next.docs.map(d => ({ ...d.data(), id: d.id } as Row))]);
       setLastDoc(next.docs.length ? next.docs[next.docs.length - 1] : lastDoc);
       setHasMore(next.docs.length === 20);
