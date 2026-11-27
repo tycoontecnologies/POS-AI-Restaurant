@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, onSnapshot, query, limit, Firestore, Timestamp, updateDoc } from "firebase/firestore";
 import { Search, RefreshCw, Database, FileText } from "lucide-react";
 
-type ModuleKey = "dashboard" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders";
+type ModuleKey = "dashboard" | "products" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders";
 type Row = Record<string, unknown> & { id: string };
 const modules: Record<ModuleKey, { title: string; collection: string; description: string }> = {
   dashboard: { title: "Dashboard", collection: "sales", description: "Live sales activity from your existing vendor workspace" },
+  products: { title: "Products", collection: "products", description: "Product catalog and stock records" },
   categories: { title: "Categories", collection: "categories", description: "Product category records" },
   customers: { title: "Customers", collection: "customers", description: "Customer directory and account records" },
   discounts: { title: "Discounts", collection: "discounts", description: "Configured discount records" },
@@ -57,14 +58,14 @@ export default function AdminWorkspace({ db, vendorId, moduleKey }: { db: Firest
   }, [db, vendorId, config.collection]);
 
   const filtered = useMemo(() => rows.filter(row => JSON.stringify(row).toLowerCase().includes(search.toLowerCase())), [rows, search]);
-  const canCreate = ["categories","customers","suppliers","discounts","ingredients"].includes(moduleKey);
-  const formFields: Record<string,string[]> = { categories:["name","imageUrl"], customers:["name","phone","email","address","city"], suppliers:["name","phone","address"], discounts:["name","description","type","value","imageUrl"], ingredients:["name","unit","quantityInStock","lowStockThreshold"] };
+  const canCreate = ["products","categories","customers","suppliers","discounts","ingredients"].includes(moduleKey);
+  const formFields: Record<string,string[]> = { products:["name","category","unit","salePrice","purchasePrice","quantity","imageUrl"], categories:["name","imageUrl"], customers:["name","phone","email","address","city"], suppliers:["name","phone","address"], discounts:["name","description","type","value","imageUrl"], ingredients:["name","unit","quantityInStock","lowStockThreshold"] };
   async function createRecord(e: React.FormEvent) {
     e.preventDefault(); if (!canCreate || saving) return; setSaving(true);
     try {
       const now = new Date(); const idRef = collection(db, "vendors", vendorId, config.collection);
       let data: Record<string,unknown>;
-      if (moduleKey === "categories") data = { id: "", name: form.name?.trim() || "", active: true, imageUrl: form.imageUrl || "", createdOn: now.toISOString() };
+      if (moduleKey === "products") data = { id: "", name: form.name?.trim() || "", category: form.category || "", unit: form.unit || "piece", salePrice: Number(form.salePrice || 0), purchasePrice: Number(form.purchasePrice || 0), quantity: Number(form.quantity || 0), active: true, createdOn: now.toISOString(), hasVariants: false, variants: [], attributes: [], imageUrl: form.imageUrl || "" };\n      else if (moduleKey === "categories") data = { id: "", name: form.name?.trim() || "", active: true, imageUrl: form.imageUrl || "", createdOn: now.toISOString() };
       else if (moduleKey === "customers") data = { id: "", name: form.name?.trim() || "", phone: form.phone || "", email: form.email || null, address: form.address || "", city: form.city || null, active: true, createdOn: Timestamp.fromDate(now), totalSpent: 0 };
       else if (moduleKey === "suppliers") data = { id: "", name: form.name?.trim() || "", phone: form.phone || "", address: form.address || "", active: true, createdOn: Timestamp.fromDate(now), amountToReceive: 0, amountToPay: 0 };
       else if (moduleKey === "discounts") data = { name: form.name?.trim() || "", description: form.description || "", type: form.type || "percentage", value: Number(form.value || 0), imageUrl: form.imageUrl || "", isActive: true, vendorId, createdAt: Timestamp.fromDate(now), updatedAt: Timestamp.fromDate(now) };
