@@ -162,6 +162,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
   const filtered = useMemo(() => rows.filter(row => {
     if (!JSON.stringify(row).toLowerCase().includes(search.toLowerCase())) return false;
     if ((moduleKey === "purchases" || moduleKey === "orders") && statusFilter !== "All" && String(row.status || (moduleKey==="purchases"?"Pending":"pending")) !== statusFilter) return false;
+    if (moduleKey === "store_out" && row.active === false) return false;
     if (moduleKey === "products" && productStatusFilter !== "All" && (row.active === false ? "Inactive" : "Active") !== productStatusFilter) return false;
     if (moduleKey === "products" && productCategoryFilter !== "All" && String(row.category||"") !== productCategoryFilter) return false;
     if (moduleKey === "purchases" || moduleKey === "purchase_returns" || moduleKey === "sale_returns" || moduleKey === "sales" || moduleKey === "expenses" || moduleKey === "orders" || moduleKey === "store_out") {
