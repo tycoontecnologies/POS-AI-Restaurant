@@ -54,7 +54,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | attendance_screen.dart; monthly_attendance_screen.dart | Improved partial parity: daily staff/date present/absent marking with duplicate-safe updates, monthly staff grouping, present-day counts, hour totals and wage calculations matching the Attendance model; visual parity and dedicated-tenant tests pending |
 | monthly_attendance_screen.dart | Missing |
 | branches_screen.dart | Partial: branch create/edit/delete, active status, branch code/address and source premiumFeature/createdAt metadata; main-branch card and branch-scoped data enforcement pending |
-| users_roles_screen.dart | Missing |
+| users_roles_screen.dart | Partial: department account creation using a secondary Firebase Auth app, linked vendor/staff documents, standard role permission presets, active/disabled toggle, password reset and profile-photo/commission visibility controls; dedicated-tenant account lifecycle tests and custom permission editing pending |
 | settings_hub_screen.dart; settings_screen.dart | Missing |
 | pra_settings_screen.dart | Missing |
 | splash_screen.dart | Missing |
