@@ -541,7 +541,7 @@ function EmployeeDashboardWorkspace({db,vendorId,actorId,actorName,actorRole,bra
     const stops=[
       onSnapshot(doc(db,"vendors",vendorId,"staff",actorId),snap=>setStaff({...snap.data(),id:snap.id} as Row),e=>setError(e.message)),
       onSnapshot(doc(db,"vendors",actorId),snap=>{const data=snap.data()||{};setAccount({...data,id:snap.id} as Row);setHidden(Array.isArray(data.dashboardHiddenWidgets)?data.dashboardHiddenWidgets.map(String):[]);},e=>setError(e.message)),
-      onSnapshot(query(collection(db,"vendors",vendorId,"attendance"),where("staffId","==",actorId),limit(100)),snap=>{const match=snap.docs.find(d=>{const t=dateMillis(d.data().date)||0;return t>=start.getTime()&&t<end.getTime();});setAttendance(match?{...match.data(),id:match.id} as Row:null);},e=>setError(e.message)),
+      onSnapshot(query(collection(db,"vendors",vendorId,"attendance"),where("staffId","==",actorId)),snap=>{const match=snap.docs.find(d=>{const t=dateMillis(d.data().date)||0;return t>=start.getTime()&&t<end.getTime();});setAttendance(match?{...match.data(),id:match.id} as Row:null);},e=>setError(e.message)),
     ];return ()=>stops.forEach(stop=>stop());
   },[db,vendorId,actorId]);
   const start=dateMillis(attendance?.checkInTime),end=dateMillis(attendance?.checkOutTime);
