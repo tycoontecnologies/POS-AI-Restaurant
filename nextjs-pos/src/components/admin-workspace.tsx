@@ -43,7 +43,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey }: { db: Firest
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Row | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);\n  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string,string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -94,7 +94,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey }: { db: Firest
   </section>;
 }
 
-function RecordsTable({ rows, loading, error, search, setSearch, selected, setSelected }: { rows: Row[]; loading: boolean; error: string; search: string; setSearch: (s:string)=>void; selected: Row|null; setSelected: (r:Row|null)=>void }) {
+function RecordsTable({ rows, loading, error, search, setSearch, selected, setSelected, canEdit=false, onEdit }: { rows: Row[]; loading: boolean; error: string; search: string; setSearch: (s:string)=>void; selected: Row|null; setSelected: (r:Row|null)=>void; canEdit?:boolean; onEdit?:(r:Row)=>void }) {
   const keys = useMemo(() => {
     const preferred = ["name","number","customerName","supplierName","productName","status","total","amount","createdAt","createdOn"];
     const all = Array.from(new Set(rows.flatMap(r => Object.keys(r).filter(k => k !== "id"))));
@@ -104,6 +104,6 @@ function RecordsTable({ rows, loading, error, search, setSearch, selected, setSe
     <div className="admin-toolbar"><div className="search-wrap"><Search size={17}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search records…"/></div><button className="secondary-btn" onClick={()=>setSearch("")}><RefreshCw size={15}/> Clear</button></div>
     {error&&<p className="error-text">{error}</p>}
     {loading?<div className="empty-state">Loading records…</div>:!rows.length?<div className="empty-state">No records found in this collection.</div>:<div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Document ID</th>{keys.map(k=><th key={k}>{k}</th>)}</tr></thead><tbody>{rows.map(row=><tr key={row.id} onClick={()=>setSelected(row)}><td><button className="record-link">{row.id}</button></td>{keys.map(k=><td key={k}>{display(row[k])}</td>)}</tr>)}</tbody></table></div>}
-    {selected&&<div className="record-detail"><div className="record-detail-head"><strong>Record details</strong><button className="icon-btn" onClick={()=>setSelected(null)}>×</button></div><pre>{JSON.stringify(selected,null,2)}</pre></div>}
+    {selected&&<div className="record-detail"><div className="record-detail-head"><strong>Record details</strong><div className="record-actions">{canEdit&&onEdit&&<button className="secondary-btn" onClick={()=>onEdit(selected)}>Edit record</button>}<button className="icon-btn" onClick={()=>setSelected(null)}>×</button></div></div><pre>{JSON.stringify(selected,null,2)}</pre></div>}
   </>;
 }
