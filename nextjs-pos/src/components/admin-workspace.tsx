@@ -20,7 +20,7 @@ const modules: Record<ModuleKey, { title: string; collection: string; descriptio
   suppliers: { title: "Suppliers", collection: "suppliers", description: "Supplier directory" },
   staff: { title: "Staff", collection: "staff", description: "Staff and employee records" },
   attendance: { title: "Attendance", collection: "attendance", description: "Staff attendance records" },
-  store_out: { title: "Store out", collection: "store_out", description: "Stock movement and store-out records" },
+  store_out: { title: "Store out", collection: "store_outs", description: "Stock movement and store-out records" },
   branches: { title: "Branches", collection: "branches", description: "Branch records" },
   expenses: { title: "Expenses", collection: "expenses", description: "Expense records" },
   orders: { title: "Orders", collection: "orders", description: "Order records" },
