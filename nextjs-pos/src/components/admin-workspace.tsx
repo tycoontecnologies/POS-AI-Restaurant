@@ -8,7 +8,7 @@ import { addDoc, collection, doc, onSnapshot, query, limit, Firestore, Timestamp
 import { Search, RefreshCw, Database, FileText } from "lucide-react";
 import { getDownloadURL, ref as storageRef, deleteObject, uploadBytes, type FirebaseStorage } from "firebase/storage";
 
-type ModuleKey = "dashboard" | "products" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders" | "users_roles" | "settings" | "pra_settings" | "audit_sessions";
+type ModuleKey = "dashboard" | "products" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders" | "users_roles" | "settings" | "pra_settings" | "audit_sessions" | "billing";
 type Row = Record<string, unknown> & { id: string };
 
 const modules: Record<ModuleKey, { title: string; collection: string; description: string }> = {
@@ -33,6 +33,7 @@ const modules: Record<ModuleKey, { title: string; collection: string; descriptio
   settings: { title: "Settings", collection: "vendors", description: "Restaurant profile and account configuration" },
   pra_settings: { title: "PRA integration", collection: "integrations", description: "Punjab Revenue Authority e-invoicing configuration" },
   audit_sessions: { title: "Audit & sessions", collection: "auditSessions", description: "Login history, session duration and branch activity" },
+  billing: { title: "Billing & usage", collection: "billingUsage", description: "Subscription status and successful receipt usage ledger" },
 };
 
 const editableModules: ModuleKey[] = ["products", "categories", "customers", "suppliers", "discounts", "ingredients", "staff", "expenses", "attendance", "purchases", "purchase_returns", "sale_returns", "store_out", "branches"];
@@ -78,7 +79,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     purchases:["admin","superAdmin","super_admin","operations","accounts","inventory"],purchase_returns:["admin","superAdmin","super_admin","operations","accounts","inventory"],
     sale_returns:["admin","superAdmin","super_admin","cashier","accounts"],suppliers:["admin","superAdmin","super_admin","operations","accounts","inventory"],
     staff:["admin","superAdmin","super_admin","manager"],attendance:["admin","superAdmin","super_admin","manager"],
-    store_out:["admin","superAdmin","super_admin","operations","inventory"],branches:["admin","superAdmin","super_admin"],users_roles:["admin","superAdmin","super_admin"],settings:["admin","superAdmin","super_admin"],pra_settings:["admin","superAdmin","super_admin"],audit_sessions:["admin","superAdmin","super_admin"],
+    store_out:["admin","superAdmin","super_admin","operations","inventory"],branches:["admin","superAdmin","super_admin"],users_roles:["admin","superAdmin","super_admin"],settings:["admin","superAdmin","super_admin"],pra_settings:["admin","superAdmin","super_admin"],audit_sessions:["admin","superAdmin","super_admin"],billing:["admin","superAdmin","super_admin","accounts"],
     expenses:["admin","superAdmin","super_admin","manager","accounts"],orders:["admin","superAdmin","super_admin","manager","cashier","waiter","staff","kitchen","delivery"]
   };
   const canManageModule=(roleAccess[moduleKey]||["admin","superAdmin","super_admin"]).includes(actorRole);
@@ -114,7 +115,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
   const firstPageIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (moduleKey === "dashboard" || moduleKey === "users_roles" || moduleKey === "attendance" || moduleKey === "settings" || moduleKey === "pra_settings" || moduleKey === "audit_sessions") { setRows([]); setLoading(false); setLastDoc(null); setHasMore(false); return; }
+    if (moduleKey === "dashboard" || moduleKey === "users_roles" || moduleKey === "attendance" || moduleKey === "settings" || moduleKey === "pra_settings" || moduleKey === "audit_sessions" || moduleKey === "billing") { setRows([]); setLoading(false); setLastDoc(null); setHasMore(false); return; }
     setLoading(true);
     setError("");
     const ref = collection(db, "vendors", vendorId, config.collection);
@@ -423,6 +424,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
   if (moduleKey === "settings") return <SettingsWorkspace db={db} vendorId={vendorId} actorId={actorId} actorRole={actorRole} storage={storage}/>;
   if (moduleKey === "pra_settings") return <PraSettingsWorkspace db={db} vendorId={vendorId}/>;
   if (moduleKey === "audit_sessions") return <AuditSessionsWorkspace db={db} vendorId={vendorId}/>;
+  if (moduleKey === "billing") return <BillingWorkspace db={db} vendorId={vendorId}/>;
   if (moduleKey === "ingredients" && recipeMode) return <RecipeWorkspace db={db} vendorId={vendorId} onBack={()=>setRecipeMode(false)}/>;
 
   return <section className="admin-module">
@@ -462,6 +464,19 @@ function RecordsTable({ moduleKey, rows, loading, error, search, setSearch, sele
 
 
 
+
+
+function BillingWorkspace({db,vendorId}:{db:Firestore;vendorId:string}) {
+  const [account,setAccount]=useState<Row>({id:vendorId});const [usage,setUsage]=useState<Row[]>([]);const [error,setError]=useState("");const [loading,setLoading]=useState(true);
+  useEffect(()=>{const stops=[onSnapshot(doc(db,"vendors",vendorId),snap=>setAccount({...snap.data(),id:snap.id} as Row),e=>setError(e.message)),onSnapshot(query(collection(db,"vendors",vendorId,"billingUsage"),orderBy("createdAt","desc"),limit(100)),snap=>{setUsage(snap.docs.map(d=>({...d.data(),id:d.id} as Row)));setLoading(false);},e=>{setError(e.message);setLoading(false);})];return()=>stops.forEach(stop=>stop());},[db,vendorId]);
+  const billable=usage.filter(x=>String(x.status||"") === "billable");const due=billable.reduce((sum,x)=>sum+Number(x.amount??x.billableAmount??x.rate??0),0);const plan=String(account.billingPlanId||account.subscriptionType||"trial");
+  const planNames:Record<string,string>={perTransaction:"Pay per Transaction",monthly:"Monthly",yearly:"Yearly",fiveYears:"5 Years",trial:"Trial",basic:"Basic"};
+  return <section className="admin-module"><div className="section-head"><div><p className="eyebrow">SUBSCRIPTION & USAGE</p><h1>Billing & Usage</h1><p className="muted">Successful receipt ledger and current package status</p></div><span className="count-badge">{String(account.billingStatus||account.accessMode||"—")}</span></div>{error&&<p className="error-text">{error}</p>}
+    <div className="admin-kpis"><article><small>Current package</small><strong>{planNames[plan]||plan}</strong></article><article><small>Successful receipts</small><strong>{display(account.successfulReceiptCount)}</strong></article><article><small>Unbilled receipts</small><strong>{display(account.unbilledReceiptCount)}</strong></article><article><small>Receipt rate</small><strong>{display(account.transactionRate??1)}</strong></article><article><small>Outstanding usage (Rs)</small><strong>{display(due)}</strong></article><article><small>Next payment due</small><strong>{display(account.nextPaymentDueAt)}</strong></article></div>
+    <div className="record-detail"><div className="record-detail-head"><strong>Recent successful receipt charges</strong><span className="count-badge">Latest {usage.length}</span></div>{loading?<p className="muted">Loading billing ledger…</p>:<div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Receipt / Sale ID</th><th>Sale total</th><th>Rate</th><th>Charge</th><th>Status</th><th>Created</th></tr></thead><tbody>{usage.map(row=><tr key={row.id}><td>{String(row.saleId||row.receiptId||row.id)}</td><td>{display(row.saleTotal)}</td><td>{display(row.rate)}</td><td>{display(row.amount??row.billableAmount)}</td><td>{String(row.status||"—")}</td><td>{display(row.createdAt)}</td></tr>)}{!usage.length&&<tr><td colSpan={6}>No billing usage records yet.</td></tr>}</tbody></table></div>}</div>
+    <p className="admin-note">This screen is read-only. It does not activate a paid plan, reconcile legacy receipts, generate invoices or open a payment session. Those actions require verified billing backend and explicit authorization.</p>
+  </section>;
+}
 
 function AuditSessionsWorkspace({db,vendorId}:{db:Firestore;vendorId:string}) {
   const [sessions,setSessions]=useState<Row[]>([]);const [search,setSearch]=useState("");const [error,setError]=useState("");const [loading,setLoading]=useState(true);
