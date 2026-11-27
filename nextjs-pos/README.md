@@ -10,10 +10,10 @@ Requires Node.js 24.12 or newer.
 4. Sign in with an existing Tycoon POS Firebase Authentication account.
 
 ## Implemented migration slice
-- Firebase Authentication sign-in and vendor profile lookup.
+- Firebase Authentication sign-in, signup, password reset and vendor profile lookup.
 - Realtime product, table, and table-order subscriptions.
 - Category filtering, product search, variant selection, stock-aware cart.
-- Persist and restore open table orders using vendors/{vendorId}/tableOrders/{tableId}.
+- Persist and restore open table orders using vendors/{vendorId}/tableOrders/{tableId}; cart changes sync in realtime and table creation is supported.\n- Quick-sale checkout and receipt printing without a table assignment.
 - Save KOT state as making and mark the table occupied.
 - Tables / Items and Modern / Legacy controls remain inside the hamburger menu.
 
