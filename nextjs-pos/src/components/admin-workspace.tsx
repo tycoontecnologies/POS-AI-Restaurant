@@ -443,7 +443,7 @@ function RecordsTable({ moduleKey, rows, loading, error, search, setSearch, sele
 
 
 function DashboardWorkspace({db,vendorId}:{db:Firestore;vendorId:string}) {
-  const [sales,setSales]=useState<Row[]>([]);const [tables,setTables]=useState<Row[]>([]);const [tableOrders,setTableOrders]=useState<Row[]>([]);const [products,setProducts]=useState<Row[]>([]);const [branches,setBranches]=useState<Row[]>([]);const [owner,setOwner]=useState<Row>({});
+  const [sales,setSales]=useState<Row[]>([]);const [tables,setTables]=useState<Row[]>([]);const [tableOrders,setTableOrders]=useState<Row[]>([]);const [products,setProducts]=useState<Row[]>([]);const [branches,setBranches]=useState<Row[]>([]);const [owner,setOwner]=useState<Row>({id:""});
   const [error,setError]=useState("");
   useEffect(()=>{
     const stops=[
