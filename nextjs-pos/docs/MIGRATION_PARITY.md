@@ -55,7 +55,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | monthly_attendance_screen.dart | Missing |
 | branches_screen.dart | Partial: branch create/edit/delete, active status, branch code/address and source premiumFeature/createdAt metadata; main-branch card and branch-scoped data enforcement pending |
 | users_roles_screen.dart | Partial: department account creation using a secondary Firebase Auth app, linked vendor/staff documents, standard role permission presets, active/disabled toggle, password reset and profile-photo/commission visibility controls; dedicated-tenant account lifecycle tests and custom permission editing pending |
-| settings_hub_screen.dart; settings_screen.dart | Partial: admin-only restaurant profile editing for account name, restaurant name, location, phone and logo upload to the Flutter Storage path; settings hub tiles and password/security workflows pending |
+| settings_hub_screen.dart; settings_screen.dart | Partial: admin-only restaurant profile editing for account name, restaurant name, location, phone and logo upload to the Flutter Storage path; settings hub tiles, password/security workflows and audit/session tile integration added |
 | pra_settings_screen.dart | Partial: load/save registration number, POS ID, masked token and enabled state in the original integrations/pra document; no live PRA API transmission is attempted |
 | splash_screen.dart | Missing |
 
@@ -107,7 +107,7 @@ All of these Flutter providers require schema-accurate ports and tests; only the
 | ingredient_service.dart; recipe_service.dart | Ingredients, recipes and stock consumption | Partial: ingredient CRUD and per-product recipe document save/load/delete are implemented; recipe-driven ingredient deductions during checkout and inventory reconciliation pending |
 | store_out_service.dart | Store-out CRUD and stock movement | Partial: source snapshot schema, create-time stock deduction, edit-without-stock-movement and soft-delete semantics ported; bulk/date/reason search and transaction-level E2E coverage pending |
 | staff_service.dart; attendance_service.dart; staff_performance_service.dart | Staff, roles, attendance and performance | Missing |
-| session_audit_service.dart | Session/audit trail | Partial: login/logout audit sessions with user, role, branch, source, timestamps, duration and active state; session history screen and abnormal-session cleanup pending |
+| session_audit_service.dart | Session/audit trail | Partial: login/logout audit sessions with user, role, branch, source, timestamps, duration and active state; session history screen with last-100 search, login/logout, duration, branch and active status; abnormal-session cleanup pending |
 | notification_service.dart | Notification behavior | Missing |
 | dummy_data_service.dart | Test/demo data only; never production-seeded | Not assessed |
 
