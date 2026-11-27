@@ -18,7 +18,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 - Product search/category filtering, variant-aware cart and client-side stock checks.
 - Table order save/restore.
 - KOT queue and basic status transitions.
-- Basic checkout document creation, usage ledger, browser receipt/KOT print.\n- Read-only live management data views for dashboard/sales, categories, customers, discounts, ingredients, purchases/returns, sales/returns, suppliers, staff, attendance, store-out, branches, expenses and orders. These are record browsers only, not CRUD/workflow parity.
+- Basic checkout document creation, usage ledger, browser receipt/KOT print.\n- Live management data views for dashboard/sales, products, categories, customers, discounts, ingredients, purchases/returns, sales/returns, suppliers, staff, attendance, store-out, branches, expenses and orders. Product/category/customer/supplier/discount/ingredient modules have schema-shaped create/edit forms; unsupported business side effects remain unimplemented.\n- Table creation uses the original table document fields; POS navigation is partially role-filtered using the Flutter role map.
 - Hamburger-only Tables/Items and Modern/Legacy controls; product card click adds to cart.
 
 ## Route/screen parity register
@@ -127,4 +127,4 @@ All of these Flutter providers require schema-accurate ports and tests; only the
 8. Typecheck, production build, automated tests and dedicated-tenant end-to-end tests pass.
 9. Production cutover plan, backup and rollback are prepared; production deployment remains a separate approval step.
 
-**Current overall status: INCOMPLETE.** The management collection views are intentionally read-only; they do not implement create/update/delete forms, inventory side effects, reports, role-aware actions or model-specific validation. This register records scope and prevents the partial POS slice from being mistaken for feature parity.
+**Current overall status: INCOMPLETE.** Most management collections remain read-only, and the limited create/edit forms are not full CRUD. Inventory side effects, reports, subscription gates, complete role/branch enforcement and model-specific validation are still incomplete. This register records scope and prevents the partial POS slice from being mistaken for feature parity.
