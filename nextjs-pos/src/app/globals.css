@@ -63,3 +63,7 @@
 .employee-profile-row small{color:#667085;font-size:11px}
 .employee-photo-upload{display:inline-flex;align-items:center;width:max-content;padding:6px 10px;border:1px solid #d8d2f4;border-radius:8px;color:#6044d8;font-size:11px;font-weight:700;cursor:pointer}
 .employee-photo-upload input{max-width:170px;font-size:10px}
+
+.dashboard-customizer{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:14px;margin:12px 0;background:#fff;border:1px solid #e4e7ec;border-radius:12px}
+.dashboard-customizer>strong{width:100%;font-size:12px}
+.dashboard-customizer label{display:flex;align-items:center;gap:6px;font-size:11px;color:#475467}
