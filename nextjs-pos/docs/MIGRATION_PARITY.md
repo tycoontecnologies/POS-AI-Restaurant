@@ -1,0 +1,130 @@
+# Flutter → Next.js POS parity register
+
+Source of truth: `main` Flutter application. Target: `nextjs-pos/` on `nextjs-pos-rebuild`.
+Last reconciled: 2026-11-27. This register is intentionally conservative: a feature is not marked complete merely because a page shell exists.
+
+## Safety boundary
+
+- Keep Flutter `main`, live Firebase data, production configuration, and current production POS untouched.
+- Work only on the isolated `nextjs-pos-rebuild` branch and its draft PR.
+- Do not merge, deploy, or run write tests against production Firebase.
+- Use a dedicated test Firebase project/tenant for end-to-end validation.
+
+## Existing Next.js slice (implemented; not yet proven end-to-end)
+
+- Firebase client initialization and email/password authentication.
+- Vendor/tenant resolution using the observed Flutter user document conventions.
+- Realtime product, table, and table-order reads.
+- Product search/category filtering, variant-aware cart and client-side stock checks.
+- Table order save/restore.
+- KOT queue and basic status transitions.
+- Basic checkout document creation, usage ledger, browser receipt/KOT print.
+- Hamburger-only Tables/Items and Modern/Legacy controls; product card click adds to cart.
+
+## Route/screen parity register
+
+| Flutter source screen | Next.js parity |
+|---|---|
+| auth/login_screen.dart; auth/login_screen_v2.dart | Partial: Firebase login flow exists; visual/validation parity pending |
+| auth/signup_screen.dart | Missing |
+| dashboard_screen.dart | Missing |
+| restaurant_dashboard_screen.dart; restaurant_dashboard_screen_v2.dart; restaurant_dashboard_screen_v3.dart | Missing |
+| restaurant_command_center_screen.dart | Missing |
+| employee_dashboard_screen.dart; role_home_screen.dart | Missing |
+| categories_screen.dart; category_products_screen.dart | Missing |
+| products_screen.dart | Partial: read/list only; full CRUD, upload, variants and flags missing |
+| pos_order_screen_v2.dart through pos_order_screen_v7.dart | Partial: core order/cart slice only; exact workflow parity pending |
+| table_management_screen.dart; table_management_screen_v2.dart | Partial: table list/order save-restore only |
+| table_order_screen.dart | Partial |
+| orders_screen.dart; kitchen_kot_screen.dart | Partial |
+| payment_screen.dart; payment_success_screen.dart; pricing_screen.dart | Missing: Stripe/subscription lifecycle not ported |
+| sale_screen.dart | Partial: basic sale creation only; history/filter/export/reprint pending |
+| sale_return_screen.dart; select_return_items_screen.dart | Missing |
+| purchases_screen.dart; purchase_return_screen.dart; select_purchase_return_items_screen.dart | Missing |
+| suppliers_screen.dart | Missing |
+| customers_screen.dart | Missing |
+| discounts_screen.dart | Missing |
+| ingredients_screen.dart; recipe_assignment_screen.dart | Missing |
+| store_out_screen.dart; add_edit_store_out_screen.dart | Missing |
+| expenses_screen.dart | Missing |
+| staff_screen.dart; attendance_screen.dart; monthly_attendance_screen.dart | Missing |
+| branches_screen.dart | Missing |
+| users_roles_screen.dart | Missing |
+| settings_hub_screen.dart; settings_screen.dart | Missing |
+| pra_settings_screen.dart | Missing |
+| splash_screen.dart | Missing |
+
+## Provider/domain parity
+
+All of these Flutter providers require schema-accurate ports and tests; only the narrow auth/cart/product/table/order/sale slice has partial counterparts today.
+
+- attendance_provider.dart
+- auth_provider.dart
+- cart_provider.dart
+- category_provider.dart
+- customer_provider.dart
+- discount_provider.dart
+- ingredient_provider.dart
+- locale_provider.dart
+- order_provider.dart
+- product_provider.dart
+- purchase_provider.dart
+- purchase_return_provider.dart
+- recipe_provider.dart
+- sale_provider.dart
+- sale_return_provider.dart
+- staff_provider.dart
+- statistics_provider.dart
+- store_out_provider.dart
+- subscription_provider.dart
+- supplier_provider.dart
+- table_order_provider.dart
+- table_provider.dart
+- theme_provider.dart
+
+## Service and integration parity
+
+| Flutter service | Required Next.js equivalent | Status |
+|---|---|---|
+| firebase_service.dart; auth_service.dart | Firebase initialization, auth, tenant resolution and access rules | Partial |
+| product_service.dart; category_service.dart | Product/category CRUD, variants, flags, images, stock | Partial / missing |
+| order_service.dart | Full order lifecycle, KOT, per-item status and kitchen queue | Partial |
+| sale_service.dart | Sales, billing counters, idempotency, history and exports | Partial |
+| transaction_billing_service.dart; usage_billing_reconciliation_service.dart | Exact billing/usage semantics and reconciliation | Partial; transaction behavior requires dedicated tests |
+| document_print_service.dart; pdf_service.dart | Exact receipt/KOT PDF layouts, browser print and supported printer workflows | Partial |
+| image_upload_service.dart | Firebase Storage upload/delete and image URL lifecycle | Missing |
+| stripe_service.dart; subscription_service.dart | Stripe checkout, webhook/server verification, plan/access lifecycle | Missing |
+| purchase_service.dart; purchase_return_service.dart | Purchases and purchase returns | Missing |
+| sale_return_service.dart | Sale returns/refunds and inventory restoration | Missing |
+| supplier_service.dart; customer_service.dart | Supplier/customer CRUD and relations | Missing |
+| discount_service.dart | Discount rules and application | Missing |
+| ingredient_service.dart; recipe_service.dart | Ingredients, recipes and stock consumption | Missing |
+| store_out_service.dart | Store-out and stock movement | Missing |
+| staff_service.dart; attendance_service.dart; staff_performance_service.dart | Staff, roles, attendance and performance | Missing |
+| session_audit_service.dart | Session/audit trail | Missing |
+| notification_service.dart | Notification behavior | Missing |
+| dummy_data_service.dart | Test/demo data only; never production-seeded | Not assessed |
+
+## Platform/dependency requirements identified in Flutter source
+
+- Firebase Core, Authentication, Cloud Firestore and Firebase Storage.
+- Stripe (Flutter Stripe, web Stripe, Stripe SDK); server-side payment verification must be preserved.
+- PDF generation and printing (pdf, printing); browser print is not assumed equivalent to the original printer integrations.
+- HTTP integrations and URL launching.
+- Image picking, uploads, cached network images.
+- Locale/number/date formatting, persistent preferences and UUID generation.
+- PRA settings/integration is represented in the app; exact API/configuration and fiscal payload behavior still need targeted source review.
+
+## Required acceptance gates before calling this a ditto copy
+
+1. Every source screen and navigation path has a corresponding Next.js screen/flow.
+2. Every provider/service has an equivalent implementation with matching Firestore collections, fields, queries, writes, transactions and error behavior.
+3. Roles, branch scoping, subscription gates and route guards match Flutter behavior.
+4. Full order, table, KOT, checkout, payment, inventory, returns, purchase, customer, supplier, staff, attendance, expense, discount, recipe and reporting workflows pass tests.
+5. Stripe and PRA integrations are validated in their respective sandbox/test environments.
+6. Receipt/KOT output and supported printer workflows are compared against Flutter output.
+7. Desktop, tablet and mobile responsive behavior is verified.
+8. Typecheck, production build, automated tests and dedicated-tenant end-to-end tests pass.
+9. Production cutover plan, backup and rollback are prepared; production deployment remains a separate approval step.
+
+**Current overall status: INCOMPLETE.** This register records scope and prevents the partial POS slice from being mistaken for feature parity.
