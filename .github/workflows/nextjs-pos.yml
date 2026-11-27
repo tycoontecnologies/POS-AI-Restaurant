@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - "nextjs-pos/**"
+      - ".github/workflows/nextjs-pos.yml"
   push:
     branches:
       - nextjs-pos-rebuild
