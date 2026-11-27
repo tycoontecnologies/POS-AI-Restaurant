@@ -8,7 +8,7 @@ import { addDoc, collection, doc, onSnapshot, query, limit, Firestore, Timestamp
 import { Search, RefreshCw, Database, FileText } from "lucide-react";
 import { getDownloadURL, ref as storageRef, deleteObject, uploadBytes, type FirebaseStorage } from "firebase/storage";
 
-type ModuleKey = "dashboard" | "products" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders" | "users_roles" | "settings" | "pra_settings";
+type ModuleKey = "dashboard" | "products" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders" | "users_roles" | "settings" | "pra_settings" | "audit_sessions";
 type Row = Record<string, unknown> & { id: string };
 
 const modules: Record<ModuleKey, { title: string; collection: string; description: string }> = {
@@ -32,6 +32,7 @@ const modules: Record<ModuleKey, { title: string; collection: string; descriptio
   users_roles: { title: "Users & roles", collection: "vendors", description: "Department accounts and role permissions" },
   settings: { title: "Settings", collection: "vendors", description: "Restaurant profile and account configuration" },
   pra_settings: { title: "PRA integration", collection: "integrations", description: "Punjab Revenue Authority e-invoicing configuration" },
+  audit_sessions: { title: "Audit & sessions", collection: "auditSessions", description: "Login history, session duration and branch activity" },
 };
 
 const editableModules: ModuleKey[] = ["products", "categories", "customers", "suppliers", "discounts", "ingredients", "staff", "expenses", "attendance", "purchases", "purchase_returns", "sale_returns", "store_out", "branches"];
@@ -77,7 +78,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     purchases:["admin","superAdmin","super_admin","operations","accounts","inventory"],purchase_returns:["admin","superAdmin","super_admin","operations","accounts","inventory"],
     sale_returns:["admin","superAdmin","super_admin","cashier","accounts"],suppliers:["admin","superAdmin","super_admin","operations","accounts","inventory"],
     staff:["admin","superAdmin","super_admin","manager"],attendance:["admin","superAdmin","super_admin","manager"],
-    store_out:["admin","superAdmin","super_admin","operations","inventory"],branches:["admin","superAdmin","super_admin"],users_roles:["admin","superAdmin","super_admin"],settings:["admin","superAdmin","super_admin"],pra_settings:["admin","superAdmin","super_admin"],
+    store_out:["admin","superAdmin","super_admin","operations","inventory"],branches:["admin","superAdmin","super_admin"],users_roles:["admin","superAdmin","super_admin"],settings:["admin","superAdmin","super_admin"],pra_settings:["admin","superAdmin","super_admin"],audit_sessions:["admin","superAdmin","super_admin"],
     expenses:["admin","superAdmin","super_admin","manager","accounts"],orders:["admin","superAdmin","super_admin","manager","cashier","waiter","staff","kitchen","delivery"]
   };
   const canManageModule=(roleAccess[moduleKey]||["admin","superAdmin","super_admin"]).includes(actorRole);
@@ -112,7 +113,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
   const firstPageIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (moduleKey === "dashboard" || moduleKey === "users_roles" || moduleKey === "attendance" || moduleKey === "settings" || moduleKey === "pra_settings") { setRows([]); setLoading(false); setLastDoc(null); setHasMore(false); return; }
+    if (moduleKey === "dashboard" || moduleKey === "users_roles" || moduleKey === "attendance" || moduleKey === "settings" || moduleKey === "pra_settings" || moduleKey === "audit_sessions") { setRows([]); setLoading(false); setLastDoc(null); setHasMore(false); return; }
     setLoading(true);
     setError("");
     const ref = collection(db, "vendors", vendorId, config.collection);
@@ -420,6 +421,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
   if (moduleKey === "users_roles") return <UsersRolesWorkspace db={db} vendorId={vendorId} actorId={actorId} actorRole={actorRole}/>;
   if (moduleKey === "settings") return <SettingsWorkspace db={db} vendorId={vendorId} actorId={actorId} actorRole={actorRole} storage={storage}/>;
   if (moduleKey === "pra_settings") return <PraSettingsWorkspace db={db} vendorId={vendorId}/>;
+  if (moduleKey === "audit_sessions") return <AuditSessionsWorkspace db={db} vendorId={vendorId}/>;
   if (moduleKey === "ingredients" && recipeMode) return <RecipeWorkspace db={db} vendorId={vendorId} onBack={()=>setRecipeMode(false)}/>;
 
   return <section className="admin-module">
@@ -458,6 +460,16 @@ function RecordsTable({ moduleKey, rows, loading, error, search, setSearch, sele
 
 
 
+
+
+function AuditSessionsWorkspace({db,vendorId}:{db:Firestore;vendorId:string}) {
+  const [sessions,setSessions]=useState<Row[]>([]);const [search,setSearch]=useState("");const [error,setError]=useState("");const [loading,setLoading]=useState(true);
+  useEffect(()=>onSnapshot(query(collection(db,"vendors",vendorId,"auditSessions"),orderBy("loginAt","desc"),limit(100)),snap=>{setSessions(snap.docs.map(d=>({...d.data(),id:d.id} as Row)));setLoading(false);},e=>{setError(e.message);setLoading(false);}),[db,vendorId]);
+  const filtered=sessions.filter(x=>JSON.stringify(x).toLowerCase().includes(search.toLowerCase()));
+  const active=sessions.filter(x=>x.active===true).length;
+  function duration(row:Row){const minutes=Number(row.durationMinutes);if(Number.isFinite(minutes)&&minutes>=0)return Math.floor(minutes/60)+"h "+(minutes%60)+"m";const login=dateMillis(row.loginAt);if(row.active===true&&login!==null){const elapsed=Math.max(0,Math.floor((Date.now()-login)/60000));return Math.floor(elapsed/60)+"h "+(elapsed%60)+"m";}return "—";}
+  return <section className="admin-module"><div className="section-head"><div><p className="eyebrow">SECURITY & OPERATIONS</p><h1>Audit & Sessions</h1><p className="muted">Recent account logins, active sessions and worked time</p></div><span className="count-badge">{active} active sessions</span></div>{error&&<p className="error-text">{error}</p>}<div className="record-filter-bar"><div className="search-wrap"><Search size={17}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search user, email, role or branch…"/></div><span className="count-badge">Latest {sessions.length} sessions</span></div><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>User</th><th>Role</th><th>Branch</th><th>Source</th><th>Login</th><th>Logout</th><th>Duration</th><th>Status</th></tr></thead><tbody>{filtered.map(row=><tr key={row.id}><td>{String(row.userName||"—")}<small>{String(row.email||"")}</small></td><td>{String(row.role||"—")}</td><td>{String(row.branchName||"—")}</td><td>{String(row.source||"—")}</td><td>{display(row.loginAt)}</td><td>{display(row.logoutAt)}</td><td>{duration(row)}</td><td>{row.active===true?"Active":"Closed"}</td></tr>)}{!loading&&!filtered.length&&<tr><td colSpan={8}>No audit sessions found.</td></tr>}</tbody></table></div><p className="admin-note">Only the latest 100 audit sessions are loaded. Active sessions are updated on logout; an abruptly closed browser may leave a session active until a later cleanup.</p></section>;
+}
 
 function SettingsWorkspace({db,vendorId,actorId,actorRole,storage}:{db:Firestore;vendorId:string;actorId:string;actorRole:string;storage:FirebaseStorage|null}) {
   const [name,setName]=useState("");const [location,setLocation]=useState("");const [phoneNo,setPhoneNo]=useState("");const [restaurantName,setRestaurantName]=useState("");const [logoUrl,setLogoUrl]=useState("");const [isActive,setIsActive]=useState(true);const [logoFile,setLogoFile]=useState<File|null>(null);const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [error,setError]=useState("");const [notice,setNotice]=useState("");
