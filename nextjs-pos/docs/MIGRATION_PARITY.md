@@ -46,7 +46,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | purchase_return_screen.dart; select_purchase_return_items_screen.dart | Improved partial parity: original-purchase selector, supplier auto-link, all items selected by default, individual product selection (all matching purchase lines retained), reason capture, refund calculation, source-purchase quantity/supplier validation, structured details, search/date filters and 20-record cursor pagination; responsive Flutter card/table parity and dedicated-tenant tests pending. Flutter return flow does not change stock. |
 | suppliers_screen.dart | Partial: schema-aligned create/edit/delete, phone/address validation, active status and supplier balances; supplier ledger/reconciliation workflows pending |
 | customers_screen.dart | Partial: schema-aligned create/edit/delete, name/phone/address/email validation, active status and customer lifetime-spend display; review/feedback workflows pending |
-| discounts_screen.dart | Missing |
+| discounts_screen.dart | Partial: discount create/edit/delete, active state, percentage/fixed type and image lifecycle; checkout application and usage tracking pending |
 | ingredients_screen.dart; recipe_assignment_screen.dart | Missing |
 | store_out_screen.dart; add_edit_store_out_screen.dart | Partial: create/edit, product snapshot records, base/variant stock validation and deduction on create, soft-delete via active=false; product picker, cards/list/table views, pagination and full edit parity pending |
 | expenses_screen.dart | Partial: add/list/delete, expense categories, amount/note and creator/branch metadata; edit/report parity pending |
@@ -103,7 +103,7 @@ All of these Flutter providers require schema-accurate ports and tests; only the
 | purchase_return_service.dart | Purchase return records and detail workflow | Partial: create schema and source-linked item selection ported; full-item selection mirrors Flutter, source purchase and supplier validation, list details, filters and pagination added; dedicated-tenant tests pending. Original screen exposes view/create, not edit/delete. |
 | sale_return_service.dart | Sale return records and detail workflow | Partial: original-sale selection, selected-item snapshots, refund totals, reason, source-sale quantity validation, structured details, search/date filters and cursor pagination ported; dedicated-tenant tests pending. Original Flutter service does not restore inventory. |
 | supplier_service.dart; customer_service.dart | Supplier/customer CRUD and relations | Partial: customer and supplier create/edit/delete, source model fields, active status and supplier balance fields; customer review metrics and supplier financial reconciliation remain pending |
-| discount_service.dart | Discount rules and application | Missing |
+| discount_service.dart | Discount rules and application | Partial: discount CRUD and active/type/value model fields; checkout calculation/application and usage tracking pending |
 | ingredient_service.dart; recipe_service.dart | Ingredients, recipes and stock consumption | Missing |
 | store_out_service.dart | Store-out CRUD and stock movement | Partial: create-time stock deduction and soft-delete semantics ported; bulk/date/reason search and transaction-level E2E coverage pending |
 | staff_service.dart; attendance_service.dart; staff_performance_service.dart | Staff, roles, attendance and performance | Missing |
