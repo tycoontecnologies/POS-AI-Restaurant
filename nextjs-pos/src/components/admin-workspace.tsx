@@ -359,7 +359,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
         if (moduleKey === "expenses") data = { ...data, createdAt: serverTimestamp(), createdBy: actorName, createdById: actorId, branchId, branchName };
         if (moduleKey === "staff") data = { ...data, id: "", tipsEarned: 0, commissionEarned: 0, serviceChargesEarned: 0, pointsEarned: 0, averageRating: 0, reviewCount: 0, leakageTotal: 0, deductionsTotal: 0 };
         if (moduleKey === "suppliers") data = { ...data, id: "", createdOn: Timestamp.fromDate(now) };
-        if (moduleKey === "discounts") data = { ...data, isActive: true, vendorId, createdAt: Timestamp.fromDate(now), updatedAt: Timestamp.fromDate(now) };
+        if (moduleKey === "discounts") data = { ...data, isActive: payload.isActive !== false, vendorId, createdAt: Timestamp.fromDate(now), updatedAt: Timestamp.fromDate(now) };
         if (moduleKey === "ingredients") data = { ...data, id: "", createdOn: now.toISOString() };
         const created = await addDoc(ref, data);
         recordId = created.id;
