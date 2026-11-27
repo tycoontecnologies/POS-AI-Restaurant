@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, User } from "firebase/auth";
-import { collection, doc, getDoc, onSnapshot, orderBy, query, increment, runTransaction, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot, orderBy, query, increment, runTransaction, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp } from "firebase/firestore";
 import { Activity, ChefHat, CircleHelp, Clock3, FileText, Grid2X2, LogOut, Menu, Minus, Plus, Search, ShoppingBag, Table2, Utensils, X } from "lucide-react";
 import { auth, db, firebaseReady } from "@/lib/firebase";
 import AdminWorkspace from "@/components/admin-workspace";
@@ -95,8 +95,8 @@ export default function PosApp(){
    if((data.billingPlanId??data.subscriptionType??"").toString()!=="perTransaction")return;
    const usage=await tx.get(usageRef);if(usage.exists())return;
    const rate=typeof data.transactionRate==="number"?data.transactionRate:1;
-   tx.set(usageRef,{receiptId,saleId:receiptId,status:"billable",rate,amount:rate,billableAmount:rate,saleTotal:total,paymentMethod,completedAt:createdAt,createdAt:new Date(),source:"checkout"});
-   tx.set(vendorRef,{successfulReceiptCount:increment(1),unbilledReceiptCount:increment(1),transactionUsageAmount:increment(rate),billingStatus:"active",hasActiveSubscription:true,accessMode:"full",lastSuccessfulReceiptAt:new Date()},{merge:true});
+   tx.set(usageRef,{saleId:receiptId,status:"billable",rate,amount:rate,saleTotal:total,paymentMethod,completedAt:Timestamp.fromDate(createdAt),createdAt:serverTimestamp()});
+   tx.set(vendorRef,{successfulReceiptCount:increment(1),unbilledReceiptCount:increment(1),transactionUsageAmount:increment(rate),billingStatus:"active",hasActiveSubscription:true,accessMode:"full",lastSuccessfulReceiptAt:serverTimestamp()},{merge:true});
   });
   const printNo=await nextPrintNumber("RECEIPT",receiptId);
   const rows=items.map(x=>'<div class="line"><span>'+escapeHtml(x.productName)+' × '+x.quantity+'</span><b>'+money(x.price*x.quantity)+'</b></div>').join("");
