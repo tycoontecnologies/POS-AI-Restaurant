@@ -3,7 +3,8 @@
 This application is developed alongside the existing Flutter POS. It is isolated under nextjs-pos/; the Flutter app, Firebase configuration, Cloud Functions, and production hosting files are not changed.
 
 ## Run locally
-Requires Node.js 24.12 or newer.\n1. Copy .env.example to .env.local.
+Requires Node.js 24.12 or newer.
+1. Copy .env.example to .env.local.
 2. Run npm install.
 3. Run npm run dev (port 3020).
 4. Sign in with an existing Tycoon POS Firebase Authentication account.
