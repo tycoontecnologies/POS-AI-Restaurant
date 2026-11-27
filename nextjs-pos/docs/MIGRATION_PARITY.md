@@ -34,7 +34,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | restaurant_command_center_screen.dart | Missing |
 | employee_dashboard_screen.dart; role_home_screen.dart | Missing |
 | categories_screen.dart; category_products_screen.dart | Missing |
-| products_screen.dart | Partial: base product create/edit, JSON variants and Flutter-shaped product attributes, and Storage image upload; flags and full parity pending |
+| products_screen.dart | Improved partial parity: create/edit/delete, active status, active-category selection, variant and ProductAttribute editing, image preview/upload/replacement/removal and best-effort primary-image cleanup; pagination and exact screen layout still pending. Flutter Product model has no variant-image or extra flag fields beyond active/hasVariants. |
 | pos_order_screen_v2.dart through pos_order_screen_v7.dart | Partial: core order/cart slice only; exact workflow parity pending |
 | table_management_screen.dart; table_management_screen_v2.dart | Partial: table list/create and order save-restore; edit/delete and full layout parity pending |
 | table_order_screen.dart | Partial |
@@ -42,7 +42,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | payment_screen.dart; payment_success_screen.dart; pricing_screen.dart | Missing: Stripe/subscription lifecycle not ported |
 | sale_screen.dart | Partial: basic sale creation, history list and receipt reprint; filters/export and full parity pending |
 | sale_return_screen.dart; select_return_items_screen.dart | Partial: sale return record creation with original sale ID, selected item snapshots, refund totals and reason; sale picker, selected-item workflow, details and pagination pending |
-| purchases_screen.dart | Partial: purchase create/edit/delete with purchase item snapshots and batched base/variant stock adjustments; supplier/product picker, filters, pagination and complete tab parity pending |\n| purchase_return_screen.dart; select_purchase_return_items_screen.dart | Partial: purchase return records can be created with original purchase, supplier, item snapshots, refund total and reason; source purchase picker, select-all/selected-item workflow, details dialog and pagination pending |
+| purchases_screen.dart | Improved partial parity: supplier picker, product/variant picker, editable purchase line items, status/date, create/edit/delete and batched stock adjustments; full list filters, details view and server-backed pagination still pending. |\n| purchase_return_screen.dart; select_purchase_return_items_screen.dart | Improved partial parity: original-purchase selector, supplier auto-link, all items selected by default, individual item selection, return quantity editing, refund calculation and source-purchase quantity/supplier validation; dedicated details dialog and server-backed pagination still pending. Flutter return flow does not change stock. |
 | suppliers_screen.dart | Missing |
 | customers_screen.dart | Missing |
 | discounts_screen.dart | Missing |
@@ -91,14 +91,14 @@ All of these Flutter providers require schema-accurate ports and tests; only the
 | Flutter service | Required Next.js equivalent | Status |
 |---|---|---|
 | firebase_service.dart; auth_service.dart | Firebase initialization, auth, tenant resolution and access rules | Partial |
-| product_service.dart; category_service.dart | Product/category CRUD, variants, flags, images, stock | Partial / missing |
+| product_service.dart; category_service.dart | Product/category CRUD, active state, variants, attributes, images and stock | Partial; source-model parity implemented for current product fields, dedicated tenant tests pending |
 | order_service.dart | Full order lifecycle, KOT, per-item status and kitchen queue | Partial |
 | sale_service.dart | Sales, billing counters, idempotency, history and exports | Partial |
 | transaction_billing_service.dart; usage_billing_reconciliation_service.dart | Exact billing/usage semantics and reconciliation | Partial; transaction behavior requires dedicated tests |
 | document_print_service.dart; pdf_service.dart | Exact receipt/KOT PDF layouts, browser print and supported printer workflows | Partial |
 | image_upload_service.dart | Firebase Storage upload/delete and image URL lifecycle | Partial: product/category/discount upload and replaced-image cleanup; product primary-image cleanup on delete |
 | stripe_service.dart; subscription_service.dart | Stripe checkout, webhook/server verification, plan/access lifecycle | Missing |
-| purchase_service.dart | Purchase create/edit/delete with purchase item schema and stock adjustments | Partial: core writes/stock effects ported; transaction safety, edge cases and UI parity need tests |\n| purchase_return_service.dart | Purchase return records and detail workflow | Partial: create record schema ported; update/delete and source UI flow pending |
+| purchase_service.dart | Purchase create/edit/delete with purchase item schema and stock adjustments | Partial: supplier/product/variant picker and item editor added; stock effects mirror source service; transactional edge cases and dedicated-tenant tests pending |\n| purchase_return_service.dart | Purchase return records and detail workflow | Partial: create schema and source-linked item selection ported; return list details/pagination and dedicated-tenant tests pending. Original screen exposes view/create, not edit/delete. |
 | sale_return_service.dart | Sale return records and detail workflow | Partial: create record schema ported; original Flutter service does not restore inventory; selected-item UI and list parity pending |
 | supplier_service.dart; customer_service.dart | Supplier/customer CRUD and relations | Missing |
 | discount_service.dart | Discount rules and application | Missing |
