@@ -19,7 +19,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 - Table order save/restore.
 - KOT queue and basic status transitions.
 - Basic checkout document creation, usage ledger, browser receipt/KOT print.
-- Live management data views for dashboard/sales, products, categories, customers, discounts, ingredients, purchases/returns, sales/returns, suppliers, staff, attendance, store-out, branches, expenses and orders. Product (including JSON-based variants and attributes), category, customer, supplier, discount, ingredient and staff modules have schema-shaped create/edit forms; expenses support Flutter-shaped create and delete operations with creator and branch metadata; product/category/discount images upload to Firebase Storage; unsupported business side effects remain unimplemented.
+- Live management flows now include dashboard, sales/orders, products/categories, customers/suppliers, discounts, ingredients/recipes, purchases/returns, sales returns, staff/attendance, store-out, branches, expenses, users/roles, restaurant settings, PRA configuration and audit sessions. Several CRUD and operational paths are schema-shaped, with role-gated UI actions and Storage image lifecycle; end-to-end rules, side effects and exact visual parity remain unverified.
 - Table creation uses the original table document fields; POS navigation is partially role-filtered using the Flutter role map.
 - Hamburger-only Tables/Items and Modern/Legacy controls; product card click adds to cart.
 
@@ -61,7 +61,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 
 ## Provider/domain parity
 
-All of these Flutter providers require schema-accurate ports and tests; only the narrow auth/cart/product/table/order/sale slice has partial counterparts today.
+All of these Flutter providers still require a full source-by-source port and dedicated-tenant tests. Several domain areas now have partial schema-shaped counterparts (purchases/returns, suppliers/customers, staff/attendance, ingredients/recipes, store-out, discounts and branch/user management), but none should be marked complete until workflow parity and Firestore authorization are proven.
 
 - attendance_provider.dart
 - auth_provider.dart
@@ -106,7 +106,7 @@ All of these Flutter providers require schema-accurate ports and tests; only the
 | discount_service.dart | Discount rules and application | Partial: discount CRUD and active/type/value model fields; checkout calculation/application and usage tracking pending |
 | ingredient_service.dart; recipe_service.dart | Ingredients, recipes and stock consumption | Partial: ingredient CRUD and per-product recipe document save/load/delete are implemented; recipe-driven ingredient deductions during checkout and inventory reconciliation pending |
 | store_out_service.dart | Store-out CRUD and stock movement | Partial: source snapshot schema, create-time stock deduction, edit-without-stock-movement and soft-delete semantics ported; bulk/date/reason search and transaction-level E2E coverage pending |
-| staff_service.dart; attendance_service.dart; staff_performance_service.dart | Staff, roles, attendance and performance | Missing |
+| staff_service.dart; attendance_service.dart; staff_performance_service.dart | Staff, roles, attendance and performance | Partial: staff CRUD, role-gated account creation, performance fields, daily attendance and monthly wage calculations; full performance ledger, session-hours reconciliation and dedicated-tenant tests pending |
 | session_audit_service.dart | Session/audit trail | Partial: login/logout audit sessions with user, role, branch, source, timestamps, duration and active state; session history screen with last-100 search, login/logout, duration, branch and active status; abnormal-session cleanup pending |
 | notification_service.dart | Notification behavior | Missing |
 | dummy_data_service.dart | Test/demo data only; never production-seeded | Not assessed |
