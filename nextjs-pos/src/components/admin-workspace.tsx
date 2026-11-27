@@ -159,7 +159,10 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
         const prefix = moduleKey === "products" ? "product" : moduleKey === "categories" ? "category" : "discount";
         const destination = storageRef(storage, "vendors/" + vendorId + "/" + folder + "/" + recordId + "/" + prefix + "_" + Date.now() + extension);
         const uploaded = await uploadBytes(destination, imageFile, { contentType: imageFile.type });
-        const newUrl = await getDownloadURL(uploaded.ref);\n        await updateDoc(doc(db, "vendors", vendorId, config.collection, recordId), { imageUrl: newUrl });\n        const oldUrl = rows.find(row => row.id === recordId)?.imageUrl;\n        if (typeof oldUrl === "string" && oldUrl && oldUrl !== newUrl) { try { await deleteObject(refFromURL(storage, oldUrl)); } catch { /* old image cleanup is best-effort */ } }
+        const newUrl = await getDownloadURL(uploaded.ref);
+        await updateDoc(doc(db, "vendors", vendorId, config.collection, recordId), { imageUrl: newUrl });
+        const oldUrl = rows.find(row => row.id === recordId)?.imageUrl;
+        if (typeof oldUrl === "string" && oldUrl && oldUrl !== newUrl) { try { await deleteObject(refFromURL(storage, oldUrl)); } catch { /* old image cleanup is best-effort */ } }
       }
       setForm({});
       setImageFile(null);
