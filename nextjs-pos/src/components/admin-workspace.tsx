@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot, orderBy, query, limit, Firestore } from "firebase/firestore";
+import { collection, onSnapshot, query, limit, Firestore } from "firebase/firestore";
 import { Search, RefreshCw, Database, FileText } from "lucide-react";
 
 type ModuleKey = "dashboard" | "categories" | "customers" | "discounts" | "ingredients" | "purchases" | "purchase_returns" | "sales" | "sale_returns" | "suppliers" | "staff" | "attendance" | "store_out" | "branches" | "expenses" | "orders";
@@ -46,10 +46,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey }: { db: Firest
   useEffect(() => {
     setLoading(true); setError("");
     const ref = collection(db, "vendors", vendorId, config.collection);
-    let q;
-    try { q = query(ref, orderBy("createdOn", "desc"), limit(250)); }
-    catch { q = query(ref, limit(250)); }
-    const stop = onSnapshot(q, snap => {
+    const stop = onSnapshot(query(ref, limit(250)), snap => {
       setRows(snap.docs.map(d => ({ ...d.data(), id: d.id } as Row)));
       setLoading(false);
     }, err => { setError(err.message); setLoading(false); });
