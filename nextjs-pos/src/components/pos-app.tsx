@@ -92,7 +92,7 @@ export default function PosApp(){
   const usageRef=doc(db,"vendors",vendor.id,"billingUsage",receiptId);
   await runTransaction(db,async tx=>{
    const vendorSnap=await tx.get(vendorRef);const data=vendorSnap.data()||{};
-   if((data.billingPlanId||"").toString()!=="perTransaction")return;
+   if((data.billingPlanId??data.subscriptionType??"").toString()!=="perTransaction")return;
    const usage=await tx.get(usageRef);if(usage.exists())return;
    const rate=typeof data.transactionRate==="number"?data.transactionRate:1;
    tx.set(usageRef,{receiptId,saleId:receiptId,status:"billable",rate,amount:rate,billableAmount:rate,saleTotal:total,paymentMethod,completedAt:createdAt,createdAt:new Date(),source:"checkout"});
