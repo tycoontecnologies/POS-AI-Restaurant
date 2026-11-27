@@ -208,7 +208,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     setFormOpen(true);
   }
 
-  function makePayload(now: Date): Record<string, unknown> {
+  async function makePayload(now: Date): Promise<Record<string, unknown>> {
     if (moduleKey === "products") {
       const parsed = form.variantsJson?.trim() ? JSON.parse(form.variantsJson) : [];
       let parsedAttributes: unknown; try { parsedAttributes = JSON.parse(form.attributesJson || "[]"); } catch { throw new Error("Attributes must be valid JSON."); }
