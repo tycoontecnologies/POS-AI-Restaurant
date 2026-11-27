@@ -46,7 +46,7 @@ function display(value: unknown): string {
   return typeof value === "number" ? value.toLocaleString("en-PK") : String(value);
 }
 
-export default function AdminWorkspace({ db, vendorId, moduleKey }: { db: Firestore; vendorId: string; moduleKey: ModuleKey }) {
+export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint }: { db: Firestore; vendorId: string; moduleKey: ModuleKey; onReprint?:(row:Row)=>void }) {
   const config = modules[moduleKey];
   const canEdit = editableModules.includes(moduleKey);
   const [rows, setRows] = useState<Row[]>([]);
@@ -156,14 +156,14 @@ export default function AdminWorkspace({ db, vendorId, moduleKey }: { db: Firest
       <div className="admin-form-grid">{(fields[moduleKey] || []).map(field => <label key={field}>{field.replace(/([A-Z])/g, " $1")}<input required={field === "name"} type={["value", "salePrice", "purchasePrice", "quantity", "quantityInStock", "lowStockThreshold"].includes(field) ? "number" : "text"} step="any" value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}/></label>)}</div>
       <button className="primary-btn" disabled={saving}>{saving ? "Saving…" : editingId ? "Update record" : "Save record"}</button>
     </form>}
-    <RecordsTable rows={filtered} loading={loading} error={error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} canEdit={canEdit} onEdit={beginEdit}/>
+    <RecordsTable rows={filtered} loading={loading} error={error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} canEdit={canEdit} onEdit={beginEdit} onReprint={moduleKey==="sales"?onReprint:undefined}/>
     <p className="admin-note"><FileText size={17}/> This module is a migration slice. Unsupported workflow side effects, permissions and validations are not simulated here.</p>
   </section>;
 }
 
-function RecordsTable({ rows, loading, error, search, setSearch, selected, setSelected, canEdit = false, onEdit }: {
+function RecordsTable({ rows, loading, error, search, setSearch, selected, setSelected, canEdit = false, onEdit, onReprint }: {
   rows: Row[]; loading: boolean; error: string; search: string; setSearch: (s: string) => void;
-  selected: Row | null; setSelected: (r: Row | null) => void; canEdit?: boolean; onEdit?: (r: Row) => void;
+  selected: Row | null; setSelected: (r: Row | null) => void; canEdit?: boolean; onEdit?: (r: Row) => void; onReprint?:(r:Row)=>void;
 }) {
   const keys = useMemo(() => {
     const preferred = ["name", "number", "customerName", "supplierName", "productName", "status", "total", "amount", "createdAt", "createdOn"];
@@ -174,6 +174,6 @@ function RecordsTable({ rows, loading, error, search, setSearch, selected, setSe
     <div className="admin-toolbar"><div className="search-wrap"><Search size={17}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search records…"/></div><button className="secondary-btn" onClick={() => setSearch("")}><RefreshCw size={15}/> Clear</button></div>
     {error && <p className="error-text">{error}</p>}
     {loading ? <div className="empty-state">Loading records…</div> : !rows.length ? <div className="empty-state">No records found in this collection.</div> : <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Document ID</th>{keys.map(k => <th key={k}>{k}</th>)}</tr></thead><tbody>{rows.map(row => <tr key={row.id} onClick={() => setSelected(row)}><td><button className="record-link">{row.id}</button></td>{keys.map(k => <td key={k}>{display(row[k])}</td>)}</tr>)}</tbody></table></div>}
-    {selected && <div className="record-detail"><div className="record-detail-head"><strong>Record details</strong><div className="record-actions">{canEdit && onEdit && <button className="secondary-btn" onClick={() => onEdit(selected)}>Edit record</button>}<button className="icon-btn" onClick={() => setSelected(null)}>×</button></div></div><pre>{JSON.stringify(selected, null, 2)}</pre></div>}
+    {selected && <div className="record-detail"><div className="record-detail-head"><strong>Record details</strong><div className="record-actions">{canEdit && onEdit && <button className="secondary-btn" onClick={() => onEdit(selected)}>Edit record</button>}{onReprint&&<button className="secondary-btn" onClick={()=>onReprint(selected)}>Reprint receipt</button>}<button className="icon-btn" onClick={() => setSelected(null)}>×</button></div></div><pre>{JSON.stringify(selected, null, 2)}</pre></div>}
   </>;
 }
