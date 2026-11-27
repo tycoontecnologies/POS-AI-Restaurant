@@ -400,12 +400,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     }
   }
 
-  if (moduleKey === "dashboard") return <section className="admin-module">
-    <div className="section-head"><div><p className="eyebrow">BUSINESS OVERVIEW</p><h1>Dashboard</h1><p className="muted">Live records from this restaurant account</p></div><span className="live-pill"><span/> Live</span></div>
-    <div className="admin-kpis"><article><small>Completed sales (latest 250)</small><strong>{rows.length}</strong></article><article><small>Recorded sales value</small><strong>{new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", maximumFractionDigits: 0 }).format(total)}</strong></article><article><small>Latest activity</small><strong>{rows[0]?.createdAt || rows[0]?.createdOn ? display(rows[0].createdAt ?? rows[0].createdOn) : "—"}</strong></article></div>
-    <div className="admin-note"><Database size={18}/> This is a live record summary, not a replacement for the Flutter analytics/reporting calculations.</div>
-    <RecordsTable moduleKey={moduleKey} rows={filtered} loading={loading} error={error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected}/>
-  </section>;
+  if (moduleKey === "dashboard") return <DashboardWorkspace db={db} vendorId={vendorId}/>;
 
   if (moduleKey === "attendance") return <AttendanceWorkspace db={db} vendorId={vendorId} staff={staffOptions}/>;
   if (moduleKey === "users_roles") return <UsersRolesWorkspace db={db} vendorId={vendorId} actorId={actorId} actorRole={actorRole}/>;
@@ -445,6 +440,49 @@ function RecordsTable({ moduleKey, rows, loading, error, search, setSearch, sele
 
 
 
+
+
+function DashboardWorkspace({db,vendorId}:{db:Firestore;vendorId:string}) {
+  const [sales,setSales]=useState<Row[]>([]);const [tables,setTables]=useState<Row[]>([]);const [tableOrders,setTableOrders]=useState<Row[]>([]);const [products,setProducts]=useState<Row[]>([]);const [branches,setBranches]=useState<Row[]>([]);const [owner,setOwner]=useState<Row>({});
+  const [error,setError]=useState("");
+  useEffect(()=>{
+    const stops=[
+      onSnapshot(query(collection(db,"vendors",vendorId,"sales"),orderBy("createdAt","desc"),limit(500)),snap=>setSales(snap.docs.map(d=>({...d.data(),id:d.id} as Row))),e=>setError(e.message)),
+      onSnapshot(collection(db,"vendors",vendorId,"tables"),snap=>setTables(snap.docs.map(d=>({...d.data(),id:d.id} as Row))),e=>setError(e.message)),
+      onSnapshot(collection(db,"vendors",vendorId,"tableOrders"),snap=>setTableOrders(snap.docs.map(d=>({...d.data(),id:d.id} as Row))),e=>setError(e.message)),
+      onSnapshot(query(collection(db,"vendors",vendorId,"products"),limit(500)),snap=>setProducts(snap.docs.map(d=>({...d.data(),id:d.id} as Row))),e=>setError(e.message)),
+      onSnapshot(collection(db,"vendors",vendorId,"branches"),snap=>setBranches(snap.docs.map(d=>({...d.data(),id:d.id} as Row)).filter(x=>x.active!==false)),e=>setError(e.message)),
+    ];
+    getDoc(doc(db,"vendors",vendorId)).then(snap=>setOwner({...snap.data(),id:snap.id} as Row)).catch(e=>setError(e.message));
+    return ()=>stops.forEach(stop=>stop());
+  },[db,vendorId]);
+  const now=new Date();const startToday=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  const todaySales=sales.filter(x=>(dateMillis(x.createdAt)||0)>=startToday);
+  const todayRevenue=todaySales.reduce((sum,x)=>sum+Number(x.total||0),0);
+  const avgBill=todaySales.length?todayRevenue/todaySales.length:0;
+  const activeTables=tables.filter(x=>String(x.status||"empty").toLowerCase()!=="empty").length;
+  const praFinalized=todaySales.filter(x=>String(x.praInvoiceNo||"").trim()).length;
+  const kotCounts={open:0,making:0,ready:0,served:0};
+  for(const order of tableOrders){const status=String(order.status||"open").toLowerCase();if(status in kotCounts)(kotCounts as Record<string,number>)[status]++;}
+  const days=Array.from({length:7},(_,i)=>{const date=new Date(now.getFullYear(),now.getMonth(),now.getDate()-6+i);const key=date.getTime();const next=key+86400000;const value=sales.filter(x=>{const t=dateMillis(x.createdAt)||0;return t>=key&&t<next;}).reduce((sum,x)=>sum+Number(x.total||0),0);return {date,label:date.toLocaleDateString("en-PK",{weekday:"short"}),value};});
+  const maxRevenue=Math.max(1,...days.map(x=>x.value));
+  const weekStart=new Date(now.getFullYear(),now.getMonth(),now.getDate()-6).getTime();
+  const itemTotals=new Map<string,{quantity:number;revenue:number}>();
+  for(const sale of sales){if((dateMillis(sale.createdAt)||0)<weekStart)continue;for(const item of Array.isArray(sale.items)?sale.items as Array<Record<string,unknown>>:[]){const name=String(item.productName||"Item"),current=itemTotals.get(name)||{quantity:0,revenue:0};current.quantity+=Number(item.quantity||0);current.revenue+=Number(item.price||0)*Number(item.quantity||0);itemTotals.set(name,current);}}
+  const topItems=Array.from(itemTotals.entries()).sort((a,b)=>b[1].quantity-a[1].quantity).slice(0,5);
+  const lowStock=products.flatMap(p=>{if(p.active===false)return[];if(p.hasVariants===true&&Array.isArray(p.variants)){return (p.variants as Array<Record<string,unknown>>).filter(v=>v.active!==false&&Number(v.quantity||0)<=Number(p.lowStockThreshold||5)).map(v=>({id:String(p.id)+"_"+String(v.id),name:String(p.name||"Product")+" - "+String(v.name||"Variant"),quantity:Number(v.quantity||0),threshold:Number(p.lowStockThreshold||5)}));}const quantity=Number(p.quantity||0),threshold=Number(p.lowStockThreshold||5);return quantity<=threshold?[{id:p.id,name:String(p.name||"Product"),quantity,threshold}]:[];}).slice(0,8);
+  const recent=sales.slice(0,8);
+  return <section className="admin-module"><div className="section-head"><div><p className="eyebrow">BUSINESS OVERVIEW</p><h1>Dashboard</h1><p className="muted">{String(owner.restaurantName||"Restaurant")} · Live operational metrics</p></div><span className="live-pill"><span/> Live</span></div>{error&&<p className="error-text">{error}</p>}
+    <div className="admin-kpis"><article><small>Today's sales</small><strong>{display(todayRevenue)}</strong></article><article><small>Receipts today</small><strong>{todaySales.length}</strong></article><article><small>Average bill</small><strong>{display(avgBill)}</strong></article><article><small>Active tables</small><strong>{activeTables} / {tables.length}</strong></article><article><small>PRA finalized</small><strong>{praFinalized} / {todaySales.length}</strong></article><article><small>Low-stock alerts</small><strong>{lowStock.length}</strong></article></div>
+    <div className="dashboard-grid"><section className="dashboard-panel"><div className="record-detail-head"><strong>Sales overview · last 7 days</strong><span className="muted">PKR</span></div><div className="dashboard-bars">{days.map(day=><div className="dashboard-bar-item" key={day.date.toISOString()}><div className="dashboard-bar-track"><div className="dashboard-bar-fill" style={{height:Math.max(3,(day.value/maxRevenue)*100)+"%"}}/></div><strong>{day.value.toLocaleString("en-PK",{maximumFractionDigits:0})}</strong><small>{day.label}</small></div>)}</div></section>
+    <section className="dashboard-panel"><div className="record-detail-head"><strong>Kitchen queue</strong><span className="muted">{tableOrders.length} live orders</span></div><div className="dashboard-kot-grid">{Object.entries(kotCounts).map(([status,count])=><div key={status}><small>{status}</small><strong>{count}</strong></div>)}</div></section>
+    <section className="dashboard-panel"><div className="record-detail-head"><strong>Top selling items</strong><span className="muted">7 days</span></div>{topItems.length?topItems.map(([name,data])=><div className="dashboard-list-row" key={name}><span>{name}</span><strong>{data.quantity} sold</strong><small>{display(data.revenue)}</small></div>):<p className="muted">No sales in the last 7 days.</p>}</section>
+    <section className="dashboard-panel"><div className="record-detail-head"><strong>Low-stock alerts</strong><span className="count-badge">{lowStock.length}</span></div>{lowStock.length?lowStock.map(item=><div className="dashboard-list-row" key={item.id}><span>{item.name}</span><strong>{item.quantity} left</strong><small>Threshold {item.threshold}</small></div>):<p className="muted">No low-stock items.</p>}</section>
+    <section className="dashboard-panel dashboard-wide"><div className="record-detail-head"><strong>Recent sales</strong><span className="muted">Latest 8 receipts</span></div><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Receipt</th><th>Time</th><th>Table</th><th>Payment</th><th>Total</th></tr></thead><tbody>{recent.map(sale=><tr key={sale.id}><td>{sale.id}</td><td>{display(sale.createdAt)}</td><td>{String(sale.tableNumber||"Quick sale")}</td><td>{String(sale.paymentMethod||"—")}</td><td>{display(sale.total)}</td></tr>)}{!recent.length&&<tr><td colSpan={5}>No sales recorded yet.</td></tr>}</tbody></table></div></section>
+    <section className="dashboard-panel"><div className="record-detail-head"><strong>Branches</strong><span className="muted">{branches.length+1} locations</span></div><div className="dashboard-list-row"><span>{String(owner.branchName||"Main Branch")}</span><strong>Main</strong><small>{String(owner.location||"")}</small></div>{branches.map(b=><div className="dashboard-list-row" key={b.id}><span>{String(b.name||"Branch")}</span><strong>{String(b.code||"")}</strong><small>{String(b.address||"")}</small></div>)}</section></div>
+    <p className="admin-note"><Database size={18}/> Metrics are calculated from the live Firestore sales, table, KOT, product and branch records. Sales are limited to the latest 500 receipts for this dashboard view.</p>
+  </section>;
+}
 
 const departmentRolePresets = [
   {role:"admin",label:"Restaurant Admin",department:"Administration",permissions:["dashboard.view","tables.manage","orders.manage","billing.manage","inventory.manage","customers.manage","purchases.manage","suppliers.manage","recipes.manage","reports.view","users.manage","settings.manage"]},
