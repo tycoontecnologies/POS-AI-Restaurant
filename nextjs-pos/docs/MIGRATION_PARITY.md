@@ -49,7 +49,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | ingredients_screen.dart; recipe_assignment_screen.dart | Missing |
 | store_out_screen.dart; add_edit_store_out_screen.dart | Missing |
 | expenses_screen.dart | Partial: add/list/delete, expense categories, amount/note and creator/branch metadata; edit/report parity pending |
-| staff_screen.dart | Partial: staff create/edit/delete with model fields and search keywords; photo, attendance and performance workflows pending |\n| attendance_screen.dart; monthly_attendance_screen.dart | Missing |
+| staff_screen.dart | Partial: staff create/edit/delete with model fields and search keywords; photo, attendance and performance workflows pending |\n| attendance_screen.dart | Partial: staff/date selection, present/absent marking, duplicate-safe daily update and Flutter-compatible attendance document fields; check-in/out and monthly summaries pending |\n| monthly_attendance_screen.dart | Missing |
 | branches_screen.dart | Missing |
 | users_roles_screen.dart | Missing |
 | settings_hub_screen.dart; settings_screen.dart | Missing |
