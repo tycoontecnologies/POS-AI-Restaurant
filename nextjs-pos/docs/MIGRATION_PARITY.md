@@ -49,7 +49,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | discounts_screen.dart | Partial: discount create/edit/delete, active state, percentage/fixed type and image lifecycle; checkout application and usage tracking pending |
 | ingredients_screen.dart; recipe_assignment_screen.dart | Partial: ingredient create/edit/delete with unit and stock-threshold validation; product recipe assignment with ingredient quantities, live producible-unit estimate and recipe deletion; ingredient consumption on sale and stock reconciliation pending |
 | store_out_screen.dart; add_edit_store_out_screen.dart | Partial: create/edit, product snapshot records, base/variant stock validation and deduction on create, soft-delete via active=false; product picker, cards/list/table views, pagination and full edit parity pending |
-| expenses_screen.dart | Partial: add/list/delete, expense categories, amount/note and creator/branch metadata; edit/report parity pending |
+| expenses_screen.dart | Partial: add/list/delete, expense categories, amount/note and creator/branch metadata, search/date filters, structured details and 20-record cursor pagination; reporting and visual parity pending |
 | staff_screen.dart | Partial: staff create/edit/delete with model fields and search keywords; photo, attendance and performance workflows pending |
 | attendance_screen.dart; monthly_attendance_screen.dart | Improved partial parity: daily staff/date present/absent marking with duplicate-safe updates, monthly staff grouping, present-day counts, hour totals and wage calculations matching the Attendance model; visual parity and dedicated-tenant tests pending |
 | monthly_attendance_screen.dart | Missing |
