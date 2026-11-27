@@ -53,7 +53,7 @@ Last reconciled: 2026-11-27. This register is intentionally conservative: a feat
 | staff_screen.dart | Partial: staff create/edit/delete with model fields and search keywords; photo, attendance and performance workflows pending |
 | attendance_screen.dart; monthly_attendance_screen.dart | Improved partial parity: daily staff/date present/absent marking with duplicate-safe updates, monthly staff grouping, present-day counts, hour totals and wage calculations matching the Attendance model; visual parity and dedicated-tenant tests pending |
 | monthly_attendance_screen.dart | Missing |
-| branches_screen.dart | Missing |
+| branches_screen.dart | Partial: branch create/edit/delete, active status, branch code/address and source premiumFeature/createdAt metadata; main-branch card and branch-scoped data enforcement pending |
 | users_roles_screen.dart | Missing |
 | settings_hub_screen.dart; settings_screen.dart | Missing |
 | pra_settings_screen.dart | Missing |
