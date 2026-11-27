@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, doc, onSnapshot, query, limit, Firestore, Timestamp, updateDoc, deleteDoc } from "firebase/firestore";
+import { addDoc, collection, doc, onSnapshot, query, limit, Firestore, Timestamp, updateDoc, deleteDoc, getDocs, where } from "firebase/firestore";
 import { Search, RefreshCw, Database, FileText } from "lucide-react";
 import { getDownloadURL, ref as storageRef, deleteObject, uploadBytes, type FirebaseStorage } from "firebase/storage";
 
@@ -38,6 +38,7 @@ const fields: Record<string, string[]> = {
   ingredients: ["name", "unit", "quantityInStock", "lowStockThreshold"],
   staff: ["name", "role", "dailyWage", "phone", "address", "active", "joinDate", "commissionRate", "showCommissionToStaff"],
   expenses: ["category", "amount", "note"],
+  attendance: ["staffId", "date", "isPresent"],
 };
 
 function display(value: unknown): string {
@@ -62,6 +63,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [staffOptions, setStaffOptions] = useState<Row[]>([]);
 
   useEffect(() => {
     setLoading(true);
@@ -77,6 +79,12 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     return () => stop();
   }, [db, vendorId, config.collection]);
 
+  useEffect(() => {
+    if (moduleKey !== "attendance") { setStaffOptions([]); return; }
+    const staffRef = collection(db, "vendors", vendorId, "staff");
+    return onSnapshot(query(staffRef, limit(250)), snap => setStaffOptions(snap.docs.map(d => ({ ...d.data(), id: d.id } as Row))), err => setError(err.message));
+  }, [db, vendorId, moduleKey]);
+
   const filtered = useMemo(
     () => rows.filter(row => JSON.stringify(row).toLowerCase().includes(search.toLowerCase())),
     [rows, search],
@@ -88,7 +96,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
 
   function beginCreate() {
     setEditingId(null);
-    setForm({});
+    setForm(moduleKey === "attendance" ? { date: new Date().toISOString().slice(0, 10), isPresent: "true" } : {});
     setFormOpen(true);
   }
 
@@ -119,6 +127,13 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
       };
     }
     if (moduleKey === "categories") return { name: form.name?.trim() || "", imageUrl: form.imageUrl || "" };
+    if (moduleKey === "attendance") {
+      const staff = staffOptions.find(item => item.id === form.staffId);
+      if (!staff) throw new Error("Select an active staff member.");
+      const date = new Date((form.date || new Date().toISOString().slice(0, 10)) + "T00:00:00");
+      if (!Number.isFinite(date.getTime())) throw new Error("Choose a valid attendance date.");
+      return { id: "", vendorId, staffId: staff.id, staffName: String(staff.name || ""), dailyWage: Number(staff.dailyWage || 0), date: Timestamp.fromDate(date), isPresent: form.isPresent === "true", checkInTime: null, checkOutTime: null, createdAt: Timestamp.fromDate(now), updatedAt: Timestamp.fromDate(now) };
+    }
     if (moduleKey === "expenses") {
       const amount = Number(form.amount || 0);
       if (!Number.isFinite(amount) || amount <= 0) throw new Error("Expense amount must be greater than zero.");
@@ -146,6 +161,14 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
       const now = new Date();
       const payload = makePayload(now);
       const ref = collection(db, "vendors", vendorId, config.collection);
+      if (moduleKey === "attendance") {
+        const attendanceDate = new Date((form.date || now.toISOString().slice(0, 10)) + "T00:00:00");
+        const dayEnd = new Date(attendanceDate); dayEnd.setHours(23, 59, 59, 999);
+        const matches = await getDocs(query(ref, where("staffId", "==", payload.staffId), where("date", ">=", Timestamp.fromDate(attendanceDate)), where("date", "<=", Timestamp.fromDate(dayEnd)), limit(1)));
+        if (matches.docs.length) await updateDoc(matches.docs[0].ref, { isPresent: payload.isPresent, updatedAt: Timestamp.fromDate(now) });
+        else { const created = await addDoc(ref, payload); await updateDoc(created, { id: created.id }); }
+        setForm({}); setEditingId(null); setFormOpen(false); return;
+      }
       let recordId = editingId;
       if (editingId) {
         const patch = moduleKey === "discounts"
@@ -202,7 +225,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
     <div className="section-head"><div><p className="eyebrow">MANAGEMENT</p><h1>{config.title}</h1><p className="muted">{config.description}</p></div><div className="admin-head-actions"><span className="count-badge">{rows.length} records</span>{canEdit && <button className="primary-btn" onClick={beginCreate}>+ Add new</button>}</div></div>
     {formOpen && <form className="admin-create-form" onSubmit={saveRecord}>
       <div className="record-detail-head"><strong>{editingId ? "Edit" : "New"} {config.title.replace(/s$/, "")}</strong><button type="button" className="icon-btn" onClick={() => { setFormOpen(false); setEditingId(null); }}>×</button></div>
-      <div className="admin-form-grid">{(fields[moduleKey] || []).map(field => <label key={field}>{field.replace(/([A-Z])/g, " $1")}{field === "variantsJson" && <textarea rows={6} value={form[field] || "[]"} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}></textarea>}{field !== "variantsJson" && !["active", "showCommissionToStaff", "category"].includes(field) && <input required={field === "name" || field === "role" || field === "amount"} type={["value", "salePrice", "purchasePrice", "quantity", "quantityInStock", "lowStockThreshold", "dailyWage", "commissionRate", "amount"].includes(field) ? "number" : field === "joinDate" ? "date" : "text"} step="any" value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}/>} {field === "category" && moduleKey === "expenses" && <select value={form[field] || "General"} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}>{["General", "Salaries", "Rent", "Electricity", "Gas", "Maintenance", "Transport", "Marketing", "Purchases", "Other"].map(value => <option key={value}>{value}</option>)}</select>} {["active", "showCommissionToStaff"].includes(field) && <select value={form[field] || (field === "active" ? "true" : "false")} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}><option value="true">Yes</option><option value="false">No</option></select>}{field === "imageUrl" && ["products", "categories", "discounts"].includes(moduleKey) && <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files?.[0] || null)}/>}</label>)}</div>
+      <div className="admin-form-grid">{(fields[moduleKey] || []).map(field => <label key={field}>{field.replace(/([A-Z])/g, " $1")}{field === "variantsJson" && <textarea rows={6} value={form[field] || "[]"} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}></textarea>}{field !== "variantsJson" && !["active", "showCommissionToStaff", "category"].includes(field) && <input required={field === "name" || field === "role" || field === "amount"} type={["value", "salePrice", "purchasePrice", "quantity", "quantityInStock", "lowStockThreshold", "dailyWage", "commissionRate", "amount"].includes(field) ? "number" : field === "joinDate" ? "date" : "text"} step="any" value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}/>} {field === "staffId" && moduleKey === "attendance" && <select required value={form[field] || ""} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}><option value="">Select staff member</option>{staffOptions.filter(staff => staff.active !== false).map(staff => <option key={staff.id} value={staff.id}>{String(staff.name || "Unnamed")} · {String(staff.role || "")}</option>)}</select>} {field === "category" && moduleKey === "expenses" && <select value={form[field] || "General"} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}>{["General", "Salaries", "Rent", "Electricity", "Gas", "Maintenance", "Transport", "Marketing", "Purchases", "Other"].map(value => <option key={value}>{value}</option>)}</select>} {["active", "showCommissionToStaff", "isPresent"].includes(field) && <select value={form[field] || (field === "active" ? "true" : "false")} onChange={e => setForm(v => ({ ...v, [field]: e.target.value }))}><option value="true">{field === "isPresent" ? "Present" : "Yes"}</option><option value="false">{field === "isPresent" ? "Absent" : "No"}</option></select>}{field === "imageUrl" && ["products", "categories", "discounts"].includes(moduleKey) && <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files?.[0] || null)}/>}</label>)}</div>
       <button className="primary-btn" disabled={saving}>{saving ? "Saving…" : editingId ? "Update record" : "Save record"}</button>
     </form>}
     <RecordsTable rows={filtered} loading={loading} error={error} search={search} setSearch={setSearch} selected={selected} setSelected={setSelected} canEdit={canEdit && moduleKey !== "expenses"} onEdit={beginEdit} onReprint={moduleKey==="sales"?onReprint:undefined} canDelete={moduleKey==="expenses" || moduleKey==="staff"} onDelete={moduleKey==="expenses" || moduleKey==="staff"?async row=>{const label=moduleKey==="staff"?"employee":"expense";if(!window.confirm(`Delete this ${label} record${moduleKey==="staff" && row.name?` for ${String(row.name)}`:""}?`))return;try{await deleteDoc(doc(db,"vendors",vendorId,config.collection,row.id));setSelected(null)}catch(err){setError(err instanceof Error?err.message:`Unable to delete ${label}.`)}}:undefined}/>
