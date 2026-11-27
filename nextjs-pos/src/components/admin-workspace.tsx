@@ -95,6 +95,7 @@ export default function AdminWorkspace({ db, vendorId, moduleKey, onReprint, sto
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [recipeMode,setRecipeMode] = useState(false);
+  useEffect(()=>{if(moduleKey!=="ingredients")setRecipeMode(false);},[moduleKey]);
   const [staffOptions, setStaffOptions] = useState<Row[]>([]);
   const [productOptions, setProductOptions] = useState<Row[]>([]);
   const [supplierOptions, setSupplierOptions] = useState<Row[]>([]);
